@@ -1,0 +1,48 @@
+{
+  "name": "@grain-analytics/web",
+  "version": "1.0.0",
+  "description": "Lightweight TypeScript SDK for sending analytics events to Grain's REST API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "npm run build:types && npm run build:esm && npm run build:cjs && npm run build:iife",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
+    "build:esm": "tsc --module esnext --target es2020 --outDir dist/esm && mv dist/esm/index.js dist/index.mjs",
+    "build:cjs": "tsc --module commonjs --target es2020 --outDir dist/cjs && mv dist/cjs/index.js dist/index.js",
+    "build:iife": "node scripts/build-iife.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "events",
+    "grain",
+    "typescript",
+    "sdk"
+  ],
+  "author": "Grain Analytics",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "esbuild": "^0.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grain-analytics/web-sdk.git"
+  },
+  "homepage": "https://grainql.com",
+  "private": false
+}

@@ -1,4 +1,4 @@
-# @grain-analytics/web
+# @grainql/analytics-web
 
 A lightweight, dependency-free TypeScript SDK for sending analytics events to Grain's REST API with automatic batching, retry logic, and reliable event delivery.
 
@@ -15,7 +15,7 @@ A lightweight, dependency-free TypeScript SDK for sending analytics events to Gr
 ## Installation
 
 ```bash
-npm install @grain-analytics/web
+npm install @grainql/analytics-web
 ```
 
 ## Quick Start
@@ -23,7 +23,7 @@ npm install @grain-analytics/web
 ### Basic Usage (No Authentication)
 
 ```typescript
-import { createGrainAnalytics } from '@grain-analytics/web';
+import { createGrainAnalytics } from '@grainql/analytics-web';
 
 const grain = createGrainAnalytics({
   tenantId: 'your-tenant-id',
@@ -170,7 +170,7 @@ The package provides multiple build formats:
 ### Browser Usage (Script Tag)
 
 ```html
-<script src="https://unpkg.com/@grain-analytics/web/dist/index.global.js"></script>
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
 <script>
   const grain = Grain.createGrainAnalytics({
     tenantId: 'your-tenant-id'

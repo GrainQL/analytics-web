@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grain Analytics - Vanilla JS Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .example {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .status {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            background: #e8f4fd;
+            border-left: 4px solid #007cba;
+        }
+    </style>
+</head>
+<body>
+    <h1>Grain Analytics - Vanilla JS Example</h1>
+    
+    <div class="status" id="status">
+        SDK Status: <span id="sdk-status">Loading...</span>
+    </div>
+
+    <div class="example">
+        <h3>Basic Event Tracking</h3>
+        <button onclick="trackPageView()">Track Page View</button>
+        <button onclick="trackButtonClick()">Track Button Click</button>
+        <button onclick="trackCustomEvent()">Track Custom Event</button>
+    </div>
+
+    <div class="example">
+        <h3>User Identification</h3>
+        <button onclick="identifyUser()">Identify User</button>
+        <button onclick="trackUserAction()">Track User Action</button>
+    </div>
+
+    <div class="example">
+        <h3>Batch Operations</h3>
+        <button onclick="trackMultipleEvents()">Track Multiple Events</button>
+        <button onclick="flushEvents()">Flush All Events</button>
+    </div>
+
+    <div class="example">
+        <h3>Error Handling</h3>
+        <button onclick="trackWithError()">Test Error Handling</button>
+    </div>
+
+    <!-- Load the Grain Analytics SDK -->
+    <script src="../dist/index.global.dev.js"></script>
+    
+    <script>
+        let grain;
+        
+        // Initialize Grain Analytics
+        try {
+            grain = Grain.createGrainAnalytics({
+                tenantId: 'demo-tenant',
+                authStrategy: 'NONE',
+                debug: true,
+                batchSize: 5, // Small batch size for demo
+                flushInterval: 10000 // 10 seconds
+            });
+            
+            document.getElementById('sdk-status').textContent = 'Initialized';
+            console.log('Grain Analytics initialized successfully');
+        } catch (error) {
+            document.getElementById('sdk-status').textContent = 'Error: ' + error.message;
+            console.error('Failed to initialize Grain Analytics:', error);
+        }
+
+        // Basic event tracking
+        function trackPageView() {
+            grain.track('page_view', {
+                page: location.pathname,
+                referrer: document.referrer,
+                timestamp: Date.now()
+            });
+            console.log('Tracked: page_view');
+        }
+
+        function trackButtonClick() {
+            grain.track('button_click', {
+                button_id: 'demo-button',
+                page: location.pathname,
+                user_agent: navigator.userAgent
+            });
+            console.log('Tracked: button_click');
+        }
+
+        function trackCustomEvent() {
+            grain.track({
+                eventName: 'custom_interaction',
+                userId: 'demo-user-123',
+                properties: {
+                    interaction_type: 'demo',
+                    value: Math.floor(Math.random() * 100),
+                    category: 'engagement'
+                },
+                timestamp: new Date()
+            });
+            console.log('Tracked: custom_interaction');
+        }
+
+        // User identification
+        function identifyUser() {
+            const userId = 'user-' + Math.random().toString(36).substr(2, 9);
+            grain.identify(userId);
+            console.log('Identified user:', userId);
+        }
+
+        function trackUserAction() {
+            grain.track('user_action', {
+                action: 'demo_interaction',
+                timestamp: Date.now(),
+                session_id: 'session-' + Date.now()
+            });
+            console.log('Tracked: user_action');
+        }
+
+        // Batch operations
+        function trackMultipleEvents() {
+            // Track several events in quick succession
+            for (let i = 0; i < 3; i++) {
+                grain.track(`batch_event_${i}`, {
+                    sequence: i,
+                    batch_id: 'batch-' + Date.now(),
+                    random_value: Math.random()
+                });
+            }
+            console.log('Tracked: 3 batch events');
+        }
+
+        async function flushEvents() {
+            try {
+                await grain.flush();
+                console.log('All events flushed successfully');
+            } catch (error) {
+                console.error('Failed to flush events:', error);
+            }
+        }
+
+        // Error handling
+        async function trackWithError() {
+            try {
+                // This will trigger error handling in the SDK
+                await grain.track('error_test', {
+                    test: true,
+                    timestamp: Date.now()
+                }, { flush: true });
+                console.log('Error test event sent');
+            } catch (error) {
+                console.error('Expected error occurred:', error);
+            }
+        }
+
+        // Track initial page load
+        window.addEventListener('load', () => {
+            trackPageView();
+        });
+
+        // Track page unload (will use beacon API)
+        window.addEventListener('beforeunload', () => {
+            grain.track('page_unload', {
+                page: location.pathname,
+                duration: Date.now() - performance.navigationStart
+            });
+        });
+    </script>
+</body>
+</html>

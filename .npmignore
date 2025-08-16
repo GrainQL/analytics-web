@@ -1,0 +1,44 @@
+# Source files
+src/
+scripts/
+examples/
+
+# Development files
+tsconfig.json
+.gitignore
+.npmignore
+
+# Documentation (except README)
+CHANGELOG.md
+
+# Tests
+test/
+tests/
+__tests__/
+*.test.*
+*.spec.*
+
+# Build artifacts we don't want to include
+dist/esm/
+dist/cjs/
+
+# Development dependencies
+node_modules/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env*
+
+# Coverage
+coverage/
+.nyc_output

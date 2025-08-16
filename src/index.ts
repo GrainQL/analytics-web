@@ -10,13 +10,10 @@ export interface GrainEvent {
   timestamp?: Date;
 }
 
-export interface EventRow {
+export interface EventPayload {
   eventName: string;
-  eventTs: string;
   userId: string;
   properties: Record<string, unknown>;
-  eventDate: string;
-  insertId: string;
 }
 
 export type AuthStrategy = 'NONE' | 'SERVER_SIDE' | 'JWT';
@@ -35,6 +32,7 @@ export interface GrainConfig {
   flushInterval?: number; // milliseconds
   retryAttempts?: number;
   retryDelay?: number; // milliseconds
+  maxEventsPerRequest?: number; // Maximum events to send in a single API request
   debug?: boolean;
 }
 
@@ -52,7 +50,7 @@ type RequiredConfig = Required<Omit<GrainConfig, 'secretKey' | 'authProvider'>> 
 
 export class GrainAnalytics {
   private config: RequiredConfig;
-  private eventQueue: EventRow[] = [];
+  private eventQueue: EventPayload[] = [];
   private flushTimer: number | null = null;
   private isDestroyed = false;
 
@@ -64,6 +62,7 @@ export class GrainAnalytics {
       flushInterval: 5000, // 5 seconds
       retryAttempts: 3,
       retryDelay: 1000, // 1 second
+      maxEventsPerRequest: 160, // Maximum events per API request
       debug: false,
       ...config,
       tenantId: config.tenantId,
@@ -94,22 +93,11 @@ export class GrainAnalytics {
     }
   }
 
-  private generateInsertId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private formatEvent(event: GrainEvent): EventRow {
-    const timestamp = event.timestamp || new Date();
-    const eventTs = timestamp.toISOString();
-    const eventDate = timestamp.toISOString().split('T')[0];
-
+  private formatEvent(event: GrainEvent): EventPayload {
     return {
       eventName: event.eventName,
-      eventTs,
       userId: event.userId || 'anonymous',
       properties: event.properties || {},
-      eventDate,
-      insertId: this.generateInsertId(),
     };
   }
 
@@ -155,7 +143,7 @@ export class GrainAnalytics {
     return false;
   }
 
-  private async sendEvents(events: EventRow[]): Promise<void> {
+  private async sendEvents(events: EventPayload[]): Promise<void> {
     if (events.length === 0) return;
 
     let lastError: unknown;
@@ -218,7 +206,7 @@ export class GrainAnalytics {
     throw lastError;
   }
 
-  private async sendEventsWithBeacon(events: EventRow[]): Promise<void> {
+  private async sendEventsWithBeacon(events: EventPayload[]): Promise<void> {
     if (events.length === 0) return;
 
     try {
@@ -272,10 +260,17 @@ export class GrainAnalytics {
     const handleBeforeUnload = () => {
       if (this.eventQueue.length > 0) {
         // Use beacon API for reliable delivery during page unload
-        this.sendEventsWithBeacon([...this.eventQueue]).catch(() => {
-          // Silently fail - page is unloading
-        });
+        const eventsToSend = [...this.eventQueue];
         this.eventQueue = [];
+        
+        const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
+        
+        // Send first chunk with beacon (most important for page unload)
+        if (chunks.length > 0) {
+          this.sendEventsWithBeacon(chunks[0]).catch(() => {
+            // Silently fail - page is unloading
+          });
+        }
       }
     };
 
@@ -286,10 +281,17 @@ export class GrainAnalytics {
     // Handle visibility change (page hidden)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && this.eventQueue.length > 0) {
-        this.sendEventsWithBeacon([...this.eventQueue]).catch(() => {
-          // Silently fail
-        });
+        const eventsToSend = [...this.eventQueue];
         this.eventQueue = [];
+        
+        const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
+        
+        // Send first chunk with beacon (most important for page hidden)
+        if (chunks.length > 0) {
+          this.sendEventsWithBeacon(chunks[0]).catch(() => {
+            // Silently fail
+          });
+        }
       }
     });
   }
@@ -351,7 +353,24 @@ export class GrainAnalytics {
     const eventsToSend = [...this.eventQueue];
     this.eventQueue = [];
 
-    await this.sendEvents(eventsToSend);
+    // Split events into chunks to respect maxEventsPerRequest limit
+    const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
+    
+    // Send all chunks sequentially to maintain order
+    for (const chunk of chunks) {
+      await this.sendEvents(chunk);
+    }
+  }
+
+  /**
+   * Split events array into chunks of specified size
+   */
+  private chunkEvents(events: EventPayload[], chunkSize: number): EventPayload[][] {
+    const chunks: EventPayload[][] = [];
+    for (let i = 0; i < events.length; i += chunkSize) {
+      chunks.push(events.slice(i, i + chunkSize));
+    }
+    return chunks;
   }
 
   /**
@@ -365,12 +384,26 @@ export class GrainAnalytics {
       this.flushTimer = null;
     }
 
-    // Send any remaining events
+    // Send any remaining events (in chunks if necessary)
     if (this.eventQueue.length > 0) {
-      this.sendEventsWithBeacon([...this.eventQueue]).catch(() => {
-        // Silently fail during cleanup
-      });
+      const eventsToSend = [...this.eventQueue];
       this.eventQueue = [];
+      
+      const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
+      
+      // Send first chunk with beacon (most important for page unload)
+      if (chunks.length > 0) {
+        this.sendEventsWithBeacon(chunks[0]).catch(() => {
+          // Silently fail during cleanup
+        });
+        
+        // If there are more chunks, try to send them with regular fetch
+        for (let i = 1; i < chunks.length; i++) {
+          this.sendEventsWithBeacon(chunks[i]).catch(() => {
+            // Silently fail during cleanup
+          });
+        }
+      }
     }
   }
 }

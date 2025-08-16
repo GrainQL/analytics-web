@@ -129,9 +129,12 @@ export class GrainAnalytics {
 
   private isRetriableError(error: unknown): boolean {
     if (error instanceof Error) {
-      // Check for network errors or server errors
-      if (error.message.includes('fetch')) return true;
-      if (error.message.includes('network')) return true;
+      // Check for specific network or fetch errors
+      const message = error.message.toLowerCase();
+      if (message.includes('fetch failed')) return true;
+      if (message === 'network error') return true; // Exact match to avoid "Non-network error"
+      if (message.includes('timeout')) return true;
+      if (message.includes('connection')) return true;
     }
     
     // Check for HTTP status codes that are retriable

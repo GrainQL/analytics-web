@@ -5,6 +5,25 @@ All notable changes to the Grain Analytics Web SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-08
+
+### Added
+- **Event Batching Limits**: New `maxEventsPerRequest` configuration option to limit events per API request
+- **Automatic Event Chunking**: Large event batches are automatically split into chunks (default: 160 events max)
+- **Sequential Processing**: Event chunks are sent sequentially to maintain proper event ordering
+- **Backend Compliance**: Ensures no single request exceeds backend limits
+
+### Changed
+- **Payload Structure**: Removed auto-generated fields (`insertId`, `eventTs`, `eventDate`) from client payload - now handled by backend
+- **Event Processing**: Enhanced flush logic to handle large batches with automatic chunking
+- **Page Unload Handling**: Updated beacon API usage to respect event limits during page exit
+
+### Technical Details
+- Default `maxEventsPerRequest` set to 160 events
+- Maintains backward compatibility - no breaking changes to existing API
+- Events maintain their original order across multiple chunked requests
+- All event handlers (auto-flush, manual flush, page unload) respect the new limits
+
 ## [1.0.1] - 2025-08-15
 
 ### Added

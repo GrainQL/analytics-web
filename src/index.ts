@@ -161,7 +161,7 @@ export class GrainAnalytics {
         const response = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ events }),
+          body: JSON.stringify(events),
         });
 
         if (!response.ok) {

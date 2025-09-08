@@ -49,7 +49,7 @@ describe('API Integration Tests', () => {
       await analytics.flush();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/v1/events/test-tenant-123',
+        'https://api.example.com/v1/events/test-tenant-123/multi',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -73,7 +73,7 @@ describe('API Integration Tests', () => {
       await analytics.track('test_event', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/v1/events/tenant%40special%2Bchars',
+        'https://api.example.com/v1/events/tenant%40special%2Bchars/multi',
         expect.any(Object)
       );
     });
@@ -216,7 +216,7 @@ describe('API Integration Tests', () => {
       analytics.destroy(); // This triggers sendEventsWithBeacon
 
       expect(mockSendBeacon).toHaveBeenCalledWith(
-        'https://api.example.com/v1/events/test-tenant-123',
+        'https://api.example.com/v1/events/test-tenant-123/multi',
         expect.any(Blob)
       );
     });
@@ -241,7 +241,7 @@ describe('API Integration Tests', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/v1/events/test-tenant-123',
+        'https://api.example.com/v1/events/test-tenant-123/multi',
         expect.objectContaining({
           keepalive: true,
         })
@@ -283,7 +283,7 @@ describe('API Integration Tests', () => {
       await analytics.track('url_test', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.grainql.com/v1/events/test-tenant',
+        'https://api.grainql.com/v1/events/test-tenant/multi',
         expect.any(Object)
       );
     });
@@ -304,7 +304,7 @@ describe('API Integration Tests', () => {
       await analytics.track('custom_url_test', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://custom-api.grainql.com/v1/events/custom-tenant',
+        'https://custom-api.grainql.com/v1/events/custom-tenant/multi',
         expect.any(Object)
       );
     });

@@ -119,7 +119,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       await analytics.track('test_event', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -139,7 +139,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
 
       await analytics.track('event2');
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -237,7 +237,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       await analytics.flush();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -320,7 +320,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       await analytics.flush();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -345,7 +345,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       await analytics.track('test_event', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/tenant%40special%2Bchars',
+        'https://test-api.com/v1/events/tenant%40special%2Bchars/multi',
         expect.any(Object)
       );
     });
@@ -384,7 +384,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       await analytics.track('url_test', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.grainql.com/v1/events/test-tenant',
+        'https://api.grainql.com/v1/events/test-tenant/multi',
         expect.any(Object)
       );
     });
@@ -465,6 +465,79 @@ describe('GrainAnalytics - Basic Functionality', () => {
       const body = JSON.parse(callArgs![1]!.body as string);
       
       expect(body.events[0].properties).toEqual(specialProperties);
+    });
+  });
+
+  describe('User ID Management', () => {
+    beforeEach(() => {
+      analytics = new GrainAnalytics(defaultConfig);
+    });
+
+    it('should set global user ID in constructor', () => {
+      const configWithUserId = { ...defaultConfig, userId: 'user123' };
+      analytics.destroy();
+      analytics = new GrainAnalytics(configWithUserId);
+      
+      expect(analytics.getUserId()).toBe('user123');
+    });
+
+    it('should use global user ID from config for events', async () => {
+      const configWithUserId = { ...defaultConfig, userId: 'user123' };
+      analytics.destroy();
+      analytics = new GrainAnalytics(configWithUserId);
+
+      await analytics.track('test_event', { key: 'value' }, { flush: true });
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const event = body.events[0];
+
+      expect(event.userId).toBe('user123');
+    });
+
+    it('should prioritize event-specific userId over global userId', async () => {
+      analytics.setUserId('global_user');
+
+      await analytics.track('test_event', { key: 'value' }, { flush: true });
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const event = body.events[0];
+
+      expect(event.userId).toBe('global_user');
+    });
+
+    it('should fall back to anonymous when no user ID is set', async () => {
+      await analytics.track('test_event', { key: 'value' }, { flush: true });
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const event = body.events[0];
+
+      expect(event.userId).toBe('anonymous');
+    });
+
+    it('should allow setting and getting user ID', () => {
+      expect(analytics.getUserId()).toBe(null);
+      
+      analytics.setUserId('user123');
+      expect(analytics.getUserId()).toBe('user123');
+      
+      analytics.setUserId('user456');
+      expect(analytics.getUserId()).toBe('user456');
+    });
+
+    it('should allow clearing user ID', () => {
+      analytics.setUserId('user123');
+      expect(analytics.getUserId()).toBe('user123');
+      
+      analytics.setUserId(null);
+      expect(analytics.getUserId()).toBe(null);
+    });
+
+    it('should identify user via identify method', () => {
+      analytics.identify('user123');
+      expect(analytics.getUserId()).toBe('user123');
     });
   });
 });

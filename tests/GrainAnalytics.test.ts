@@ -150,7 +150,7 @@ describe('GrainAnalytics', () => {
 
       await analytics.track('event2');
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -168,7 +168,7 @@ describe('GrainAnalytics', () => {
       await analytics.track('test_event', {}, { flush: true });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -264,7 +264,7 @@ describe('GrainAnalytics', () => {
       await analytics.flush();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant',
+        'https://test-api.com/v1/events/test-tenant/multi',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({

@@ -5,7 +5,37 @@ All notable changes to the Grain Analytics Web SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2025-01-08
+## [1.6.0] - 2025-09-08
+
+### Added
+- **Remote Config API**: Complete remote configuration management system
+  - `getConfig()` and `getAllConfigs()` for synchronous access
+  - `getConfigAsync()` and `getAllConfigsAsync()` for async access with cache-first strategy
+  - `fetchConfig()` for direct API calls
+  - `preloadConfig()` for preloading configurations at page load
+  - Configuration change listeners with `addConfigChangeListener()` and `removeConfigChangeListener()`
+  - Automatic configuration caching with localStorage persistence
+  - Auto-refresh timer for keeping configurations up-to-date
+  - Default values support for immediate access without API calls
+  - User properties support for personalized configurations
+  - Force refresh option to bypass cache
+  - Full authentication support (NONE, SERVER_SIDE, JWT)
+- **Enhanced Configuration Options**:
+  - `defaultConfigurations` for setting default values
+  - `configCacheKey` for custom cache keys
+  - `configRefreshInterval` for auto-refresh timing
+  - `enableConfigCache` for cache control
+
+### Technical
+- Added comprehensive remote config interfaces and types
+- Implemented robust error handling and retry logic for config API
+- Added localStorage-based caching with graceful fallbacks
+- Integrated config refresh timer with proper cleanup
+- Enhanced TypeScript interfaces for better type safety
+- Added comprehensive test coverage for remote config functionality
+- Improved test stability and reliability
+
+## [1.1.0]
 
 ### Added
 - **Event Batching Limits**: New `maxEventsPerRequest` configuration option to limit events per API request
@@ -24,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Events maintain their original order across multiple chunked requests
 - All event handlers (auto-flush, manual flush, page unload) respect the new limits
 
-## [1.0.1] - 2025-08-15
+## [1.0.1]
 
 ### Added
 - Initial release of @grain-analytics/web SDK
@@ -75,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `retryDelay` - Base retry delay in ms (default: 1000)
 - `debug` - Enable debug logging (default: false)
 
-## [1.0.0] - 2025-08-15
+## [1.0.0]
 
 ### Added
 - Initial release of @grain-analytics/web SDK

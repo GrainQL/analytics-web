@@ -1,6 +1,6 @@
 # @grainql/analytics-web
 
-A lightweight, dependency-free TypeScript SDK for sending analytics events to Grain's REST API with automatic batching, retry logic, and reliable event delivery.
+A lightweight, dependency-free TypeScript SDK for sending analytics events and managing remote configurations via Grain's REST API with automatic batching, retry logic, and reliable event delivery.
 
 ## Features
 
@@ -20,6 +20,8 @@ A lightweight, dependency-free TypeScript SDK for sending analytics events to Gr
 ```bash
 npm install @grainql/analytics-web
 ```
+
+> **Latest Version**: v1.6.0 includes comprehensive remote configuration management capabilities alongside the existing analytics features.
 
 ## Quick Start
 
@@ -770,7 +772,7 @@ grain.setUserId(null);
 
 ## Changelog
 
-### [1.5.0] - 2024-12-19
+### [1.6.0] - 2025-09-08
 
 #### Added
 - **Remote Config API**: Complete remote configuration management system
@@ -797,6 +799,8 @@ grain.setUserId(null);
 - Added localStorage-based caching with graceful fallbacks
 - Integrated config refresh timer with proper cleanup
 - Enhanced TypeScript interfaces for better type safety
+- Added comprehensive test coverage for remote config functionality
+- Improved test stability and reliability
 
 ### [1.4.0] - 2024-12-19
 

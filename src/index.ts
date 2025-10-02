@@ -197,6 +197,7 @@ export class GrainAnalytics {
   private flushTimer: number | null = null;
   private isDestroyed = false;
   private globalUserId: string | null = null;
+  private persistentAnonymousUserId: string | null = null;
   // Remote Config properties
   private configCache: RemoteConfigCache | null = null;
   private configRefreshTimer: number | null = null;
@@ -228,6 +229,7 @@ export class GrainAnalytics {
     }
 
     this.validateConfig();
+    this.initializePersistentAnonymousUserId();
     this.setupBeforeUnload();
     this.startFlushTimer();
     this.initializeConfigCache();
@@ -247,6 +249,64 @@ export class GrainAnalytics {
     }
   }
 
+  /**
+   * Generate a UUID v4 string
+   */
+  private generateUUID(): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    
+    // Fallback for environments without crypto.randomUUID
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
+   * Format UUID for anonymous user ID (remove dashes and prefix with 'temp:')
+   */
+  private formatAnonymousUserId(uuid: string): string {
+    return `temp:${uuid.replace(/-/g, '')}`;
+  }
+
+  /**
+   * Initialize persistent anonymous user ID from localStorage or create new one
+   */
+  private initializePersistentAnonymousUserId(): void {
+    if (typeof window === 'undefined') return;
+
+    const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+    
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        this.persistentAnonymousUserId = stored;
+        this.log('Loaded persistent anonymous user ID:', this.persistentAnonymousUserId);
+      } else {
+        // Generate new anonymous user ID
+        const uuid = this.generateUUID();
+        this.persistentAnonymousUserId = this.formatAnonymousUserId(uuid);
+        localStorage.setItem(storageKey, this.persistentAnonymousUserId);
+        this.log('Generated new persistent anonymous user ID:', this.persistentAnonymousUserId);
+      }
+    } catch (error) {
+      this.log('Failed to initialize persistent anonymous user ID:', error);
+      // Fallback: generate temporary ID without persistence
+      const uuid = this.generateUUID();
+      this.persistentAnonymousUserId = this.formatAnonymousUserId(uuid);
+    }
+  }
+
+  /**
+   * Get the effective user ID (global userId or persistent anonymous ID)
+   */
+  private getEffectiveUserId(): string {
+    return this.globalUserId || this.persistentAnonymousUserId || 'anonymous';
+  }
+
   private log(...args: unknown[]): void {
     if (this.config.debug) {
       console.log('[Grain Analytics]', ...args);
@@ -256,7 +316,7 @@ export class GrainAnalytics {
   private formatEvent(event: GrainEvent): EventPayload {
     return {
       eventName: event.eventName,
-      userId: event.userId || this.globalUserId || 'anonymous',
+      userId: event.userId || this.getEffectiveUserId(),
       properties: event.properties || {},
     };
   }
@@ -504,6 +564,8 @@ export class GrainAnalytics {
   identify(userId: string): void {
     this.log(`Identified user: ${userId}`);
     this.globalUserId = userId;
+    // Clear persistent anonymous user ID since we now have a real user ID
+    this.persistentAnonymousUserId = null;
   }
 
   /**
@@ -512,6 +574,10 @@ export class GrainAnalytics {
   setUserId(userId: string | null): void {
     this.log(`Set global user ID: ${userId}`);
     this.globalUserId = userId;
+    // Clear persistent anonymous user ID if setting a real user ID
+    if (userId) {
+      this.persistentAnonymousUserId = null;
+    }
   }
 
   /**
@@ -522,6 +588,13 @@ export class GrainAnalytics {
   }
 
   /**
+   * Get current effective user ID (global userId or persistent anonymous ID)
+   */
+  getEffectiveUserIdPublic(): string {
+    return this.getEffectiveUserId();
+  }
+
+  /**
    * Set user properties
    */
   async setProperty(properties: Record<string, unknown>, options?: SetPropertyOptions): Promise<void> {
@@ -529,7 +602,7 @@ export class GrainAnalytics {
       throw new Error('Grain Analytics: Client has been destroyed');
     }
 
-    const userId = options?.userId || this.globalUserId || 'anonymous';
+    const userId = options?.userId || this.getEffectiveUserId();
     
     // Validate property count (max 4 properties)
     const propertyKeys = Object.keys(properties);
@@ -772,7 +845,7 @@ export class GrainAnalytics {
       throw new Error('Grain Analytics: Client has been destroyed');
     }
 
-    const userId = options.userId || this.globalUserId || 'anonymous';
+    const userId = options.userId || this.getEffectiveUserId();
     const immediateKeys = options.immediateKeys || [];
     const properties = options.properties || {};
 

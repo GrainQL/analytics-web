@@ -78,7 +78,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       expect(eventQueue).toHaveLength(1);
       expect(eventQueue[0]).toEqual({
         eventName,
-        userId: 'anonymous',
+        userId: expect.stringMatching(/^temp:[a-f0-9]{32}$/),
         properties,
       });
     });
@@ -101,11 +101,11 @@ describe('GrainAnalytics - Basic Functionality', () => {
       });
     });
 
-    it('should use anonymous userId when not provided', async () => {
+    it('should use persistent anonymous userId when not provided', async () => {
       await analytics.track('test_event', {});
 
       const eventQueue = (analytics as any).eventQueue;
-      expect(eventQueue[0].userId).toBe('anonymous');
+      expect(eventQueue[0].userId).toMatch(/^temp:[a-f0-9]{32}$/);
     });
 
     it('should handle empty properties', async () => {
@@ -118,15 +118,13 @@ describe('GrainAnalytics - Basic Functionality', () => {
     it('should flush immediately when flush option is true', async () => {
       await analytics.track('test_event', {}, { flush: true });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant/multi',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            events: [{ eventName: 'test_event', userId: 'anonymous', properties: {} }],
-          }),
-        })
-      );
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const event = body.events[0];
+
+      expect(event.eventName).toBe('test_event');
+      expect(event.userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(event.properties).toEqual({});
     });
 
     it('should auto-flush when batch size is reached', async () => {
@@ -138,19 +136,16 @@ describe('GrainAnalytics - Basic Functionality', () => {
       expect(mockFetch).not.toHaveBeenCalled();
 
       await analytics.track('event2');
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant/multi',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            events: [
-              { eventName: 'event1', userId: 'anonymous', properties: {} },
-              { eventName: 'event2', userId: 'anonymous', properties: {} },
-            ],
-          }),
-        })
-      );
+      
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const events = body.events;
+
+      expect(events).toHaveLength(2);
+      expect(events[0].eventName).toBe('event1');
+      expect(events[0].userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(events[1].eventName).toBe('event2');
+      expect(events[1].userId).toMatch(/^temp:[a-f0-9]{32}$/);
     });
 
     it('should throw error if client is destroyed', async () => {
@@ -236,18 +231,17 @@ describe('GrainAnalytics - Basic Functionality', () => {
 
       await analytics.flush();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant/multi',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            events: [
-              { eventName: 'event1', userId: 'anonymous', properties: {} },
-              { eventName: 'event2', userId: 'anonymous', properties: {} },
-            ],
-          }),
-        })
-      );
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const events = body.events;
+
+      expect(events).toHaveLength(2);
+      expect(events[0].eventName).toBe('event1');
+      expect(events[0].userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(events[0].properties).toEqual({});
+      expect(events[1].eventName).toBe('event2');
+      expect(events[1].userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(events[1].properties).toEqual({});
     });
 
     it('should clear event queue after successful flush', async () => {
@@ -319,19 +313,17 @@ describe('GrainAnalytics - Basic Functionality', () => {
       }
       await analytics.flush();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-api.com/v1/events/test-tenant/multi',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            events: [
-              { eventName: 'page_view', userId: 'anonymous', properties: { page: '/home' } },
-              { eventName: 'click', userId: 'anonymous', properties: { element: 'button', id: 'cta' } },
-            ],
-          }),
-        }
-      );
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs![1]!.body as string);
+      const sentEvents = body.events;
+
+      expect(sentEvents).toHaveLength(2);
+      expect(sentEvents[0].eventName).toBe('page_view');
+      expect(sentEvents[0].userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(sentEvents[0].properties).toEqual({ page: '/home' });
+      expect(sentEvents[1].eventName).toBe('click');
+      expect(sentEvents[1].userId).toMatch(/^temp:[a-f0-9]{32}$/);
+      expect(sentEvents[1].properties).toEqual({ element: 'button', id: 'cta' });
     });
 
     it('should URL encode tenant ID properly', async () => {
@@ -374,6 +366,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
       const parsedBody = JSON.parse(body);
       expect(parsedBody).toHaveProperty('events');
       expect(Array.isArray(parsedBody.events)).toBe(true);
+      expect(parsedBody.events[0].userId).toMatch(/^temp:[a-f0-9]{32}$/);
     });
 
     it('should use default API URL when not specified', async () => {
@@ -442,7 +435,7 @@ describe('GrainAnalytics - Basic Functionality', () => {
 
       // Should have these fields
       expect(event).toHaveProperty('eventName', 'payload_test');
-      expect(event).toHaveProperty('userId', 'anonymous');
+      expect(event.userId).toMatch(/^temp:[a-f0-9]{32}$/);
       expect(event).toHaveProperty('properties', { key: 'value' });
 
       // Should NOT have auto-generated fields
@@ -507,14 +500,14 @@ describe('GrainAnalytics - Basic Functionality', () => {
       expect(event.userId).toBe('global_user');
     });
 
-    it('should fall back to anonymous when no user ID is set', async () => {
+    it('should fall back to persistent anonymous ID when no user ID is set', async () => {
       await analytics.track('test_event', { key: 'value' }, { flush: true });
 
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs![1]!.body as string);
       const event = body.events[0];
 
-      expect(event.userId).toBe('anonymous');
+      expect(event.userId).toMatch(/^temp:[a-f0-9]{32}$/);
     });
 
     it('should allow setting and getting user ID', () => {

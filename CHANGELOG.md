@@ -5,6 +5,37 @@ All notable changes to the Grain Analytics Web SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-10-02
+
+### Added
+- **Graceful Error Handling**: Comprehensive error handling system to prevent page crashes
+  - Beautiful error formatting with error codes, messages, and event digest
+  - Automatic error classification (NETWORK_ERROR, SERVER_ERROR, CLIENT_ERROR, etc.)
+  - Event digest includes event count, properties count, size info, and event names
+  - Graceful error logging that doesn't throw exceptions to prevent page crashes
+  - All event logging methods now handle errors gracefully without breaking the application
+
+### Changed
+- **Error Recovery**: All methods now return gracefully instead of throwing errors
+  - `track()`, `setProperty()`, `flush()`, and all template event methods handle errors internally
+  - `sendEvents()` and `sendProperties()` methods log errors gracefully instead of throwing
+  - `fetchConfig()` and related methods return null on error instead of throwing
+  - Auto-flush and auto-config refresh timers handle errors gracefully
+
+### Technical
+- Added `ErrorDigest` and `FormattedError` interfaces for structured error reporting
+- Implemented `formatError()` method for consistent error formatting across all operations
+- Added `logError()` method for beautiful, structured error logging
+- Enhanced error classification with specific error codes for different failure types
+- All async operations now have comprehensive try-catch blocks
+- Error logging includes context information and event metadata for better debugging
+
+## [1.6.1] - 2025-10-02
+
+### Technical
+- **Remote Config API**
+  - Updated remote config endpoint and logic
+
 ## [1.6.0] - 2025-09-08
 
 ### Added

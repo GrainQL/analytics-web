@@ -182,6 +182,24 @@ export interface RemoveFromCartEventProperties extends Record<string, unknown> {
   variant?: string;
 }
 
+// Error handling interfaces
+export interface ErrorDigest {
+  eventCount: number;
+  totalProperties: number;
+  totalSize: number;
+  eventNames: string[];
+  userIds: string[];
+}
+
+export interface FormattedError {
+  code: string;
+  message: string;
+  digest: ErrorDigest;
+  timestamp: string;
+  context: string;
+  originalError?: unknown;
+}
+
 /**
  * Main Grain Analytics client
  */
@@ -313,6 +331,137 @@ export class GrainAnalytics {
     }
   }
 
+  /**
+   * Create error digest from events
+   */
+  private createErrorDigest(events: EventPayload[]): ErrorDigest {
+    const eventNames = [...new Set(events.map(e => e.eventName))];
+    const userIds = [...new Set(events.map(e => e.userId))];
+    
+    let totalProperties = 0;
+    let totalSize = 0;
+    
+    events.forEach(event => {
+      const properties = event.properties || {};
+      totalProperties += Object.keys(properties).length;
+      totalSize += JSON.stringify(event).length;
+    });
+
+    return {
+      eventCount: events.length,
+      totalProperties,
+      totalSize,
+      eventNames,
+      userIds,
+    };
+  }
+
+  /**
+   * Format error with beautiful structure
+   */
+  private formatError(
+    error: unknown,
+    context: string,
+    events?: EventPayload[]
+  ): FormattedError {
+    const digest = events ? this.createErrorDigest(events) : {
+      eventCount: 0,
+      totalProperties: 0,
+      totalSize: 0,
+      eventNames: [],
+      userIds: [],
+    };
+
+    let code = 'UNKNOWN_ERROR';
+    let message = 'An unknown error occurred';
+
+    if (error instanceof Error) {
+      message = error.message;
+      
+      // Determine error code based on error type and message
+      if (message.includes('fetch failed') || message.includes('network error')) {
+        code = 'NETWORK_ERROR';
+      } else if (message.includes('timeout')) {
+        code = 'TIMEOUT_ERROR';
+      } else if (message.includes('HTTP 4')) {
+        code = 'CLIENT_ERROR';
+      } else if (message.includes('HTTP 5')) {
+        code = 'SERVER_ERROR';
+      } else if (message.includes('JSON')) {
+        code = 'PARSE_ERROR';
+      } else if (message.includes('auth') || message.includes('unauthorized')) {
+        code = 'AUTH_ERROR';
+      } else if (message.includes('rate limit') || message.includes('429')) {
+        code = 'RATE_LIMIT_ERROR';
+      } else {
+        code = 'GENERAL_ERROR';
+      }
+    } else if (typeof error === 'string') {
+      message = error;
+      code = 'STRING_ERROR';
+    } else if (error && typeof error === 'object' && 'status' in error) {
+      const status = (error as { status: number }).status;
+      code = `HTTP_${status}`;
+      message = `HTTP ${status} error`;
+    }
+
+    return {
+      code,
+      message,
+      digest,
+      timestamp: new Date().toISOString(),
+      context,
+      originalError: error,
+    };
+  }
+
+  /**
+   * Log formatted error gracefully
+   */
+  private logError(formattedError: FormattedError): void {
+    const { code, message, digest, timestamp, context } = formattedError;
+    
+    const errorOutput = {
+      '🚨 Grain Analytics Error': {
+        'Error Code': code,
+        'Message': message,
+        'Context': context,
+        'Timestamp': timestamp,
+        'Event Digest': {
+          'Events': digest.eventCount,
+          'Properties': digest.totalProperties,
+          'Size (bytes)': digest.totalSize,
+          'Event Names': digest.eventNames.length > 0 ? digest.eventNames.join(', ') : 'None',
+          'User IDs': digest.userIds.length > 0 ? digest.userIds.slice(0, 3).join(', ') + (digest.userIds.length > 3 ? '...' : '') : 'None',
+        }
+      }
+    };
+
+    console.error('🚨 Grain Analytics Error:', errorOutput);
+    
+    // Also log in a more compact format for debugging
+    if (this.config.debug) {
+      console.error(`[Grain Analytics] ${code}: ${message} (${context}) - Events: ${digest.eventCount}, Props: ${digest.totalProperties}, Size: ${digest.totalSize}B`);
+    }
+  }
+
+  /**
+   * Safely execute a function with error handling
+   */
+  private async safeExecute<T>(
+    fn: () => Promise<T>,
+    context: string,
+    events?: EventPayload[]
+  ): Promise<T | null> {
+    try {
+      return await fn();
+    } catch (error) {
+      const formattedError = this.formatError(error, context, events);
+      this.logError(formattedError);
+      return null;
+    }
+  }
+
   private formatEvent(event: GrainEvent): EventPayload {
     return {
       eventName: event.eventName,
@@ -410,13 +559,17 @@ export class GrainAnalytics {
         lastError = error;
         
         if (attempt === this.config.retryAttempts) {
-          // Last attempt, don't retry
-          break;
+          // Last attempt, don't retry - log error gracefully
+          const formattedError = this.formatError(error, `sendEvents (attempt ${attempt + 1}/${this.config.retryAttempts + 1})`, events);
+          this.logError(formattedError);
+          return; // Don't throw, just return gracefully
         }
         
         if (!this.isRetriableError(error)) {
-          // Non-retriable error, don't retry
-          break;
+          // Non-retriable error, don't retry - log error gracefully
+          const formattedError = this.formatError(error, `sendEvents (non-retriable error)`, events);
+          this.logError(formattedError);
+          return; // Don't throw, just return gracefully
         }
         
         const delayMs = this.config.retryDelay * Math.pow(2, attempt); // Exponential backoff
@@ -424,9 +577,6 @@ export class GrainAnalytics {
         await this.delay(delayMs);
       }
     }
-
-    console.error('[Grain Analytics] Failed to send events after all retries:', lastError);
-    throw lastError;
   }
 
   private async sendEventsWithBeacon(events: EventPayload[]): Promise<void> {
@@ -459,7 +609,9 @@ export class GrainAnalytics {
 
       this.log(`Successfully sent ${events.length} events via fetch (keepalive)`);
     } catch (error) {
-      console.error('[Grain Analytics] Failed to send events via beacon:', error);
+      // Log error gracefully for beacon failures (page unload scenarios)
+      const formattedError = this.formatError(error, 'sendEventsWithBeacon', events);
+      this.logError(formattedError);
     }
   }
 
@@ -471,7 +623,8 @@ export class GrainAnalytics {
     this.flushTimer = window.setInterval(() => {
       if (this.eventQueue.length > 0) {
         this.flush().catch((error) => {
-          console.error('[Grain Analytics] Auto-flush failed:', error);
+          const formattedError = this.formatError(error, 'auto-flush');
+          this.logError(formattedError);
         });
       }
     }, this.config.flushInterval);
@@ -529,32 +682,40 @@ export class GrainAnalytics {
     propertiesOrOptions?: Record<string, unknown> | SendEventOptions,
     options?: SendEventOptions
   ): Promise<void> {
-    if (this.isDestroyed) {
-      throw new Error('Grain Analytics: Client has been destroyed');
-    }
+    try {
+      if (this.isDestroyed) {
+        const error = new Error('Grain Analytics: Client has been destroyed');
+        const formattedError = this.formatError(error, 'track (client destroyed)');
+        this.logError(formattedError);
+        return;
+      }
 
-    let event: GrainEvent;
-    let opts: SendEventOptions = {};
+      let event: GrainEvent;
+      let opts: SendEventOptions = {};
 
-    if (typeof eventOrName === 'string') {
-      event = {
-        eventName: eventOrName,
-        properties: propertiesOrOptions as Record<string, unknown>,
-      };
-      opts = options || {};
-    } else {
-      event = eventOrName;
-      opts = propertiesOrOptions as SendEventOptions || {};
-    }
+      if (typeof eventOrName === 'string') {
+        event = {
+          eventName: eventOrName,
+          properties: propertiesOrOptions as Record<string, unknown>,
+        };
+        opts = options || {};
+      } else {
+        event = eventOrName;
+        opts = propertiesOrOptions as SendEventOptions || {};
+      }
 
-    const formattedEvent = this.formatEvent(event);
-    this.eventQueue.push(formattedEvent);
+      const formattedEvent = this.formatEvent(event);
+      this.eventQueue.push(formattedEvent);
 
-    this.log(`Queued event: ${event.eventName}`, event.properties);
+      this.log(`Queued event: ${event.eventName}`, event.properties);
 
-    // Check if we should flush immediately
-    if (opts.flush || this.eventQueue.length >= this.config.batchSize) {
-      await this.flush();
+      // Check if we should flush immediately
+      if (opts.flush || this.eventQueue.length >= this.config.batchSize) {
+        await this.flush();
+      }
+    } catch (error) {
+      const formattedError = this.formatError(error, 'track');
+      this.logError(formattedError);
     }
   }
 
@@ -598,40 +759,54 @@ export class GrainAnalytics {
    * Set user properties
    */
   async setProperty(properties: Record<string, unknown>, options?: SetPropertyOptions): Promise<void> {
-    if (this.isDestroyed) {
-      throw new Error('Grain Analytics: Client has been destroyed');
-    }
-
-    const userId = options?.userId || this.getEffectiveUserId();
-    
-    // Validate property count (max 4 properties)
-    const propertyKeys = Object.keys(properties);
-    if (propertyKeys.length > 4) {
-      throw new Error('Grain Analytics: Maximum 4 properties allowed per request');
-    }
-
-    if (propertyKeys.length === 0) {
-      throw new Error('Grain Analytics: At least one property is required');
-    }
-
-    // Serialize all values to strings
-    const serializedProperties: Record<string, string> = {};
-    for (const [key, value] of Object.entries(properties)) {
-      if (value === null || value === undefined) {
-        serializedProperties[key] = '';
-      } else if (typeof value === 'string') {
-        serializedProperties[key] = value;
-      } else {
-        serializedProperties[key] = JSON.stringify(value);
+    try {
+      if (this.isDestroyed) {
+        const error = new Error('Grain Analytics: Client has been destroyed');
+        const formattedError = this.formatError(error, 'setProperty (client destroyed)');
+        this.logError(formattedError);
+        return;
       }
+
+      const userId = options?.userId || this.getEffectiveUserId();
+      
+      // Validate property count (max 4 properties)
+      const propertyKeys = Object.keys(properties);
+      if (propertyKeys.length > 4) {
+        const error = new Error('Grain Analytics: Maximum 4 properties allowed per request');
+        const formattedError = this.formatError(error, 'setProperty (validation)');
+        this.logError(formattedError);
+        return;
+      }
+
+      if (propertyKeys.length === 0) {
+        const error = new Error('Grain Analytics: At least one property is required');
+        const formattedError = this.formatError(error, 'setProperty (validation)');
+        this.logError(formattedError);
+        return;
+      }
+
+      // Serialize all values to strings
+      const serializedProperties: Record<string, string> = {};
+      for (const [key, value] of Object.entries(properties)) {
+        if (value === null || value === undefined) {
+          serializedProperties[key] = '';
+        } else if (typeof value === 'string') {
+          serializedProperties[key] = value;
+        } else {
+          serializedProperties[key] = JSON.stringify(value);
+        }
+      }
+
+      const payload: PropertyPayload = {
+        userId,
+        ...serializedProperties,
+      };
+
+      await this.sendProperties(payload);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'setProperty');
+      this.logError(formattedError);
     }
-
-    const payload: PropertyPayload = {
-      userId,
-      ...serializedProperties,
-    };
-
-    await this.sendProperties(payload);
   }
 
   /**
@@ -679,13 +854,17 @@ export class GrainAnalytics {
         lastError = error;
         
         if (attempt === this.config.retryAttempts) {
-          // Last attempt, don't retry
-          break;
+          // Last attempt, don't retry - log error gracefully
+          const formattedError = this.formatError(error, `sendProperties (attempt ${attempt + 1}/${this.config.retryAttempts + 1})`);
+          this.logError(formattedError);
+          return; // Don't throw, just return gracefully
         }
         
         if (!this.isRetriableError(error)) {
-          // Non-retriable error, don't retry
-          break;
+          // Non-retriable error, don't retry - log error gracefully
+          const formattedError = this.formatError(error, 'sendProperties (non-retriable error)');
+          this.logError(formattedError);
+          return; // Don't throw, just return gracefully
         }
         
         const delayMs = this.config.retryDelay * Math.pow(2, attempt); // Exponential backoff
@@ -693,9 +872,6 @@ export class GrainAnalytics {
         await this.delay(delayMs);
       }
     }
-
-    console.error('[Grain Analytics] Failed to set properties after all retries:', lastError);
-    throw lastError;
   }
 
   // Template event methods
@@ -704,73 +880,118 @@ export class GrainAnalytics {
    * Track user login event
    */
   async trackLogin(properties?: LoginEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('login', properties, options);
+    try {
+      return await this.track('login', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackLogin');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track user signup event
    */
   async trackSignup(properties?: SignupEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('signup', properties, options);
+    try {
+      return await this.track('signup', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackSignup');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track checkout event
    */
   async trackCheckout(properties?: CheckoutEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('checkout', properties, options);
+    try {
+      return await this.track('checkout', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackCheckout');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track page view event
    */
   async trackPageView(properties?: PageViewEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('page_view', properties, options);
+    try {
+      return await this.track('page_view', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackPageView');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track purchase event
    */
   async trackPurchase(properties?: PurchaseEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('purchase', properties, options);
+    try {
+      return await this.track('purchase', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackPurchase');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track search event
    */
   async trackSearch(properties?: SearchEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('search', properties, options);
+    try {
+      return await this.track('search', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackSearch');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track add to cart event
    */
   async trackAddToCart(properties?: AddToCartEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('add_to_cart', properties, options);
+    try {
+      return await this.track('add_to_cart', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackAddToCart');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Track remove from cart event
    */
   async trackRemoveFromCart(properties?: RemoveFromCartEventProperties, options?: SendEventOptions): Promise<void> {
-    return this.track('remove_from_cart', properties, options);
+    try {
+      return await this.track('remove_from_cart', properties, options);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'trackRemoveFromCart');
+      this.logError(formattedError);
+    }
   }
 
   /**
    * Manually flush all queued events
    */
   async flush(): Promise<void> {
-    if (this.eventQueue.length === 0) return;
+    try {
+      if (this.eventQueue.length === 0) return;
 
-    const eventsToSend = [...this.eventQueue];
-    this.eventQueue = [];
+      const eventsToSend = [...this.eventQueue];
+      this.eventQueue = [];
 
-    // Split events into chunks to respect maxEventsPerRequest limit
-    const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
-    
-    // Send all chunks sequentially to maintain order
-    for (const chunk of chunks) {
-      await this.sendEvents(chunk);
+      // Split events into chunks to respect maxEventsPerRequest limit
+      const chunks = this.chunkEvents(eventsToSend, this.config.maxEventsPerRequest);
+      
+      // Send all chunks sequentially to maintain order
+      for (const chunk of chunks) {
+        await this.sendEvents(chunk);
+      }
+    } catch (error) {
+      const formattedError = this.formatError(error, 'flush');
+      this.logError(formattedError);
     }
   }
 
@@ -840,106 +1061,126 @@ export class GrainAnalytics {
   /**
    * Fetch configurations from API
    */
-  async fetchConfig(options: RemoteConfigOptions = {}): Promise<RemoteConfigResponse> {
-    if (this.isDestroyed) {
-      throw new Error('Grain Analytics: Client has been destroyed');
-    }
+  async fetchConfig(options: RemoteConfigOptions = {}): Promise<RemoteConfigResponse | null> {
+    try {
+      if (this.isDestroyed) {
+        const error = new Error('Grain Analytics: Client has been destroyed');
+        const formattedError = this.formatError(error, 'fetchConfig (client destroyed)');
+        this.logError(formattedError);
+        return null;
+      }
 
-    const userId = options.userId || this.getEffectiveUserId();
-    const immediateKeys = options.immediateKeys || [];
-    const properties = options.properties || {};
+      const userId = options.userId || this.getEffectiveUserId();
+      const immediateKeys = options.immediateKeys || [];
+      const properties = options.properties || {};
 
-    const request: RemoteConfigRequest = {
-      userId,
-      immediateKeys,
-      properties,
-    };
+      const request: RemoteConfigRequest = {
+        userId,
+        immediateKeys,
+        properties,
+      };
 
-    let lastError: unknown;
+      let lastError: unknown;
 
-    for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
-      try {
-        const headers = await this.getAuthHeaders();
-        const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/config/configurations`;
+      for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
+        try {
+          const headers = await this.getAuthHeaders();
+          const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/config/configurations`;
 
-        this.log(`Fetching configurations for user ${userId} (attempt ${attempt + 1})`);
+          this.log(`Fetching configurations for user ${userId} (attempt ${attempt + 1})`);
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(request),
-        });
+          const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(request),
+          });
 
-        if (!response.ok) {
-          let errorMessage = `HTTP ${response.status}`;
-          try {
-            const errorBody = await response.json();
-            if (errorBody?.message) {
-              errorMessage = errorBody.message;
+          if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+              const errorBody = await response.json();
+              if (errorBody?.message) {
+                errorMessage = errorBody.message;
+              }
+            } catch {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
             }
-          } catch {
-            const errorText = await response.text();
-            if (errorText) {
-              errorMessage = errorText;
-            }
+            
+            const error = new Error(`Failed to fetch configurations: ${errorMessage}`) as Error & { status?: number };
+            error.status = response.status;
+            throw error;
+          }
+
+          const configResponse: RemoteConfigResponse = await response.json();
+          
+          // Update cache if successful
+          if (configResponse.configurations) {
+            this.updateConfigCache(configResponse, userId);
+          }
+
+          this.log(`Successfully fetched configurations for user ${userId}:`, configResponse);
+          return configResponse;
+          
+        } catch (error) {
+          lastError = error;
+          
+          if (attempt === this.config.retryAttempts) {
+            // Last attempt, don't retry - log error gracefully
+            const formattedError = this.formatError(error, `fetchConfig (attempt ${attempt + 1}/${this.config.retryAttempts + 1})`);
+            this.logError(formattedError);
+            return null;
           }
           
-          const error = new Error(`Failed to fetch configurations: ${errorMessage}`) as Error & { status?: number };
-          error.status = response.status;
-          throw error;
+          if (!this.isRetriableError(error)) {
+            // Non-retriable error, don't retry - log error gracefully
+            const formattedError = this.formatError(error, 'fetchConfig (non-retriable error)');
+            this.logError(formattedError);
+            return null;
+          }
+          
+          const delayMs = this.config.retryDelay * Math.pow(2, attempt);
+          this.log(`Retrying config fetch in ${delayMs}ms after error:`, error);
+          await this.delay(delayMs);
         }
-
-        const configResponse: RemoteConfigResponse = await response.json();
-        
-        // Update cache if successful
-        if (configResponse.configurations) {
-          this.updateConfigCache(configResponse, userId);
-        }
-
-        this.log(`Successfully fetched configurations for user ${userId}:`, configResponse);
-        return configResponse;
-        
-      } catch (error) {
-        lastError = error;
-        
-        if (attempt === this.config.retryAttempts) {
-          break;
-        }
-        
-        if (!this.isRetriableError(error)) {
-          break;
-        }
-        
-        const delayMs = this.config.retryDelay * Math.pow(2, attempt);
-        this.log(`Retrying config fetch in ${delayMs}ms after error:`, error);
-        await this.delay(delayMs);
       }
-    }
 
-    console.error('[Grain Analytics] Failed to fetch configurations after all retries:', lastError);
-    throw lastError;
+      return null;
+    } catch (error) {
+      const formattedError = this.formatError(error, 'fetchConfig');
+      this.logError(formattedError);
+      return null;
+    }
   }
 
   /**
    * Get configuration asynchronously (cache-first with fallback to API)
    */
   async getConfigAsync(key: string, options: RemoteConfigOptions = {}): Promise<string | undefined> {
-    // Return immediately if we have it in cache and not forcing refresh
-    if (!options.forceRefresh && this.configCache?.configurations?.[key]) {
-      return this.configCache.configurations[key];
-    }
-
-    // Return default if available and not forcing refresh
-    if (!options.forceRefresh && this.config.defaultConfigurations?.[key]) {
-      return this.config.defaultConfigurations[key];
-    }
-
-    // Fetch from API
     try {
+      // Return immediately if we have it in cache and not forcing refresh
+      if (!options.forceRefresh && this.configCache?.configurations?.[key]) {
+        return this.configCache.configurations[key];
+      }
+
+      // Return default if available and not forcing refresh
+      if (!options.forceRefresh && this.config.defaultConfigurations?.[key]) {
+        return this.config.defaultConfigurations[key];
+      }
+
+      // Fetch from API
       const response = await this.fetchConfig(options);
-      return response.configurations[key];
+      if (response) {
+        return response.configurations[key];
+      }
+      
+      // Return default as fallback
+      return this.config.defaultConfigurations?.[key];
     } catch (error) {
-      this.log(`Failed to fetch config for key "${key}":`, error);
+      const formattedError = this.formatError(error, 'getConfigAsync');
+      this.logError(formattedError);
       // Return default as fallback
       return this.config.defaultConfigurations?.[key];
     }
@@ -949,17 +1190,23 @@ export class GrainAnalytics {
    * Get all configurations asynchronously (cache-first with fallback to API)
    */
   async getAllConfigsAsync(options: RemoteConfigOptions = {}): Promise<Record<string, string>> {
-    // Return cache if available and not forcing refresh
-    if (!options.forceRefresh && this.configCache?.configurations) {
-      return { ...this.config.defaultConfigurations, ...this.configCache.configurations };
-    }
-
-    // Fetch from API
     try {
+      // Return cache if available and not forcing refresh
+      if (!options.forceRefresh && this.configCache?.configurations) {
+        return { ...this.config.defaultConfigurations, ...this.configCache.configurations };
+      }
+
+      // Fetch from API
       const response = await this.fetchConfig(options);
-      return { ...this.config.defaultConfigurations, ...response.configurations };
+      if (response) {
+        return { ...this.config.defaultConfigurations, ...response.configurations };
+      }
+      
+      // Return defaults as fallback
+      return { ...this.config.defaultConfigurations };
     } catch (error) {
-      this.log('Failed to fetch all configs:', error);
+      const formattedError = this.formatError(error, 'getAllConfigsAsync');
+      this.logError(formattedError);
       // Return defaults as fallback
       return { ...this.config.defaultConfigurations };
     }
@@ -1027,7 +1274,8 @@ export class GrainAnalytics {
     this.configRefreshTimer = window.setInterval(() => {
       if (!this.isDestroyed && this.globalUserId) {
         this.fetchConfig().catch((error) => {
-          console.error('[Grain Analytics] Auto-config refresh failed:', error);
+          const formattedError = this.formatError(error, 'auto-config refresh');
+          this.logError(formattedError);
         });
       }
     }, this.config.configRefreshInterval);
@@ -1047,16 +1295,19 @@ export class GrainAnalytics {
    * Preload configurations for immediate access
    */
   async preloadConfig(immediateKeys: string[] = [], properties?: Record<string, string>): Promise<void> {
-    if (!this.globalUserId) {
-      this.log('Cannot preload config: no user ID set');
-      return;
-    }
-
     try {
-      await this.fetchConfig({ immediateKeys, properties });
-      this.startConfigRefreshTimer();
+      if (!this.globalUserId) {
+        this.log('Cannot preload config: no user ID set');
+        return;
+      }
+
+      const response = await this.fetchConfig({ immediateKeys, properties });
+      if (response) {
+        this.startConfigRefreshTimer();
+      }
     } catch (error) {
-      this.log('Failed to preload config:', error);
+      const formattedError = this.formatError(error, 'preloadConfig');
+      this.logError(formattedError);
     }
   }
 

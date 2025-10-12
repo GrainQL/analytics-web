@@ -3,8 +3,8 @@
   "theme": "mint",
   "name": "Grain Analytics",
   "colors": {
-    "primary": "#8803fc",
-    "light": "#8803fc",
+    "primary": "#8f40ff",
+    "light": "#8f40ff",
     "dark": "#8f40ff"
   },
   "favicon": "/favicon.ico",

@@ -1,162 +1,197 @@
 ---
-title: "Analytics Dashboard"
-description: "Build dashboards to visualize your analytics data"
+title: "Event Tracking Best Practices"
+description: "Structure your events for maximum insight in your analytics dashboard"
 ---
 
 ## Overview
 
-While Grain provides a dashboard at [grainql.com/dashboard](https://grainql.com/dashboard), you might want to build custom analytics views within your own app. This guide shows how to track data effectively for dashboard building.
+All events you track with Grain are automatically sent to your analytics dashboard at [grainql.com/dashboard](https://grainql.com/dashboard). This guide shows you how to structure your events effectively to get the most actionable insights.
 
-## Key Metrics to Track
+<Note>
+  **Custom Analytics UIs**: The Grain Query API for building custom analytics dashboards is coming soon. Currently, analytics data is only accessible via the Grain dashboard.
+</Note>
 
-**Engagement Metrics**:
-- Daily/Monthly active users
-- Feature usage frequency
-- Session duration
+## Accessing Your Analytics
 
-**Conversion Metrics**:
-- Signup conversion rate
-- Trial to paid conversion
-- Feature adoption rate
+After tracking events with the SDK, view them in your dashboard:
 
-**Behavioral Metrics**:
-- User journey paths
-- Drop-off points
-- Most used features
+1. Go to [grainql.com/dashboard](https://grainql.com/dashboard)
+2. View real-time event streams
+3. Analyze event properties and patterns
+4. Filter by user IDs and properties
+5. Build custom reports and visualizations
+6. Export data for further analysis
 
-## Tracking Dashboard Views
+## Use Descriptive Event Names
 
-Track when users view dashboard pages:
+Clear, specific event names make your analytics easier to understand:
 
 ```typescript
-function AnalyticsDashboard() {
-  const track = useTrack();
-  
-  useEffect(() => {
-    track('dashboard_viewed', {
-      page: 'analytics',
-      timestamp: Date.now()
-    });
-  }, [track]);
-  
-  return <DashboardContent />;
-}
+// ✅ Good: Clear and specific
+grain.track('checkout_completed', { orderId: '123', total: 99.99 });
+grain.track('video_playback_started', { videoId: 'abc', duration: 120 });
+grain.track('signup_form_submitted', { method: 'email' });
+
+// ❌ Bad: Vague and generic
+grain.track('action', { type: 'checkout' });
+grain.track('event', { name: 'video' });
+grain.track('click', { button: 'signup' });
 ```
 
-Understand which dashboard sections users find valuable.
+Use underscores (`_`) for consistency and readability.
 
-## Tracking Feature Usage
+## Include Rich Context
 
-Monitor which features users engage with:
+Add relevant properties to every event for deeper analysis:
 
 ```typescript
-function FeatureButton({ feature }) {
-  const track = useTrack();
-  
-  const handleClick = () => {
-    track('feature_used', {
-      feature_name: feature.name,
-      feature_category: feature.category,
-      user_plan: currentUser.plan
-    });
-    
-    feature.action();
-  };
-  
-  return <button onClick={handleClick}>{feature.name}</button>;
-}
+grain.track('product_viewed', {
+  product_id: 'prod_123',
+  product_name: 'Blue Sneakers',
+  category: 'footwear',
+  price: 89.99,
+  currency: 'USD',
+  source: 'search_results',
+  referrer: document.referrer
+});
 ```
 
-Build a heatmap showing which features are most popular.
+The more context you provide, the better insights you'll get from your dashboard.
 
-## Real-Time Activity Feed
+## Use Template Events
 
-Show recent activity in your app:
+Grain provides pre-built template events for common scenarios:
 
 ```typescript
-function ActivityFeed() {
-  const [activities, setActivities] = useState([]);
-  
-  const logActivity = (action, details) => {
-    const activity = {
-      id: Date.now(),
-      action,
-      details,
-      timestamp: new Date()
-    };
-    
-    setActivities(prev => [activity, ...prev].slice(0, 50));
-    
-    // Track to Grain
-    grain.track('activity_logged', {
-      action,
-      ...details
-    });
-  };
-  
-  return (
-    <div>
-      <h3>Recent Activity</h3>
-      {activities.map(activity => (
-        <ActivityItem key={activity.id} {...activity} />
-      ))}
-    </div>
-  );
-}
+// Login tracking with standard properties
+await grain.trackLogin({
+  method: 'email',
+  success: true,
+  twoFactorEnabled: false
+});
+
+// Purchase tracking with item details
+await grain.trackPurchase({
+  orderId: 'order_789',
+  total: 149.99,
+  currency: 'USD',
+  items: [
+    { id: 'item_1', name: 'Product A', price: 99.99, quantity: 1 },
+    { id: 'item_2', name: 'Product B', price: 50.00, quantity: 1 }
+  ],
+  paymentMethod: 'credit_card'
+});
+
+// Add to cart tracking
+await grain.trackAddToCart({
+  itemId: 'prod_123',
+  itemName: 'Blue Sneakers',
+  price: 89.99,
+  quantity: 1,
+  category: 'footwear'
+});
 ```
 
-## Usage Statistics
+These template events ensure consistent tracking across your app.
 
-Track and display usage stats:
+## Track User Properties
+
+Use properties to segment users in your dashboard:
 
 ```typescript
-function UsageStats() {
-  const track = useTrack();
-  const [stats, setStats] = useState({
-    pageViews: 0,
-    features: 0,
-    exports: 0
-  });
-  
-  const incrementStat = (type) => {
-    setStats(prev => ({
-      ...prev,
-      [type]: prev[type] + 1
-    }));
-    
-    track('stat_incremented', { stat_type: type });
-  };
-  
-  return (
-    <div>
-      <StatCard title="Page Views" value={stats.pageViews} />
-      <StatCard title="Features Used" value={stats.features} />
-      <StatCard title="Exports" value={stats.exports} />
-    </div>
-  );
-}
+// Set user attributes
+await grain.setProperty({
+  plan: 'premium',
+  signup_date: '2024-01-15',
+  total_purchases: '5'
+});
+
+// Properties let you filter and group users
+grain.track('feature_used', { feature: 'export' });
 ```
 
-## Tracking User Sessions
+You can set up to 4 properties per request. All values are converted to strings automatically.
 
-Monitor session length and engagement:
+## Consistent Naming Conventions
+
+Use the same property names across related events:
+
+```typescript
+// ✅ Good: Consistent property names
+grain.track('video_started', {
+  video_id: 'abc',
+  video_title: 'Tutorial',
+  duration_seconds: 120
+});
+
+grain.track('video_paused', {
+  video_id: 'abc',
+  video_title: 'Tutorial',
+  duration_seconds: 120,
+  current_time: 45
+});
+
+grain.track('video_completed', {
+  video_id: 'abc',
+  video_title: 'Tutorial',
+  duration_seconds: 120
+});
+
+// ❌ Bad: Inconsistent naming
+grain.track('video_started', { videoId: 'abc', length: 120 });
+grain.track('video_paused', { video_id: 'abc', duration: 120 });
+grain.track('video_completed', { id: 'abc', time: 120 });
+```
+
+Consistent naming makes it easier to analyze event sequences in your dashboard.
+
+## Track User Journeys
+
+Structure events to understand user flows:
+
+```typescript
+// Track key steps in a conversion funnel
+grain.track('signup_form_viewed');
+
+grain.track('signup_form_started', {
+  method: 'email'
+});
+
+grain.track('signup_form_submitted', {
+  method: 'email'
+});
+
+await grain.trackSignup({
+  method: 'email',
+  source: 'landing_page',
+  plan: 'free',
+  success: true
+});
+```
+
+Your dashboard can show where users drop off in multi-step processes.
+
+## Session Tracking
+
+Track session duration for engagement analysis:
 
 ```typescript
 function SessionTracker() {
   const track = useTrack();
   const sessionStart = useRef(Date.now());
+  const sessionId = useRef(crypto.randomUUID());
   
   useEffect(() => {
-    // Track session start
-    track('session_started', {
-      timestamp: sessionStart.current
+    grain.track('session_started', {
+      session_id: sessionId.current,
+      page: window.location.pathname
     });
     
-    // Track session end on unmount
     return () => {
-      const duration = Date.now() - sessionStart.current;
-      track('session_ended', {
-        duration_seconds: Math.floor(duration / 1000)
+      const durationSeconds = Math.floor((Date.now() - sessionStart.current) / 1000);
+      grain.track('session_ended', {
+        session_id: sessionId.current,
+        duration_seconds: durationSeconds
       }, { flush: true });
     };
   }, [track]);
@@ -165,230 +200,206 @@ function SessionTracker() {
 }
 ```
 
-Analyze average session length and identify engagement patterns.
+Use `flush: true` on session end to ensure the event is sent before the page unloads.
 
-## Event Grouping
+## Error and Exception Tracking
 
-Group related events for better analysis:
+Track errors to identify and fix issues:
 
 ```typescript
-// Define event categories
-const EventCategory = {
-  NAVIGATION: 'navigation',
-  FEATURE: 'feature',
-  CONVERSION: 'conversion',
-  ERROR: 'error'
-};
-
-function trackCategorizedEvent(name, category, properties) {
-  grain.track(name, {
-    ...properties,
-    event_category: category,
-    timestamp: Date.now()
+// JavaScript errors
+window.addEventListener('error', (event) => {
+  grain.track('javascript_error', {
+    error_message: event.message,
+    error_file: event.filename,
+    error_line: event.lineno,
+    page_url: window.location.pathname,
+    user_agent: navigator.userAgent
   });
-}
-
-// Usage
-trackCategorizedEvent('page_viewed', EventCategory.NAVIGATION, {
-  page: '/dashboard'
 });
 
-trackCategorizedEvent('export_clicked', EventCategory.FEATURE, {
-  format: 'csv'
-});
-```
-
-Query events by category in your analytics.
-
-## Custom Dashboard Widgets
-
-Build widgets showing live data:
-
-```typescript
-function ActiveUsersWidget() {
-  const track = useTrack();
-  
-  // Track when widget viewed
-  useEffect(() => {
-    track('widget_viewed', { widget: 'active_users' });
-  }, [track]);
-  
-  return (
-    <div className="widget">
-      <h4>Active Users (24h)</h4>
-      <p className="stat">1,234</p>
-    </div>
-  );
-}
-
-function TopFeaturesWidget() {
-  const topFeatures = [
-    { name: 'Export', count: 456 },
-    { name: 'Reports', count: 389 },
-    { name: 'Analytics', count: 234 }
-  ];
-  
-  return (
-    <div className="widget">
-      <h4>Top Features</h4>
-      {topFeatures.map(feature => (
-        <div key={feature.name}>
-          {feature.name}: {feature.count} uses
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-## Funnel Analysis
-
-Track conversion funnels:
-
-```typescript
-function SignupFunnel() {
-  const track = useTrack();
-  
-  // Step 1: Landing
-  useEffect(() => {
-    track('funnel_step', {
-      funnel: 'signup',
-      step: 1,
-      step_name: 'landing'
-    });
-  }, [track]);
-  
-  // Step 2: Form Started
-  const handleFormStart = () => {
-    track('funnel_step', {
-      funnel: 'signup',
-      step: 2,
-      step_name: 'form_started'
-    });
-  };
-  
-  // Step 3: Completed
-  const handleComplete = () => {
-    track('funnel_step', {
-      funnel: 'signup',
-      step: 3,
-      step_name: 'completed'
-    });
-  };
-  
-  return <SignupForm onStart={handleFormStart} onComplete={handleComplete} />;
-}
-```
-
-Identify where users drop off in your funnels.
-
-## Cohort Tracking
-
-Track user cohorts:
-
-```typescript
-function trackWithCohort(eventName, properties) {
-  const userSignupDate = new Date(currentUser.signupDate);
-  const cohort = `${userSignupDate.getFullYear()}-${userSignupDate.getMonth() + 1}`;
-  
-  grain.track(eventName, {
-    ...properties,
-    cohort,
-    user_tenure_days: calculateTenure(currentUser.signupDate)
+// Application errors
+try {
+  await processPayment();
+} catch (error) {
+  grain.track('payment_error', {
+    error_type: error.name,
+    error_message: error.message,
+    payment_method: 'credit_card',
+    amount: orderTotal
   });
+  
+  // Re-throw or handle
+  throw error;
 }
-
-// Usage
-trackWithCohort('feature_used', { feature: 'export' });
 ```
 
-Compare how different signup cohorts behave over time.
+## Page View Tracking
 
-## Performance Metrics
-
-Track performance alongside behavior:
+Track page navigation for traffic analysis:
 
 ```typescript
-function PerformanceTracker() {
+// Automatic page view tracking in React
+function usePageTracking() {
   const track = useTrack();
+  const location = useLocation();
   
   useEffect(() => {
-    // Track page load time
-    if (window.performance) {
-      const perfData = window.performance.timing;
-      const loadTime = perfData.loadEventEnd - perfData.navigationStart;
-      
-      track('page_performance', {
-        load_time_ms: loadTime,
-        page: window.location.pathname
-      });
-    }
-  }, [track]);
+    grain.trackPageView({
+      page: location.pathname,
+      title: document.title,
+      referrer: document.referrer,
+      url: window.location.href
+    });
+  }, [location, track]);
+}
+
+// In your app
+function App() {
+  usePageTracking();
   
-  return null;
+  return <Routes>{/* your routes */}</Routes>;
 }
 ```
 
-Correlate performance with user engagement.
+## Use User Identification
 
-## Dashboard Configuration
-
-Use remote config for dashboard customization:
+Identify users to track them across sessions:
 
 ```typescript
-function CustomDashboard() {
-  const { configs } = useAllConfigs();
-  
-  const widgetConfig = {
-    showActiveUsers: configs.dashboard_show_active_users === 'true',
-    showTopFeatures: configs.dashboard_show_top_features === 'true',
-    refreshInterval: parseInt(configs.dashboard_refresh_interval || '30000')
-  };
-  
-  return (
-    <Dashboard>
-      {widgetConfig.showActiveUsers && <ActiveUsersWidget />}
-      {widgetConfig.showTopFeatures && <TopFeaturesWidget />}
-    </Dashboard>
-  );
-}
+// After user logs in
+grain.identify('user_123');
+
+// Or use setUserId
+grain.setUserId('user_123');
+
+// Set user properties for segmentation
+await grain.setProperty({
+  email: 'user@example.com',
+  plan: 'premium'
+});
+
+// All subsequent events will include the user ID
+grain.track('dashboard_viewed');
 ```
 
-Let users customize their dashboard via remote config.
+Before login, Grain automatically generates and persists a unique anonymous ID for each user.
 
-## Best Practices
+## Preload Remote Config
 
-**1. Track Consistently**: Use consistent naming and structure for events.
+If you're using remote config, preload it for faster access:
 
-**2. Include Context**: Always add relevant properties (user plan, location, etc.).
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  defaultConfigurations: {
+    feature_enabled: 'false',
+    theme: 'light'
+  }
+});
 
-**3. Timestamp Everything**: Include timestamps for time-series analysis.
+// Preload configurations on app start
+await grain.preloadConfig(
+  ['feature_enabled', 'theme'], // Immediate keys
+  { plan: 'premium' } // User properties for segmentation
+);
 
-**4. Batch Similar Events**: Group related actions to reduce noise.
+// Access immediately (cache-first)
+const featureEnabled = grain.getConfig('feature_enabled');
+```
 
-**5. Monitor Privacy**: Only track what users consent to.
+This ensures configs are available when you need them.
 
-## Viewing Your Data
+## Batch Events Automatically
 
-All events tracked with Grain are visible in your dashboard at [grainql.com/dashboard](https://grainql.com/dashboard), where you can:
+Grain automatically batches events for efficiency:
 
-- View real-time event streams
-- Build custom reports
-- Create visualizations
-- Export data for analysis
-- Set up alerts
+```typescript
+// These events are queued and sent together
+grain.track('button_clicked', { button: 'cta' });
+grain.track('modal_opened', { modal: 'signup' });
+grain.track('form_started', { form: 'signup' });
+
+// Events are sent when:
+// 1. Batch size reaches 50 events (configurable)
+// 2. 5 seconds elapse (configurable)
+// 3. Page unload occurs (automatic)
+// 4. You call flush() manually
+```
+
+For critical events, force immediate send:
+
+```typescript
+await grain.track('purchase_completed', {
+  orderId: '123',
+  total: 99.99
+}, { flush: true });
+```
+
+## Best Practices Summary
+
+**1. Descriptive Names**: Use clear, specific event names like `checkout_completed`
+
+**2. Rich Properties**: Include relevant context in every event
+
+**3. Consistent Naming**: Use the same property names across similar events
+
+**4. Template Events**: Use built-in methods like `trackPurchase()` for consistency
+
+**5. User Properties**: Set user attributes for segmentation
+
+**6. Track Funnels**: Structure events to understand user journeys
+
+**7. Error Tracking**: Log errors with detailed context
+
+**8. User Identification**: Use `identify()` or `setUserId()` to track across sessions
+
+**9. Flush Critical Events**: Use `flush: true` for important events like purchases
+
+**10. Preload Config**: Load remote config early for faster access
+
+## Common Patterns
+
+### E-commerce Flow
+
+```typescript
+grain.track('product_list_viewed', { category: 'shoes' });
+grain.track('product_viewed', { product_id: 'prod_123' });
+await grain.trackAddToCart({ itemId: 'prod_123', price: 89.99 });
+await grain.trackCheckout({ total: 89.99, items: [...] });
+await grain.trackPurchase({ orderId: 'order_789', total: 89.99 }, { flush: true });
+```
+
+### Authentication Flow
+
+```typescript
+grain.track('login_form_viewed');
+await grain.trackLogin({ method: 'email', success: true });
+grain.identify('user_123');
+await grain.setProperty({ plan: 'free', signup_date: '2024-01-15' });
+```
+
+### Feature Usage
+
+```typescript
+grain.track('feature_discovered', { feature: 'export' });
+grain.track('feature_enabled', { feature: 'export' });
+grain.track('feature_used', { feature: 'export', export_format: 'csv' });
+```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
-    Master event tracking
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Use pre-built event methods
   </Card>
-  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
-    Customize dashboards dynamically
+  <Card title="User Properties" icon="tags" href="/core/user-properties">
+    Add user attributes for segmentation
   </Card>
   <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
-    Track commerce metrics
+    Track commerce events effectively
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Dynamic configuration management
   </Card>
 </CardGroup>
-

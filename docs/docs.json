@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "quill",
+  "theme": "aspen",
   "name": "Grain Analytics",
   "colors": {
     "primary": "#0F172A",

@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Grain Analytics",
   "colors": {
-    "primary": "#8f40ff",
-    "light": "#8f40ff",
-    "dark": "#8f40ff"
+    "primary": "#855cff",
+    "light": "#855cff",
+    "dark": "#855cff"
   },
   "favicon": "/favicon.ico",
   "navigation": {
@@ -135,7 +135,6 @@
      "view",
      "chatgpt",
      "claude",
-     "perplexity",
      "mcp",
      "cursor",
      "vscode"

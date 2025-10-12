@@ -127,12 +127,7 @@
         "label": "Support",
         "href": "mailto:support@grainql.com"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Get Started",
-      "href": "/quickstart"
-    }
+    ]
   },
   "contextual": {
     "options": [

@@ -1,0 +1,353 @@
+---
+title: "Types & Interfaces"
+description: "TypeScript type definitions for Grain Analytics"
+---
+
+## Core Types
+
+### GrainConfig
+
+Configuration options for creating a Grain client.
+
+```typescript
+interface GrainConfig {
+  // Required
+  tenantId: string;
+  
+  // Authentication
+  authStrategy?: 'NONE' | 'SERVER_SIDE' | 'JWT';
+  secretKey?: string;
+  authProvider?: AuthProvider;
+  
+  // User
+  userId?: string;
+  
+  // API
+  apiUrl?: string;
+  
+  // Batching
+  batchSize?: number;
+  flushInterval?: number;
+  
+  // Retry
+  retryAttempts?: number;
+  retryDelay?: number;
+  
+  // Remote Config
+  defaultConfigurations?: Record<string, string>;
+  configCacheKey?: string;
+  configRefreshInterval?: number;
+  enableConfigCache?: boolean;
+  
+  // Debug
+  debug?: boolean;
+}
+```
+
+---
+
+### GrainEvent
+
+Event structure for tracking.
+
+```typescript
+interface GrainEvent {
+  eventName: string;
+  userId?: string;
+  properties?: Record<string, unknown>;
+  timestamp?: Date;
+}
+```
+
+---
+
+### AuthProvider
+
+JWT authentication provider interface.
+
+```typescript
+interface AuthProvider {
+  getToken(): Promise<string> | string;
+}
+```
+
+**Example:**
+```typescript
+const authProvider: AuthProvider = {
+  async getToken() {
+    return await auth0.getAccessToken();
+  }
+};
+```
+
+---
+
+## Options Types
+
+### SendEventOptions
+
+Options for track() method.
+
+```typescript
+interface SendEventOptions {
+  flush?: boolean;  // Force immediate send
+}
+```
+
+---
+
+### SetPropertyOptions
+
+Options for setProperty() method.
+
+```typescript
+interface SetPropertyOptions {
+  userId?: string;  // User ID override
+}
+```
+
+---
+
+### RemoteConfigOptions
+
+Options for configuration methods.
+
+```typescript
+interface RemoteConfigOptions {
+  immediateKeys?: string[];
+  properties?: Record<string, string>;
+  userId?: string;
+  forceRefresh?: boolean;
+}
+```
+
+---
+
+## Response Types
+
+### RemoteConfigResponse
+
+API response for configuration fetch.
+
+```typescript
+interface RemoteConfigResponse {
+  userId: string;
+  snapshotId: string;
+  configurations: Record<string, string>;
+  isFinal: boolean;
+  qualifiedSegments: string[];
+  qualifiedRuleSets: string[];
+  timestamp: string;
+  isFromCache: boolean;
+}
+```
+
+---
+
+## Template Event Types
+
+### LoginEventProperties
+
+```typescript
+interface LoginEventProperties extends Record<string, unknown> {
+  method?: string;
+  success?: boolean;
+  errorMessage?: string;
+  loginAttempt?: number;
+  rememberMe?: boolean;
+  twoFactorEnabled?: boolean;
+}
+```
+
+---
+
+### SignupEventProperties
+
+```typescript
+interface SignupEventProperties extends Record<string, unknown> {
+  method?: string;
+  source?: string;
+  plan?: string;
+  success?: boolean;
+  referralCode?: string;
+}
+```
+
+---
+
+### CheckoutEventProperties
+
+```typescript
+interface CheckoutEventProperties extends Record<string, unknown> {
+  orderId?: string;
+  total?: number;
+  currency?: string;
+  items?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+  }>;
+  paymentMethod?: string;
+  success?: boolean;
+  errorMessage?: string;
+  couponCode?: string;
+  discount?: number;
+}
+```
+
+---
+
+### PurchaseEventProperties
+
+```typescript
+interface PurchaseEventProperties extends Record<string, unknown> {
+  orderId?: string;
+  total?: number;
+  currency?: string;
+  paymentMethod?: string;
+  shipping?: number;
+  tax?: number;
+}
+```
+
+---
+
+### AddToCartEventProperties
+
+```typescript
+interface AddToCartEventProperties extends Record<string, unknown> {
+  itemId?: string;
+  itemName?: string;
+  price?: number;
+  quantity?: number;
+  currency?: string;
+}
+```
+
+---
+
+### RemoveFromCartEventProperties
+
+```typescript
+interface RemoveFromCartEventProperties extends Record<string, unknown> {
+  itemId?: string;
+  itemName?: string;
+  price?: number;
+  quantity?: number;
+}
+```
+
+---
+
+### PageViewEventProperties
+
+```typescript
+interface PageViewEventProperties extends Record<string, unknown> {
+  page?: string;
+  title?: string;
+  url?: string;
+  referrer?: string;
+}
+```
+
+---
+
+### SearchEventProperties
+
+```typescript
+interface SearchEventProperties extends Record<string, unknown> {
+  query?: string;
+  results?: number;
+  filters?: Record<string, unknown>;
+  sortBy?: string;
+}
+```
+
+---
+
+## React Hook Types
+
+### UseConfigResult
+
+```typescript
+interface UseConfigResult {
+  value: string | undefined;
+  isRefreshing: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
+```
+
+---
+
+### UseAllConfigsResult
+
+```typescript
+interface UseAllConfigsResult {
+  configs: Record<string, string>;
+  isRefreshing: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
+```
+
+---
+
+## Listener Types
+
+### ConfigChangeListener
+
+```typescript
+type ConfigChangeListener = (
+  configurations: Record<string, string>
+) => void;
+```
+
+**Example:**
+```typescript
+const listener: ConfigChangeListener = (configs) => {
+  console.log('Updated:', configs);
+};
+```
+
+---
+
+## Using Types
+
+### Import Types
+
+```typescript
+import type {
+  GrainConfig,
+  GrainEvent,
+  AuthProvider,
+  SendEventOptions,
+  RemoteConfigOptions,
+  LoginEventProperties,
+  CheckoutEventProperties
+} from '@grainql/analytics-web';
+```
+
+### React Hook Types
+
+```typescript
+import type {
+  UseConfigResult,
+  UseAllConfigsResult
+} from '@grainql/analytics-web/react';
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="TypeScript Guide" icon="code" href="/advanced/typescript">
+    Type-safe development guide
+  </Card>
+  <Card title="API Overview" icon="book" href="/api-reference/overview">
+    Complete API reference
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,318 @@
+---
+title: "Feature Flags"
+description: "Control features dynamically without code deployments"
+---
+
+## What are Feature Flags?
+
+Feature flags let you turn features on or off remotely without deploying code. Think of them as light switches for your app's functionality.
+
+**Common uses**:
+- Roll out features gradually
+- Enable features for specific users
+- Emergency kill switch for broken features
+- Testing in production safely
+
+## Simple Feature Flag
+
+The most basic flag - on or off:
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function App() {
+  const { value: newUIEnabled } = useConfig('new_ui_enabled');
+  
+  return newUIEnabled === 'true' ? <NewUI /> : <LegacyUI />;
+}
+```
+
+Set `new_ui_enabled` to `'true'` in the dashboard to enable, `'false'` to disable.
+
+## Gradual Rollout
+
+Enable a feature for a percentage of users:
+
+```typescript
+function FeatureComponent() {
+  const { value: enabled } = useConfig('beta_feature_enabled');
+  
+  if (enabled !== 'true') {
+    return null; // Feature hidden
+  }
+  
+  return <BetaFeature />;
+}
+```
+
+**Dashboard setup**:
+- Week 1: Enable for 5% of users
+- Week 2: Increase to 25%
+- Week 3: Increase to 50%
+- Week 4: Enable for everyone (100%)
+
+Monitor metrics at each stage before expanding.
+
+## User-Specific Flags
+
+Enable features for specific user groups:
+
+```typescript
+function PremiumFeature() {
+  const { value: enabled } = useConfig('premium_feature', {
+    properties: {
+      plan: userPlan
+    }
+  });
+  
+  if (enabled !== 'true') {
+    return <UpgradePrompt />;
+  }
+  
+  return <FeatureContent />;
+}
+```
+
+In the dashboard, create a rule: if `plan === 'premium'`, return `'true'`. Free users see the upgrade prompt.
+
+## Multiple Flag Checks
+
+Combine flags for complex logic:
+
+```typescript
+function Dashboard() {
+  const { value: analyticsEnabled } = useConfig('analytics_enabled');
+  const { value: reportsEnabled } = useConfig('reports_enabled');
+  const { value: exportEnabled } = useConfig('export_enabled');
+  
+  return (
+    <div>
+      {analyticsEnabled === 'true' && <AnalyticsPanel />}
+      {reportsEnabled === 'true' && <ReportsPanel />}
+      {exportEnabled === 'true' && <ExportButton />}
+    </div>
+  );
+}
+```
+
+Each feature controlled independently.
+
+## Emergency Kill Switch
+
+Disable features instantly if issues arise:
+
+```typescript
+function ChatWidget() {
+  const { value: chatEnabled } = useConfig('chat_enabled');
+  
+  if (chatEnabled === 'false') {
+    return null; // Chat hidden
+  }
+  
+  return <ChatComponent />;
+}
+```
+
+If the chat service goes down, set `chat_enabled` to `false` in the dashboard. All users stop seeing it immediately - no code deployment needed.
+
+## Beta Program
+
+Give early access to beta testers:
+
+```typescript
+function BetaFeatures() {
+  const { value: betaAccess } = useConfig('beta_access', {
+    properties: {
+      user_id: currentUserId,
+      beta_tester: isBetaTester ? 'true' : 'false'
+    }
+  });
+  
+  if (betaAccess !== 'true') {
+    return null;
+  }
+  
+  return (
+    <div>
+      <h3>Beta Features</h3>
+      <NewFeatureA />
+      <NewFeatureB />
+    </div>
+  );
+}
+```
+
+Dashboard rule: if `beta_tester === 'true'`, return `'true'`.
+
+## Feature Development Flow
+
+Use flags throughout feature development:
+
+**1. Development**: Feature hidden by default
+```typescript
+const { value: feature } = useConfig('new_feature', {
+  defaultValue: 'false'
+});
+```
+
+**2. Internal Testing**: Enable for your team
+```typescript
+// Dashboard: if email ends with '@yourcompany.com', return 'true'
+```
+
+**3. Beta**: Enable for beta users
+```typescript
+// Dashboard: if beta_tester === 'true', return 'true'
+```
+
+**4. Gradual Launch**: Enable for increasing percentages
+
+**5. Full Release**: Enable for everyone
+
+**6. Cleanup**: Remove flag once stable (code becomes permanent)
+
+## Combining with Analytics
+
+Track feature usage:
+
+```typescript
+function NewFeature() {
+  const { value: enabled } = useConfig('new_feature_enabled');
+  const track = useTrack();
+  
+  useEffect(() => {
+    if (enabled === 'true') {
+      track('feature_viewed', { feature: 'new_feature' });
+    }
+  }, [enabled, track]);
+  
+  if (enabled !== 'true') return null;
+  
+  const handleUse = () => {
+    track('feature_used', { feature: 'new_feature' });
+  };
+  
+  return <button onClick={handleUse}>Use Feature</button>;
+}
+```
+
+Measure engagement before full rollout.
+
+## Default Values
+
+Always provide defaults:
+
+```typescript
+<GrainProvider 
+  config={{
+    tenantId: 'your-tenant-id',
+    defaultConfigurations: {
+      new_ui_enabled: 'false',      // Off by default
+      chat_enabled: 'true',         // On by default
+      beta_features_enabled: 'false'
+    }
+  }}
+>
+  <App />
+</GrainProvider>
+```
+
+Defaults ensure your app works even if the API is down.
+
+## Progressive Enhancement
+
+Use flags to add enhancements progressively:
+
+```typescript
+function VideoPlayer({ video }) {
+  const { value: hdEnabled } = useConfig('hd_video_enabled');
+  const { value: subtitlesEnabled } = useConfig('subtitles_enabled');
+  const { value: speedControlEnabled } = useConfig('speed_control_enabled');
+  
+  return (
+    <Player
+      video={video}
+      quality={hdEnabled === 'true' ? 'hd' : 'sd'}
+      showSubtitles={subtitlesEnabled === 'true'}
+      showSpeedControl={speedControlEnabled === 'true'}
+    />
+  );
+}
+```
+
+Add features incrementally based on user feedback and metrics.
+
+## Regional Features
+
+Enable features in specific regions:
+
+```typescript
+function LocalizedFeature() {
+  const { value: enabled } = useConfig('region_feature', {
+    properties: {
+      country: userCountry
+    }
+  });
+  
+  if (enabled !== 'true') return null;
+  
+  return <RegionalContent />;
+}
+```
+
+Dashboard rule: if `country === 'US'`, return `'true'`. Launch in one region first, expand globally later.
+
+## Best Practices
+
+**1. Descriptive Names**: Use clear, specific flag names.
+```typescript
+// ✅ Good
+new_dashboard_enabled
+premium_analytics_enabled
+
+// ❌ Bad
+feature1
+new_thing
+```
+
+**2. Document Flags**: Add notes in your dashboard about what each flag controls and when to remove it.
+
+**3. Clean Up Old Flags**: Remove flags once features are stable and fully rolled out.
+
+**4. Default to Safe**: If unsure, default to `'false'` (feature off).
+
+**5. Monitor Impact**: Track metrics before and after enabling features.
+
+## Testing Feature Flags
+
+Test both states in your code:
+
+```typescript
+function FeatureComponent() {
+  const { value: enabled } = useConfig('feature_flag');
+  
+  // Test both code paths
+  if (enabled === 'true') {
+    return <NewFeature />;
+  }
+  
+  return <OldFeature />;
+}
+```
+
+Ensure your app works correctly whether the flag is on or off.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Master configuration management
+  </Card>
+  <Card title="A/B Testing" icon="flask" href="/guides/ab-testing">
+    Test features with A/B tests
+  </Card>
+  <Card title="Personalization" icon="user-gear" href="/guides/personalization">
+    Customize per user
+  </Card>
+</CardGroup>
+

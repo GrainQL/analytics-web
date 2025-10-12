@@ -1,0 +1,342 @@
+---
+title: "Vanilla JavaScript"
+description: "Use Grain Analytics in plain JavaScript applications"
+---
+
+## CDN Setup
+
+For quick prototyping or simple sites, use the CDN:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My App</title>
+</head>
+<body>
+  <h1 id="hero">Loading...</h1>
+  <button id="cta-button">Get Started</button>
+
+  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script>
+    // Initialize Grain
+    const grain = Grain.createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      defaultConfigurations: {
+        hero_text: 'Welcome!',
+        button_color: 'blue'
+      }
+    });
+
+    // Set configuration values
+    document.getElementById('hero').textContent = 
+      grain.getConfig('hero_text');
+    
+    document.getElementById('cta-button').style.backgroundColor = 
+      grain.getConfig('button_color');
+
+    // Track button click
+    document.getElementById('cta-button').addEventListener('click', () => {
+      grain.track('cta_clicked', {
+        location: 'hero'
+      });
+    });
+  </script>
+</body>
+</html>
+```
+
+## NPM Setup
+
+For bundled applications:
+
+```javascript
+// main.js
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id'
+});
+
+// Track page view
+grain.track('page_viewed', {
+  page: window.location.pathname,
+  title: document.title
+});
+```
+
+## Page View Tracking
+
+Track every page view automatically:
+
+```javascript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id'
+});
+
+function trackPageView() {
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    title: document.title,
+    referrer: document.referrer,
+    url: window.location.href
+  });
+}
+
+// Track on load
+window.addEventListener('load', trackPageView);
+
+// Track on navigation (for SPAs)
+window.addEventListener('popstate', trackPageView);
+```
+
+## Button Click Tracking
+
+Track all button clicks:
+
+```javascript
+document.querySelectorAll('button').forEach(button => {
+  button.addEventListener('click', () => {
+    grain.track('button_clicked', {
+      button_id: button.id,
+      button_text: button.textContent,
+      page: window.location.pathname
+    });
+  });
+});
+```
+
+## Form Tracking
+
+Track form submissions:
+
+```javascript
+document.querySelectorAll('form').forEach(form => {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    await grain.track('form_submitted', {
+      form_id: form.id,
+      form_action: form.action,
+      num_fields: form.elements.length
+    }, { flush: true });
+    
+    // Submit form
+    form.submit();
+  });
+});
+```
+
+## Remote Configuration
+
+Use remote config to control your site:
+
+```javascript
+// Set defaults
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  defaultConfigurations: {
+    hero_text: 'Welcome!',
+    hero_subtitle: 'Get started today',
+    cta_text: 'Sign Up',
+    cta_color: '#007bff'
+  }
+});
+
+// Apply configurations
+function applyConfigs() {
+  const configs = grain.getAllConfigs();
+  
+  document.getElementById('hero-title').textContent = 
+    configs.hero_text || 'Welcome!';
+  
+  document.getElementById('hero-subtitle').textContent = 
+    configs.hero_subtitle || '';
+  
+  const button = document.getElementById('cta-button');
+  button.textContent = configs.cta_text || 'Sign Up';
+  button.style.backgroundColor = configs.cta_color || '#007bff';
+}
+
+// Apply on load
+applyConfigs();
+
+// Listen for changes
+grain.addConfigChangeListener((configs) => {
+  applyConfigs();
+});
+```
+
+## User Authentication
+
+Track user login/logout:
+
+```javascript
+function handleLogin(userId) {
+  grain.setUserId(userId);
+  
+  grain.trackLogin({
+    method: 'email',
+    success: true
+  });
+  
+  // Redirect to dashboard
+  window.location.href = '/dashboard';
+}
+
+function handleLogout() {
+  grain.track('logout', {}, { flush: true });
+  grain.setUserId(null);
+  
+  window.location.href = '/';
+}
+```
+
+## E-commerce Tracking
+
+Track shopping cart:
+
+```javascript
+// Add to cart
+function addToCart(product) {
+  grain.trackAddToCart({
+    itemId: product.id,
+    itemName: product.name,
+    price: product.price,
+    quantity: 1,
+    currency: 'USD'
+  });
+  
+  // Update UI
+  updateCartUI();
+}
+
+// Checkout
+async function checkout(order) {
+  await grain.trackCheckout({
+    orderId: order.id,
+    total: order.total,
+    currency: 'USD',
+    items: order.items,
+    paymentMethod: 'credit_card',
+    success: true
+  }, { flush: true });
+  
+  window.location.href = `/order/${order.id}/success`;
+}
+```
+
+## Exit Intent Tracking
+
+Track when users leave:
+
+```javascript
+window.addEventListener('beforeunload', () => {
+  grain.track('page_exited', {
+    page: window.location.pathname,
+    time_spent: Date.now() - pageLoadTime
+  });
+  // Beacon API used automatically for reliable delivery
+});
+```
+
+## Error Tracking
+
+Track JavaScript errors:
+
+```javascript
+window.addEventListener('error', (event) => {
+  grain.track('javascript_error', {
+    message: event.message,
+    filename: event.filename,
+    line: event.lineno,
+    column: event.colno,
+    page: window.location.pathname
+  });
+});
+```
+
+## Complete Example
+
+Here's a full example with all features:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My App</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; }
+    button { padding: 12px 24px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1 id="hero">Loading...</h1>
+  <p id="subtitle">Loading...</p>
+  <button id="cta">Loading...</button>
+
+  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script>
+    const pageLoadTime = Date.now();
+    
+    const grain = Grain.createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      debug: true,
+      defaultConfigurations: {
+        hero_text: 'Welcome!',
+        subtitle_text: 'Get started today',
+        cta_text: 'Sign Up',
+        cta_color: '#007bff'
+      }
+    });
+
+    // Apply configs
+    function applyConfigs() {
+      const configs = grain.getAllConfigs();
+      document.getElementById('hero').textContent = configs.hero_text;
+      document.getElementById('subtitle').textContent = configs.subtitle_text;
+      const button = document.getElementById('cta');
+      button.textContent = configs.cta_text;
+      button.style.backgroundColor = configs.cta_color;
+      button.style.color = 'white';
+    }
+
+    applyConfigs();
+    grain.addConfigChangeListener(applyConfigs);
+
+    // Track page view
+    grain.track('page_viewed', {
+      page: window.location.pathname,
+      title: document.title
+    });
+
+    // Track button click
+    document.getElementById('cta').addEventListener('click', () => {
+      grain.track('cta_clicked', {
+        cta_text: document.getElementById('cta').textContent
+      });
+      alert('Tracked CTA click!');
+    });
+
+    // Track exit
+    window.addEventListener('beforeunload', () => {
+      grain.track('page_exited', {
+        time_spent: Date.now() - pageLoadTime
+      });
+    });
+  </script>
+</body>
+</html>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="React Example" icon="react" href="/examples/react">
+    See React integration
+  </Card>
+  <Card title="Core Methods" icon="book" href="/api-reference/core-methods">
+    Explore all methods
+  </Card>
+</CardGroup>
+

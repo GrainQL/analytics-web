@@ -1,0 +1,265 @@
+---
+title: "Configuration Options"
+description: "Complete reference for all SDK configuration options"
+---
+
+## GrainConfig Interface
+
+All available configuration options when creating a Grain client:
+
+```typescript
+const grain = createGrainAnalytics({
+  // Required
+  tenantId: 'your-tenant-id',
+  
+  // Authentication
+  authStrategy: 'NONE',  // or 'SERVER_SIDE', 'JWT'
+  secretKey: 'your-secret',  // For SERVER_SIDE
+  authProvider: { getToken: () => 'token' },  // For JWT
+  
+  // User Identification
+  userId: 'user_123',
+  
+  // API Configuration
+  apiUrl: 'https://api.grainql.com',
+  
+  // Event Batching
+  batchSize: 50,
+  flushInterval: 5000,
+  
+  // Retry Logic
+  retryAttempts: 3,
+  retryDelay: 1000,
+  
+  // Remote Config
+  defaultConfigurations: {
+    hero_text: 'Welcome'
+  },
+  configCacheKey: 'grain_config',
+  configRefreshInterval: 300000,
+  enableConfigCache: true,
+  
+  // Debugging
+  debug: false
+});
+```
+
+## Required Options
+
+### tenantId
+
+Your unique tenant identifier from Grain. Get this from [grainql.com/dashboard](https://grainql.com/dashboard).
+
+```typescript
+tenantId: 'your-tenant-id'
+```
+
+## Authentication Options
+
+### authStrategy
+
+Choose your authentication method:
+- `'NONE'` - No authentication (default)
+- `'SERVER_SIDE'` - Secret key authentication
+- `'JWT'` - JSON Web Token authentication
+
+```typescript
+authStrategy: 'JWT'
+```
+
+### secretKey
+
+Required for `SERVER_SIDE` authentication. Never expose in client code.
+
+```typescript
+secretKey: process.env.GRAIN_SECRET_KEY
+```
+
+### authProvider
+
+Required for `JWT` authentication. Provides tokens for requests.
+
+```typescript
+authProvider: {
+  async getToken() {
+    return await auth0.getAccessToken();
+  }
+}
+```
+
+## User Options
+
+### userId
+
+Global user ID for all events. Can be changed with `setUserId()`.
+
+```typescript
+userId: 'user_123'
+```
+
+## API Options
+
+### apiUrl
+
+Custom API endpoint. Defaults to `https://api.grainql.com`.
+
+```typescript
+apiUrl: 'https://api.grainql.com'
+```
+
+Useful for self-hosted or region-specific deployments.
+
+## Batching Options
+
+### batchSize
+
+Number of events to accumulate before sending. Default: `50`.
+
+```typescript
+batchSize: 100  // Send every 100 events
+```
+
+Larger batches = fewer requests but longer delays.
+
+### flushInterval
+
+Milliseconds between automatic flushes. Default: `5000` (5 seconds).
+
+```typescript
+flushInterval: 10000  // Flush every 10 seconds
+```
+
+Set to `0` to disable automatic flushing (manual only).
+
+## Retry Options
+
+### retryAttempts
+
+Number of retry attempts for failed requests. Default: `3`.
+
+```typescript
+retryAttempts: 5  // Retry up to 5 times
+```
+
+### retryDelay
+
+Base delay in milliseconds between retries. Uses exponential backoff. Default: `1000` (1 second).
+
+```typescript
+retryDelay: 2000  // Start with 2s, then 4s, then 8s
+```
+
+## Remote Config Options
+
+### defaultConfigurations
+
+Default values for configurations. Returns immediately, no API call needed.
+
+```typescript
+defaultConfigurations: {
+  hero_text: 'Welcome!',
+  button_color: 'blue',
+  feature_enabled: 'false'
+}
+```
+
+Always provide defaults for critical configs.
+
+### configCacheKey
+
+Custom key for localStorage cache. Default: `'grain_config'`.
+
+```typescript
+configCacheKey: 'my_app_grain_config'
+```
+
+Useful if running multiple Grain instances.
+
+### configRefreshInterval
+
+Milliseconds between automatic config refreshes. Default: `300000` (5 minutes).
+
+```typescript
+configRefreshInterval: 120000  // Refresh every 2 minutes
+```
+
+Set to `0` to disable automatic refreshing.
+
+### enableConfigCache
+
+Enable/disable configuration caching. Default: `true`.
+
+```typescript
+enableConfigCache: false  // Always fetch from API
+```
+
+Disable for testing or when cache causes issues.
+
+## Debug Options
+
+### debug
+
+Enable console logging for debugging. Default: `false`.
+
+```typescript
+debug: true
+```
+
+Logs batching, sending, responses, and errors. Disable in production.
+
+## Environment-Specific Configs
+
+Adjust config based on environment:
+
+```typescript
+const config = {
+  tenantId: 'your-tenant-id',
+  authStrategy: process.env.NODE_ENV === 'production' ? 'JWT' : 'NONE',
+  debug: process.env.NODE_ENV === 'development',
+  batchSize: process.env.NODE_ENV === 'production' ? 50 : 10,
+  flushInterval: process.env.NODE_ENV === 'production' ? 5000 : 1000
+};
+
+const grain = createGrainAnalytics(config);
+```
+
+## Performance Tuning
+
+**High-traffic apps**:
+```typescript
+{
+  batchSize: 100,  // Larger batches
+  flushInterval: 10000,  // Less frequent flushes
+  retryAttempts: 5  // More retries
+}
+```
+
+**Real-time apps**:
+```typescript
+{
+  batchSize: 10,  // Smaller batches
+  flushInterval: 1000,  // Frequent flushes
+  retryAttempts: 2  // Fail fast
+}
+```
+
+**Serverless functions**:
+```typescript
+{
+  batchSize: 1,  // No batching
+  flushInterval: 0,  // Manual flush only
+  retryAttempts: 1  // No retries (short execution time)
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Performance" icon="gauge" href="/advanced/performance">
+    Optimize for your use case
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/advanced/error-handling">
+    Handle errors gracefully
+  </Card>
+</CardGroup>
+

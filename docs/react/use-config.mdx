@@ -1,0 +1,238 @@
+---
+title: "useConfig Hook"
+description: "Access remote configuration values in React components"
+---
+
+## Basic Usage
+
+Get a configuration value that updates automatically:
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function Hero() {
+  const { value } = useConfig('hero_text');
+  
+  return <h1>{value || 'Welcome!'}</h1>;
+}
+```
+
+**What you get**:
+- Instant access to cached or default values
+- Background refresh for fresh data
+- Automatic re-render when config changes
+
+## Return Values
+
+`useConfig` returns an object with:
+
+```typescript
+const { value, isRefreshing, error, refresh } = useConfig('hero_text');
+```
+
+**value**: The configuration value (string or undefined)
+**isRefreshing**: True while fetching fresh data
+**error**: Error object if fetch failed
+**refresh**: Function to manually refresh
+
+## Cache-First Loading
+
+The hook uses a cache-first strategy:
+
+1. Returns cached/default value immediately (no loading state)
+2. Fetches fresh value in background
+3. Updates when fresh value arrives
+
+```typescript
+function Component() {
+  const { value, isRefreshing } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{value || 'Default Text'}</h1>
+      {isRefreshing && <span>Updating...</span>}
+    </div>
+  );
+}
+```
+
+Your UI renders immediately with cached values. The `isRefreshing` indicator is optional - show it if you want users to know fresh data is loading.
+
+## With Default Values
+
+Set defaults in the provider for instant access:
+
+```typescript
+<GrainProvider 
+  config={{
+    tenantId: 'your-tenant-id',
+    defaultConfigurations: {
+      hero_text: 'Welcome!',
+      button_color: 'blue'
+    }
+  }}
+>
+  <App />
+</GrainProvider>
+
+function Component() {
+  const { value } = useConfig('hero_text');
+  // Returns 'Welcome!' immediately, even offline
+}
+```
+
+## Manual Refresh
+
+Force refresh a configuration:
+
+```typescript
+function Component() {
+  const { value, refresh } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{value}</h1>
+      <button onClick={refresh}>Refresh</button>
+    </div>
+  );
+}
+```
+
+This fetches the latest value from the API, bypassing cache.
+
+## Error Handling
+
+Handle fetch errors gracefully:
+
+```typescript
+function Component() {
+  const { value, error } = useConfig('hero_text');
+  
+  if (error) {
+    return <div>Failed to load configuration</div>;
+  }
+  
+  return <h1>{value || 'Default'}</h1>;
+}
+```
+
+If fetch fails, `value` still contains the cached/default value. Your app doesn't break.
+
+## Personalized Configurations
+
+Pass properties to get user-specific values:
+
+```typescript
+function Component() {
+  const { value } = useConfig('hero_text', {
+    properties: {
+      plan: 'premium',
+      location: 'US'
+    }
+  });
+  
+  return <h1>{value}</h1>;
+}
+```
+
+The dashboard evaluates rules based on these properties and returns matching values.
+
+## Force Refresh Option
+
+Skip cache and fetch directly:
+
+```typescript
+function Component() {
+  const { value } = useConfig('hero_text', {
+    forceRefresh: true
+  });
+  
+  // Always fetches fresh from API
+}
+```
+
+**Note**: This still returns cached value immediately, but guarantees a fresh fetch happens.
+
+## Feature Flag Example
+
+```typescript
+function App() {
+  const { value: newUIEnabled } = useConfig('new_ui_enabled');
+  
+  return newUIEnabled === 'true' ? <NewUI /> : <LegacyUI />;
+}
+```
+
+Toggle features remotely without code changes.
+
+## A/B Testing Example
+
+```typescript
+function Hero() {
+  const { value: variant } = useConfig('hero_variant');
+  
+  const content = {
+    A: { title: 'Welcome!', color: 'blue' },
+    B: { title: 'Hello!', color: 'green' }
+  };
+  
+  const { title, color } = content[variant || 'A'];
+  
+  return <h1 style={{ color }}>{title}</h1>;
+}
+```
+
+Show different experiences to different users.
+
+## Multiple Configs
+
+Need several configs? Use multiple hooks:
+
+```typescript
+function Component() {
+  const { value: heroText } = useConfig('hero_text');
+  const { value: buttonColor } = useConfig('button_color');
+  const { value: featureEnabled } = useConfig('feature_enabled');
+  
+  // Or use useAllConfigs() for many configs
+}
+```
+
+Each hook independently manages its value and re-renders only when its config changes.
+
+## Performance
+
+The hook is optimized to prevent unnecessary re-renders:
+
+- Only re-renders when the specific config changes
+- Function references (like `refresh`) are stable
+- Safe to use in multiple components without performance cost
+
+```typescript
+// Both components use the same config
+// Only re-render when 'hero_text' changes
+function ComponentA() {
+  const { value } = useConfig('hero_text');
+  return <div>{value}</div>;
+}
+
+function ComponentB() {
+  const { value } = useConfig('hero_text');
+  return <span>{value}</span>;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="useAllConfigs" icon="list" href="/react/use-all-configs">
+    Get all configurations at once
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Learn about remote configuration
+  </Card>
+  <Card title="A/B Testing Guide" icon="flask" href="/guides/ab-testing">
+    Build A/B tests with configs
+  </Card>
+</CardGroup>
+

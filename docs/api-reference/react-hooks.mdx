@@ -1,0 +1,285 @@
+---
+title: "React Hooks API"
+description: "Complete API reference for React hooks"
+---
+
+## GrainProvider
+
+Context provider for Grain Analytics in React apps.
+
+```typescript
+<GrainProvider 
+  config?: GrainConfig
+  client?: GrainAnalytics
+>
+  {children}
+</GrainProvider>
+```
+
+**Props:**
+- `config` - Configuration object (provider-managed pattern)
+- `client` - External client instance (external client pattern)
+- `children` - React children
+
+**Example:**
+```typescript
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <App />
+</GrainProvider>
+```
+
+**Note:** Provide either `config` or `client`, not both.
+
+---
+
+## useConfig()
+
+Get a single configuration value with automatic updates.
+
+```typescript
+const result = useConfig(
+  key: string,
+  options?: UseConfigOptions
+): UseConfigResult
+```
+
+**Parameters:**
+- `key` - Configuration key
+- `options.properties` - User properties for personalization
+- `options.forceRefresh` - Skip cache, fetch from API
+- `options.immediateKeys` - Keys to fetch immediately
+
+**Returns:**
+```typescript
+{
+  value: string | undefined;         // Config value
+  isRefreshing: boolean;             // True during fetch
+  error: Error | null;               // Error if fetch failed
+  refresh: () => Promise<void>;      // Manual refresh function
+}
+```
+
+**Example:**
+```typescript
+function Component() {
+  const { value, isRefreshing, error, refresh } = useConfig('hero_text');
+  
+  if (error) return <div>Error loading</div>;
+  
+  return (
+    <div>
+      <h1>{value || 'Default'}</h1>
+      {isRefreshing && <span>Updating...</span>}
+      <button onClick={refresh}>Refresh</button>
+    </div>
+  );
+}
+```
+
+---
+
+## useAllConfigs()
+
+Get all configurations with automatic updates.
+
+```typescript
+const result = useAllConfigs(
+  options?: UseAllConfigsOptions
+): UseAllConfigsResult
+```
+
+**Parameters:**
+- `options.properties` - User properties for personalization
+- `options.forceRefresh` - Skip cache, fetch from API
+
+**Returns:**
+```typescript
+{
+  configs: Record<string, string>;   // All configurations
+  isRefreshing: boolean;             // True during fetch
+  error: Error | null;               // Error if fetch failed
+  refresh: () => Promise<void>;      // Manual refresh function
+}
+```
+
+**Example:**
+```typescript
+function Component() {
+  const { configs, isRefreshing, refresh } = useAllConfigs();
+  
+  return (
+    <div>
+      {Object.entries(configs).map(([key, value]) => (
+        <div key={key}>{key}: {value}</div>
+      ))}
+      <button onClick={refresh}>Refresh</button>
+    </div>
+  );
+}
+```
+
+---
+
+## useTrack()
+
+Get a stable track function for event tracking.
+
+```typescript
+const track = useTrack(): TrackFunction
+```
+
+**Returns:** Stable track function (never changes between renders)
+
+**Track Function Signature:**
+```typescript
+(
+  eventName: string,
+  properties?: Record<string, unknown>,
+  options?: SendEventOptions
+) => Promise<void>
+```
+
+**Example:**
+```typescript
+function Component() {
+  const track = useTrack();
+  
+  const handleClick = () => {
+    track('button_clicked', {
+      button: 'signup',
+      page: '/home'
+    });
+  };
+  
+  return <button onClick={handleClick}>Sign Up</button>;
+}
+```
+
+**Benefits:**
+- Stable reference (won't cause re-renders)
+- No need for `useCallback`
+- Safe to pass to child components
+
+---
+
+## useGrainAnalytics()
+
+Get the full Grain client instance.
+
+```typescript
+const grain = useGrainAnalytics(): GrainAnalytics
+```
+
+**Returns:** Grain client instance
+
+**Example:**
+```typescript
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  const handleLogin = async (userId) => {
+    grain.identify(userId);
+    await grain.setProperty({
+      lastLogin: new Date().toISOString()
+    });
+  };
+  
+  return <button onClick={handleLogin}>Login</button>;
+}
+```
+
+**Use when you need:**
+- User identification
+- User properties
+- Template events
+- Manual flushing
+- Advanced configuration
+
+---
+
+## Hook Options Types
+
+### UseConfigOptions
+
+```typescript
+interface UseConfigOptions {
+  properties?: Record<string, string>;
+  forceRefresh?: boolean;
+  immediateKeys?: string[];
+}
+```
+
+### UseAllConfigsOptions
+
+```typescript
+interface UseAllConfigsOptions {
+  properties?: Record<string, string>;
+  forceRefresh?: boolean;
+}
+```
+
+---
+
+## Hook Return Types
+
+### UseConfigResult
+
+```typescript
+interface UseConfigResult {
+  value: string | undefined;
+  isRefreshing: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
+```
+
+### UseAllConfigsResult
+
+```typescript
+interface UseAllConfigsResult {
+  configs: Record<string, string>;
+  isRefreshing: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
+```
+
+---
+
+## Error Handling
+
+Hooks provide error states for graceful degradation:
+
+```typescript
+const { value, error } = useConfig('key');
+
+if (error) {
+  // Handle error, use defaults
+  return <DefaultContent />;
+}
+
+return <Content value={value} />;
+```
+
+---
+
+## Performance Notes
+
+- `useConfig` only re-renders when specific config changes
+- `useAllConfigs` re-renders when any config changes
+- `useTrack` returns stable function (no re-renders)
+- Hooks are memoized internally for optimal performance
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="React Overview" icon="react" href="/react/overview">
+    Learn React integration
+  </Card>
+  <Card title="React Examples" icon="code" href="/examples/react">
+    See complete examples
+  </Card>
+</CardGroup>
+

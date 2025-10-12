@@ -1,0 +1,367 @@
+---
+title: "Personalization"
+description: "Create unique experiences for each user"
+---
+
+## What is Personalization?
+
+Personalization means showing different content to different users based on who they are, what they've done, or what they prefer. It makes your app feel tailored to each person.
+
+**Examples**:
+- Premium users see advanced features
+- New users see onboarding tips
+- Users in different regions see localized content
+
+## Basic Personalization
+
+Show different content based on user plan:
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function Hero() {
+  const { user } = useAuth();
+  
+  const { value: message } = useConfig('hero_message', {
+    properties: {
+      plan: user.plan
+    }
+  });
+  
+  return <h1>{message || 'Welcome!'}</h1>;
+}
+```
+
+**Dashboard setup**:
+- Free users: "Upgrade to unlock premium features"
+- Premium users: "Welcome back, premium member"
+- Enterprise users: "Your dedicated dashboard"
+
+## User Properties
+
+Set properties to describe users:
+
+```typescript
+function App() {
+  const grain = useGrainAnalytics();
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    if (user) {
+      grain.setUserId(user.id);
+      grain.setProperty({
+        plan: user.plan,
+        signup_date: user.signupDate,
+        location: user.country,
+        language: user.language
+      });
+    }
+  }, [user, grain]);
+  
+  return <AppContent />;
+}
+```
+
+Now all configurations can use these properties for personalization.
+
+## Multi-Property Personalization
+
+Combine multiple properties:
+
+```typescript
+function Offer() {
+  const { user } = useAuth();
+  
+  const { value: offer } = useConfig('special_offer', {
+    properties: {
+      plan: user.plan,
+      location: user.country,
+      days_since_signup: calculateDays(user.signupDate)
+    }
+  });
+  
+  if (!offer) return null;
+  
+  return <OfferBanner text={offer} />;
+}
+```
+
+**Dashboard rules**:
+- New users (< 7 days) in US: "Get 20% off your first month"
+- Free users (> 30 days) in EU: "Upgrade now, save 15%"
+- All others: No offer
+
+## Content Localization
+
+Show localized content:
+
+```typescript
+function Pricing() {
+  const { user } = useAuth();
+  
+  const { value: currency } = useConfig('currency', {
+    properties: { location: user.country }
+  });
+  
+  const { value: price } = useConfig('monthly_price', {
+    properties: { location: user.country }
+  });
+  
+  return (
+    <div>
+      <h3>Monthly Plan</h3>
+      <p>{currency}{price}/month</p>
+    </div>
+  );
+}
+```
+
+US users see "$29", UK users see "£24", EU users see "€27".
+
+## Behavioral Personalization
+
+Personalize based on user behavior:
+
+```typescript
+function Dashboard() {
+  const grain = useGrainAnalytics();
+  const { user } = useAuth();
+  
+  // Set behavior properties
+  useEffect(() => {
+    grain.setProperty({
+      login_count: user.loginCount.toString(),
+      last_feature_used: user.lastFeature,
+      engagement_level: user.engagementScore
+    });
+  }, [user, grain]);
+  
+  const { value: tutorialVisible } = useConfig('show_tutorial', {
+    properties: {
+      login_count: user.loginCount.toString()
+    }
+  });
+  
+  return (
+    <>
+      {tutorialVisible === 'true' && <Tutorial />}
+      <MainContent />
+    </>
+  );
+}
+```
+
+**Dashboard rule**: Show tutorial if `login_count < 5`.
+
+## Time-Based Personalization
+
+Personalize based on user tenure:
+
+```typescript
+function WelcomeMessage() {
+  const { user } = useAuth();
+  const daysSinceSignup = Math.floor(
+    (Date.now() - new Date(user.signupDate).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  
+  const { value: message } = useConfig('welcome_message', {
+    properties: {
+      days_since_signup: daysSinceSignup.toString()
+    }
+  });
+  
+  return <h2>{message || 'Welcome!'}</h2>;
+}
+```
+
+**Dashboard rules**:
+- Day 1: "Welcome! Let's get you started"
+- Days 2-7: "You're off to a great start"
+- Days 8-30: "You're getting the hang of it"
+- 30+: "Thanks for being with us"
+
+## Feature Access Control
+
+Control feature access by plan:
+
+```typescript
+function AdvancedAnalytics() {
+  const { user } = useAuth();
+  
+  const { value: access } = useConfig('analytics_access', {
+    properties: {
+      plan: user.plan
+    }
+  });
+  
+  if (access !== 'granted') {
+    return (
+      <div>
+        <h3>Advanced Analytics</h3>
+        <p>Upgrade to premium to unlock</p>
+        <UpgradeButton />
+      </div>
+    );
+  }
+  
+  return <AnalyticsDashboard />;
+}
+```
+
+**Dashboard rule**: if `plan === 'premium' || plan === 'enterprise'`, return `'granted'`.
+
+## Personalized Onboarding
+
+Tailor onboarding to user type:
+
+```typescript
+function Onboarding() {
+  const { user } = useAuth();
+  
+  const { value: onboardingType } = useConfig('onboarding_flow', {
+    properties: {
+      user_role: user.role,
+      company_size: user.companySize
+    }
+  });
+  
+  const flows = {
+    'solo': <SoloOnboarding />,
+    'team': <TeamOnboarding />,
+    'enterprise': <EnterpriseOnboarding />
+  };
+  
+  return flows[onboardingType || 'solo'];
+}
+```
+
+Different onboarding for solopreneurs vs. teams vs. enterprises.
+
+## Recommendation Engine
+
+Show personalized recommendations:
+
+```typescript
+function Recommendations() {
+  const { user } = useAuth();
+  
+  const { value: recommendedFeatures } = useConfig('recommended_features', {
+    properties: {
+      plan: user.plan,
+      features_used: user.featuresUsed.join(','),
+      industry: user.industry
+    }
+  });
+  
+  const features = recommendedFeatures?.split(',') || [];
+  
+  return (
+    <div>
+      <h3>Recommended for You</h3>
+      {features.map(feature => (
+        <FeatureCard key={feature} name={feature} />
+      ))}
+    </div>
+  );
+}
+```
+
+## Personalized Notifications
+
+Customize notification preferences:
+
+```typescript
+function NotificationCenter() {
+  const { user } = useAuth();
+  
+  const { value: notificationFreq } = useConfig('notification_frequency', {
+    properties: {
+      plan: user.plan,
+      engagement_level: user.engagement
+    }
+  });
+  
+  // High engagement users: real-time
+  // Medium engagement: daily digest
+  // Low engagement: weekly summary
+  
+  return <Notifications frequency={notificationFreq || 'daily'} />;
+}
+```
+
+## Dynamic Pricing
+
+Show personalized pricing:
+
+```typescript
+function PricingCard() {
+  const { user } = useAuth();
+  
+  const { value: discount } = useConfig('pricing_discount', {
+    properties: {
+      plan: user.plan,
+      days_since_signup: calculateDays(user.signupDate),
+      location: user.country
+    }
+  });
+  
+  const basePrice = 29;
+  const discountAmount = parseInt(discount || '0');
+  const finalPrice = basePrice - (basePrice * discountAmount / 100);
+  
+  return (
+    <div>
+      <h3>Upgrade to Pro</h3>
+      {discountAmount > 0 && (
+        <p className="discount">{discountAmount}% off special offer!</p>
+      )}
+      <p className="price">${finalPrice}/month</p>
+    </div>
+  );
+}
+```
+
+## Testing Personalization
+
+Test your personalization logic:
+
+```typescript
+// Test with different user properties
+const testCases = [
+  { plan: 'free', expected: 'Upgrade to unlock' },
+  { plan: 'premium', expected: 'Welcome back!' },
+  { plan: 'enterprise', expected: 'Your dashboard' }
+];
+
+testCases.forEach(({ plan, expected }) => {
+  const message = getConfigWithProperties('hero_message', { plan });
+  expect(message).toBe(expected);
+});
+```
+
+## Best Practices
+
+**1. Start Simple**: Begin with plan-based personalization, add complexity gradually.
+
+**2. Provide Defaults**: Always have fallback content.
+
+**3. Respect Privacy**: Only collect properties users consent to.
+
+**4. Test Thoroughly**: Verify each personalization path works.
+
+**5. Monitor Performance**: Track if personalization improves metrics.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Properties" icon="tags" href="/core/user-properties">
+    Learn about user properties
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Master configuration management
+  </Card>
+  <Card title="A/B Testing" icon="flask" href="/guides/ab-testing">
+    Test personalization strategies
+  </Card>
+</CardGroup>
+

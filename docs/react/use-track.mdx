@@ -1,0 +1,303 @@
+---
+title: "useTrack Hook"
+description: "Track events efficiently in React components"
+---
+
+## Basic Usage
+
+Get a stable function for tracking events:
+
+```typescript
+import { useTrack } from '@grainql/analytics-web/react';
+
+function Button() {
+  const track = useTrack();
+  
+  return (
+    <button onClick={() => track('button_clicked', { button: 'signup' })}>
+      Sign Up
+    </button>
+  );
+}
+```
+
+Simple, clean, and efficient.
+
+## Why useTrack?
+
+In React, functions created in components get recreated every render. This causes problems:
+
+```typescript
+// ❌ Without useTrack: New function every render
+function Component() {
+  const handleClick = () => {
+    grain.track('clicked');
+  };
+  
+  return <ChildComponent onClick={handleClick} />;
+  // Child re-renders unnecessarily because handleClick changes
+}
+
+// ✅ With useTrack: Stable function reference
+function Component() {
+  const track = useTrack();
+  
+  const handleClick = useCallback(() => {
+    track('clicked');
+  }, [track]); // track never changes
+  
+  return <ChildComponent onClick={handleClick} />;
+}
+```
+
+`useTrack` returns a **stable function reference** that never changes, preventing unnecessary re-renders.
+
+## The useCallback Explanation
+
+In React, `useCallback` memoizes functions so they don't get recreated every render:
+
+```typescript
+// New function every render
+const handler = () => { /* ... */ };
+
+// Same function across renders (unless dependencies change)
+const handler = useCallback(() => { /* ... */ }, [dependencies]);
+```
+
+`useTrack` already uses `useCallback` internally, so you get a stable `track` function automatically.
+
+## Tracking Events
+
+Track with event name and properties:
+
+```typescript
+function Component() {
+  const track = useTrack();
+  
+  const handlePurchase = () => {
+    track('purchase_completed', {
+      product_id: 'abc123',
+      price: 99.99,
+      currency: 'USD'
+    });
+  };
+  
+  return <button onClick={handlePurchase}>Buy Now</button>;
+}
+```
+
+## Flush Option
+
+Force immediate sending for critical events:
+
+```typescript
+function Checkout() {
+  const track = useTrack();
+  
+  const handleComplete = async () => {
+    await track('checkout_completed', {
+      order_id: 'order_123'
+    }, { flush: true });
+    
+    // Event sent before navigation
+    router.push('/success');
+  };
+  
+  return <button onClick={handleComplete}>Complete</button>;
+}
+```
+
+## Passing to Children
+
+Safe to pass down to child components:
+
+```typescript
+function Parent() {
+  const track = useTrack();
+  
+  return (
+    <>
+      <Child onAction={() => track('action_1')} />
+      <Child onAction={() => track('action_2')} />
+      <Child onAction={() => track('action_3')} />
+    </>
+  );
+}
+```
+
+Since `track` is stable, child components won't re-render unnecessarily.
+
+## Common Patterns
+
+### Button Click
+
+```typescript
+function SignupButton() {
+  const track = useTrack();
+  
+  return (
+    <button onClick={() => track('signup_clicked', {
+      location: 'header',
+      page: window.location.pathname
+    })}>
+      Sign Up
+    </button>
+  );
+}
+```
+
+### Form Submission
+
+```typescript
+function ContactForm() {
+  const track = useTrack();
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    await track('form_submitted', {
+      form_type: 'contact',
+      fields: 4
+    }, { flush: true });
+    
+    // Submit form
+  };
+  
+  return <form onSubmit={handleSubmit}>...</form>;
+}
+```
+
+### Page View
+
+```typescript
+function Page() {
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('page_viewed', {
+      page: '/dashboard',
+      title: 'Dashboard'
+    });
+  }, [track]);
+  
+  return <div>...</div>;
+}
+```
+
+Since `track` is stable, this effect only runs once when the component mounts.
+
+### Feature Usage
+
+```typescript
+function ExportButton() {
+  const track = useTrack();
+  
+  const handleExport = () => {
+    track('export_clicked', {
+      format: 'csv',
+      rows: 1000
+    });
+    
+    // Perform export
+    exportData();
+  };
+  
+  return <button onClick={handleExport}>Export</button>;
+}
+```
+
+## With Template Events
+
+Access template methods through the client:
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+function LoginForm() {
+  const grain = useGrainAnalytics();
+  
+  const handleLogin = async (email, password) => {
+    const success = await authenticate(email, password);
+    
+    await grain.trackLogin({
+      method: 'email',
+      success
+    });
+  };
+  
+  return <form>...</form>;
+}
+```
+
+Or use `useTrack` for custom events:
+
+```typescript
+function LoginForm() {
+  const track = useTrack();
+  
+  const handleLogin = async (email, password) => {
+    const success = await authenticate(email, password);
+    
+    await track('login', {
+      method: 'email',
+      success
+    });
+  };
+  
+  return <form>...</form>;
+}
+```
+
+## Performance Tips
+
+The hook is already optimized, but here are tips for best results:
+
+**1. Don't create track calls in render**:
+```typescript
+// ❌ Bad: Track call in render
+function Component() {
+  const track = useTrack();
+  track('rendered'); // Tracks on every render!
+  return <div>...</div>;
+}
+
+// ✅ Good: Track in event handler or effect
+function Component() {
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('mounted'); // Tracks once on mount
+  }, [track]);
+  
+  return <div>...</div>;
+}
+```
+
+**2. Combine with useCallback for complex handlers**:
+```typescript
+function Component() {
+  const track = useTrack();
+  
+  const handleComplexAction = useCallback((data) => {
+    // Complex logic
+    track('action', data);
+  }, [track]);
+  
+  return <Child onAction={handleComplexAction} />;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn about event tracking
+  </Card>
+  <Card title="useGrainAnalytics" icon="code" href="/react/use-grain-analytics">
+    Access full client API
+  </Card>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Use pre-built event methods
+  </Card>
+</CardGroup>
+

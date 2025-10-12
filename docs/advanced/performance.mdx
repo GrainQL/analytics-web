@@ -1,0 +1,292 @@
+---
+title: "Performance"
+description: "Optimize Grain Analytics for your use case"
+---
+
+## Bundle Size
+
+Grain is designed to be lightweight:
+
+- **Core SDK**: ~6 KB gzipped
+- **With React Hooks**: ~8 KB gzipped
+- **Zero dependencies**: No bloat
+
+The SDK is tree-shakeable - only bundle what you use.
+
+## Batching Strategy
+
+Events are automatically batched for efficiency:
+
+```typescript
+// Default: Batch 50 events or 5 seconds
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  batchSize: 50,
+  flushInterval: 5000
+});
+```
+
+**Higher batch size** = Fewer requests, longer delays
+**Lower batch size** = More requests, shorter delays
+
+### For High-Traffic Apps
+
+Increase batch size to reduce request volume:
+
+```typescript
+{
+  batchSize: 100,
+  flushInterval: 10000  // 10 seconds
+}
+```
+
+### For Real-Time Apps
+
+Decrease batch size for faster delivery:
+
+```typescript
+{
+  batchSize: 10,
+  flushInterval: 1000  // 1 second
+}
+```
+
+### For Serverless
+
+Disable batching, flush manually:
+
+```typescript
+{
+  batchSize: 1,  // No batching
+  flushInterval: 0  // No auto-flush
+}
+
+// Flush before function ends
+await grain.track('event', { data: 'value' }, { flush: true });
+```
+
+## Configuration Caching
+
+Remote config uses cache-first strategy for instant loading:
+
+**How it works**:
+1. Return cached/default value immediately (0ms)
+2. Fetch fresh value in background
+3. Update cache when received
+
+```typescript
+// Instant access
+const heroText = grain.getConfig('hero_text');
+// Returns cached value, fetches fresh in background
+```
+
+### Refresh Interval
+
+Control how often configs refresh:
+
+```typescript
+{
+  configRefreshInterval: 120000  // Refresh every 2 minutes
+}
+```
+
+Less frequent = Fewer requests, slightly stale data
+More frequent = More requests, fresher data
+
+### Disable Caching
+
+For testing or specific scenarios:
+
+```typescript
+{
+  enableConfigCache: false  // Always fetch from API
+}
+```
+
+**Warning**: Disabling cache means waiting for network on every access.
+
+## React Hooks Optimization
+
+Hooks are optimized to prevent unnecessary re-renders:
+
+```typescript
+// Only re-renders when 'hero_text' changes
+function Component() {
+  const { value } = useConfig('hero_text');
+  return <h1>{value}</h1>;
+}
+```
+
+**useAllConfigs** re-renders on any config change:
+
+```typescript
+// Re-renders when any config changes
+function Component() {
+  const { configs } = useAllConfigs();
+  return <h1>{configs.hero_text}</h1>;
+}
+```
+
+**Tip**: Use `useConfig` for specific values to minimize re-renders.
+
+## Track Function Memoization
+
+`useTrack` returns a stable function reference:
+
+```typescript
+function Component() {
+  const track = useTrack();
+  // track reference never changes
+  
+  const handleClick = useCallback(() => {
+    track('clicked');
+  }, [track]); // track is stable
+  
+  return <button onClick={handleClick}>Click</button>;
+}
+```
+
+No need to memoize `track` - already optimized.
+
+## Preloading Configurations
+
+Preload configs at app startup for zero-delay access:
+
+```typescript
+useEffect(() => {
+  await grain.preloadConfig(['hero_text', 'button_color', 'feature_enabled']);
+  // Now these are available synchronously
+}, []);
+```
+
+**Trade-off**: Upfront loading time for instant access later.
+
+## Lazy Loading
+
+Initialize Grain lazily if not needed immediately:
+
+```typescript
+let grain = null;
+
+function getGrain() {
+  if (!grain) {
+    grain = createGrainAnalytics({
+      tenantId: 'your-tenant-id'
+    });
+  }
+  return grain;
+}
+
+// Only initializes when first used
+getGrain().track('event');
+```
+
+## Network Optimization
+
+### Retry Configuration
+
+Balance reliability with performance:
+
+```typescript
+{
+  retryAttempts: 3,  // Try 3 times
+  retryDelay: 1000   // 1s, 2s, 4s (exponential)
+}
+```
+
+More retries = Better reliability, slower failure detection
+Fewer retries = Faster failure, may lose events
+
+### Beacon API
+
+For page exit events, Beacon API ensures delivery:
+
+```typescript
+window.addEventListener('beforeunload', () => {
+  grain.track('page_exited');
+  // Uses Beacon API automatically - no delay
+});
+```
+
+## Memory Management
+
+Events are queued in memory until sent. Large queues use more memory:
+
+```typescript
+// Smaller batch = Less memory usage
+{
+  batchSize: 25,  // Queue max 25 events
+  flushInterval: 3000  // Flush every 3 seconds
+}
+```
+
+## Monitoring Performance
+
+Enable debug mode to monitor performance:
+
+```typescript
+{
+  debug: true
+}
+```
+
+Check console for:
+- Batch send times
+- Queue sizes
+- Network requests
+- Retry attempts
+
+## Code Splitting
+
+For React apps, split Grain from main bundle:
+
+```typescript
+// Lazy load Grain provider
+const GrainProvider = lazy(() => 
+  import('@grainql/analytics-web/react').then(m => ({ 
+    default: m.GrainProvider 
+  }))
+);
+```
+
+**Trade-off**: Smaller initial bundle, slight delay before tracking starts.
+
+## Best Practices
+
+**1. Use Default Settings**: Optimized for most cases
+
+**2. Profile Before Optimizing**: Measure actual impact
+
+**3. Batch Wisely**: Balance freshness with efficiency
+
+**4. Cache Aggressively**: Configs should cache by default
+
+**5. Lazy Load When Possible**: Don't block critical path
+
+## Measuring Impact
+
+Track Grain's performance impact:
+
+```typescript
+const start = performance.now();
+
+grain.track('event', { data: 'value' });
+
+const duration = performance.now() - start;
+console.log(`Track took ${duration}ms`);
+// Usually < 1ms (just queuing)
+```
+
+Track operations are nearly instant (just queue), network happens in background.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/advanced/configuration">
+    Tune configuration options
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/advanced/error-handling">
+    Handle failures gracefully
+  </Card>
+</CardGroup>
+

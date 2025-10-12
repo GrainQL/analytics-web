@@ -1,0 +1,245 @@
+---
+title: "Event Tracking"
+description: "Learn how to track user actions and understand event fundamentals"
+---
+
+## What Are Events?
+
+Events represent actions that happen in your application. Every time a user clicks a button, views a page, or completes a purchase, you can track it as an event.
+
+Think of events as a timeline of what users do in your app. By tracking these actions, you can:
+- Understand which features users engage with most
+- Identify where users drop off in your funnel
+- Measure the impact of changes to your product
+
+## Basic Event Tracking
+
+The simplest way to track an event is with a name and properties:
+
+```typescript
+grain.track('button_clicked', {
+  button_name: 'signup',
+  page: '/home'
+});
+```
+
+**Anatomy of an event**:
+- **Event name** (`button_clicked`): What happened
+- **Properties** (`button_name`, `page`): Context about the event
+
+Event names should be clear and descriptive. Use past tense to indicate an action that already happened.
+
+## Event Properties
+
+Properties add context to events. They answer questions like "which button?" or "how much?":
+
+```typescript
+// Good: Rich context
+grain.track('product_viewed', {
+  product_id: 'abc123',
+  product_name: 'Blue Sneakers',
+  category: 'footwear',
+  price: 89.99
+});
+
+// Bad: Too vague
+grain.track('view');
+```
+
+**Best practices**:
+- Include relevant context (IDs, names, amounts)
+- Use consistent naming (snake_case or camelCase)
+- Avoid sensitive data (passwords, credit cards)
+- Keep property names simple and clear
+
+## Automatic Batching
+
+Here's where Grain saves you effort: events are automatically batched for efficiency.
+
+**What is batching?** Instead of sending each event immediately (slow and expensive), Grain collects events and sends them in groups.
+
+```typescript
+// These three events...
+grain.track('page_viewed', { page: '/products' });
+grain.track('button_clicked', { button: 'filter' });
+grain.track('search_performed', { query: 'shoes' });
+
+// ...are batched and sent together
+// after 5 seconds or when 50 events accumulate
+```
+
+**Default behavior**:
+- Events batch every **5 seconds**
+- Or when **50 events** accumulate
+- Whichever comes first
+
+You can customize this:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  batchSize: 100,        // Send after 100 events
+  flushInterval: 10000   // Or every 10 seconds
+});
+```
+
+## Manual Flushing
+
+Sometimes you need to send events immediately:
+
+```typescript
+// Track a critical event
+grain.track('purchase_completed', {
+  order_id: '12345',
+  total: 99.99
+});
+
+// Force send immediately
+await grain.flush();
+```
+
+**When to flush manually**:
+- Before page navigation
+- Critical events (purchases, signups)
+- Before app closes or logs out
+- In serverless functions
+
+**One-time flush**: Pass `flush: true` to track():
+
+```typescript
+// This event sends immediately
+await grain.track('checkout_started', {
+  cart_total: 149.99
+}, { flush: true });
+```
+
+## User Association
+
+Events are more valuable when you know *who* performed them. Set a user ID to associate events with a specific user:
+
+```typescript
+// When user logs in
+grain.setUserId('user_123');
+
+// All subsequent events include this user ID
+grain.track('feature_used', { feature: 'export' });
+grain.track('settings_changed', { setting: 'theme' });
+```
+
+Without a user ID, events are anonymous. This is fine for public websites, but for authenticated apps, always set the user ID.
+
+## Event Lifecycle
+
+Understanding what happens to events helps you track effectively:
+
+1. **Track**: You call `grain.track()`
+2. **Queue**: Event added to internal queue
+3. **Batch**: Queue accumulates until batch size or interval
+4. **Send**: Batch sent to Grain API
+5. **Retry**: If failed, retry with exponential backoff
+6. **Success**: Event stored in Grain analytics
+
+```typescript
+// Configure retry behavior
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  retryAttempts: 3,  // Try 3 times if failed
+  retryDelay: 1000   // Wait 1s, then 2s, then 4s (exponential)
+});
+```
+
+## Reliable Delivery
+
+Grain ensures events aren't lost, even when:
+- Network is slow or fails temporarily
+- User closes the browser
+- App crashes
+
+**Page exit events**: Use the Beacon API for reliable delivery when users leave:
+
+```typescript
+window.addEventListener('beforeunload', () => {
+  grain.track('page_exited', { page: window.location.pathname });
+  // Beacon API used automatically - event sends even if page closes
+});
+```
+
+The SDK automatically uses the Beacon API when the browser is closing, ensuring events aren't lost.
+
+## Common Patterns
+
+### Page View Tracking
+
+```typescript
+// Track every page view
+grain.track('page_viewed', {
+  page: window.location.pathname,
+  title: document.title,
+  referrer: document.referrer
+});
+```
+
+### Button Click Tracking
+
+```typescript
+// Add to button handlers
+button.addEventListener('click', () => {
+  grain.track('button_clicked', {
+    button_name: button.id,
+    button_text: button.textContent,
+    page: window.location.pathname
+  });
+});
+```
+
+### Form Submission
+
+```typescript
+form.addEventListener('submit', async (e) => {
+  // Track before submission
+  await grain.track('form_submitted', {
+    form_name: form.id,
+    num_fields: form.elements.length
+  }, { flush: true });
+  
+  // Continue with form submission
+});
+```
+
+## Debug Mode
+
+Not sure if events are sending? Enable debug mode:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  debug: true
+});
+
+// Now see detailed logs in console
+grain.track('test_event', { test: true });
+```
+
+You'll see logs for queueing, batching, sending, and responses.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Learn to track users across sessions
+  </Card>
+  <Card title="User Properties" icon="tags" href="/core/user-properties">
+    Add attributes to user profiles
+  </Card>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Use pre-built event methods
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/core-methods">
+    See all tracking methods
+  </Card>
+</CardGroup>
+
+<Note>
+  View your events in real-time at [grainql.com/dashboard](https://grainql.com/dashboard)
+</Note>
+

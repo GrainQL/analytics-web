@@ -1,0 +1,216 @@
+---
+title: "GrainProvider"
+description: "Set up Grain Analytics in your React app"
+---
+
+## What is GrainProvider?
+
+`GrainProvider` is a React component that makes Grain available throughout your app using React's Context API. Wrap your app with it once, then use hooks anywhere.
+
+```typescript
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <YourApp />
+    </GrainProvider>
+  );
+}
+```
+
+Now any component inside can use Grain hooks like `useConfig` and `useTrack`.
+
+## Provider-Managed Pattern
+
+The simplest way - let the provider create and manage the Grain client:
+
+```typescript
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <App />
+</GrainProvider>
+```
+
+Pass any configuration options:
+
+```typescript
+<GrainProvider 
+  config={{
+    tenantId: 'your-tenant-id',
+    authStrategy: 'JWT',
+    authProvider: { getToken: () => getAccessToken() },
+    userId: currentUser?.id,
+    defaultConfigurations: {
+      hero_text: 'Welcome!',
+      feature_enabled: 'false'
+    }
+  }}
+>
+  <App />
+</GrainProvider>
+```
+
+**When to use**: Most apps. Simple, works great, no external client needed.
+
+## External Client Pattern
+
+Create the client yourself, then pass it to the provider:
+
+```typescript
+import { GrainAnalytics } from '@grainql/analytics-web';
+
+const grain = new GrainAnalytics({
+  tenantId: 'your-tenant-id'
+});
+
+<GrainProvider client={grain}>
+  <App />
+</GrainProvider>
+```
+
+**When to use**:
+- Need to access Grain outside React components
+- Want to share one instance across multiple apps
+- Need full control over client lifecycle
+
+## Dynamic User ID
+
+Update the user ID when authentication changes:
+
+```typescript
+function AppWithAuth() {
+  const { user } = useAuth(); // Your auth hook
+
+  return (
+    <GrainProvider 
+      config={{ 
+        tenantId: 'your-tenant-id',
+        userId: user?.id  // Updates automatically when user changes
+      }}
+    >
+      <App />
+    </GrainProvider>
+  );
+}
+```
+
+**What happens**: When `userId` changes, the provider updates the Grain client automatically. No manual `setUserId()` calls needed.
+
+## Multiple Providers
+
+You can nest providers for different tenants (rare):
+
+```typescript
+<GrainProvider config={{ tenantId: 'tenant-1' }}>
+  <MainApp />
+  
+  <GrainProvider config={{ tenantId: 'tenant-2' }}>
+    <SubApp />
+  </GrainProvider>
+</GrainProvider>
+```
+
+Inner provider overrides outer one for components inside it.
+
+## Provider Position
+
+Place the provider high in your component tree:
+
+```typescript
+// ✅ Good: High in the tree
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <Router>
+    <App />
+  </Router>
+</GrainProvider>
+
+// ❌ Bad: Below router means hooks can't be used in route components
+<Router>
+  <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+    <App />
+  </GrainProvider>
+</Router>
+```
+
+## Error Handling
+
+If hooks are used outside a provider, you'll get an error:
+
+```typescript
+function Component() {
+  const track = useTrack(); // Error: must be inside GrainProvider
+}
+```
+
+Always wrap your app with the provider before using hooks.
+
+## Configuration Updates
+
+Configuration changes cause provider to re-render children. Use stable config objects:
+
+```typescript
+// ✅ Good: Stable config
+const config = useMemo(() => ({
+  tenantId: 'your-tenant-id',
+  userId: user?.id
+}), [user?.id]);
+
+<GrainProvider config={config}>
+  <App />
+</GrainProvider>
+
+// ⚠️ Creates new object every render
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <App />
+</GrainProvider>
+```
+
+The second example works but may cause unnecessary re-renders. Use `useMemo` if config is complex or changes frequently.
+
+## With Next.js
+
+In Next.js, wrap your app in `_app.tsx`:
+
+```typescript
+// pages/_app.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export default function MyApp({ Component, pageProps }) {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <Component {...pageProps} />
+    </GrainProvider>
+  );
+}
+```
+
+For App Router:
+
+```typescript
+// app/layout.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+          {children}
+        </GrainProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="useConfig" icon="sliders" href="/react/use-config">
+    Access remote configurations
+  </Card>
+  <Card title="useTrack" icon="chart-line" href="/react/use-track">
+    Track events efficiently
+  </Card>
+</CardGroup>
+

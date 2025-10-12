@@ -50,6 +50,12 @@ export interface SetPropertyOptions {
   userId?: string; // Override global userId
 }
 
+export interface LoginOptions {
+  userId?: string; // User ID to set
+  authToken?: string; // Auth token to set for JWT auth
+  authStrategy?: AuthStrategy; // Override auth strategy
+}
+
 export interface PropertyPayload {
   userId: string;
   [key: string]: string; // All property values must be strings
@@ -202,6 +208,12 @@ export interface FormattedError {
 
 /**
  * Main Grain Analytics client
+ * 
+ * Features:
+ * - Automatic UUIDv4 generation for anonymous users
+ * - Login/logout functionality for dynamic auth token injection
+ * - Persistent anonymous user ID across sessions
+ * - Support for multiple auth strategies (NONE, SERVER_SIDE, JWT)
  */
 type RequiredConfig = Required<Omit<GrainConfig, 'secretKey' | 'authProvider' | 'userId'>> & {
   secretKey?: string;
@@ -284,10 +296,10 @@ export class GrainAnalytics {
   }
 
   /**
-   * Format UUID for anonymous user ID (remove dashes and prefix with 'temp:')
+   * Generate a proper UUIDv4 identifier for anonymous user ID
    */
-  private formatAnonymousUserId(uuid: string): string {
-    return `temp:${uuid.replace(/-/g, '')}`;
+  private generateAnonymousUserId(): string {
+    return this.generateUUID();
   }
 
   /**
@@ -304,17 +316,15 @@ export class GrainAnalytics {
         this.persistentAnonymousUserId = stored;
         this.log('Loaded persistent anonymous user ID:', this.persistentAnonymousUserId);
       } else {
-        // Generate new anonymous user ID
-        const uuid = this.generateUUID();
-        this.persistentAnonymousUserId = this.formatAnonymousUserId(uuid);
+        // Generate new UUIDv4 anonymous user ID
+        this.persistentAnonymousUserId = this.generateAnonymousUserId();
         localStorage.setItem(storageKey, this.persistentAnonymousUserId);
         this.log('Generated new persistent anonymous user ID:', this.persistentAnonymousUserId);
       }
     } catch (error) {
       this.log('Failed to initialize persistent anonymous user ID:', error);
       // Fallback: generate temporary ID without persistence
-      const uuid = this.generateUUID();
-      this.persistentAnonymousUserId = this.formatAnonymousUserId(uuid);
+      this.persistentAnonymousUserId = this.generateAnonymousUserId();
     }
   }
 
@@ -322,7 +332,28 @@ export class GrainAnalytics {
    * Get the effective user ID (global userId or persistent anonymous ID)
    */
   private getEffectiveUserId(): string {
-    return this.globalUserId || this.persistentAnonymousUserId || 'anonymous';
+    if (this.globalUserId) {
+      return this.globalUserId;
+    }
+    
+    if (this.persistentAnonymousUserId) {
+      return this.persistentAnonymousUserId;
+    }
+    
+    // Generate a new UUIDv4 identifier as fallback
+    this.persistentAnonymousUserId = this.generateAnonymousUserId();
+    
+    // Try to persist it
+    if (typeof window !== 'undefined') {
+      try {
+        const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+        localStorage.setItem(storageKey, this.persistentAnonymousUserId);
+      } catch (error) {
+        this.log('Failed to persist generated anonymous user ID:', error);
+      }
+    }
+    
+    return this.persistentAnonymousUserId;
   }
 
   private log(...args: unknown[]): void {
@@ -530,7 +561,7 @@ export class GrainAnalytics {
         const response = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ events }),
+          body: JSON.stringify(events),
         });
 
         if (!response.ok) {
@@ -735,9 +766,25 @@ export class GrainAnalytics {
   setUserId(userId: string | null): void {
     this.log(`Set global user ID: ${userId}`);
     this.globalUserId = userId;
-    // Clear persistent anonymous user ID if setting a real user ID
+    
     if (userId) {
+      // Clear persistent anonymous user ID if setting a real user ID
       this.persistentAnonymousUserId = null;
+    } else {
+      // If clearing user ID, ensure we have a UUIDv4 identifier
+      if (!this.persistentAnonymousUserId) {
+        this.persistentAnonymousUserId = this.generateAnonymousUserId();
+        
+        // Try to persist the new anonymous ID
+        if (typeof window !== 'undefined') {
+          try {
+            const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+            localStorage.setItem(storageKey, this.persistentAnonymousUserId);
+          } catch (error) {
+            this.log('Failed to persist new anonymous user ID:', error);
+          }
+        }
+      }
     }
   }
 
@@ -753,6 +800,116 @@ export class GrainAnalytics {
    */
   getEffectiveUserIdPublic(): string {
     return this.getEffectiveUserId();
+  }
+
+  /**
+   * Login with auth token or userId on the fly
+   * 
+   * @example
+   * // Login with userId only
+   * client.login({ userId: 'user123' });
+   * 
+   * // Login with auth token (automatically sets authStrategy to JWT)
+   * client.login({ authToken: 'jwt-token-here' });
+   * 
+   * // Login with both userId and auth token
+   * client.login({ userId: 'user123', authToken: 'jwt-token-here' });
+   * 
+   * // Override auth strategy
+   * client.login({ userId: 'user123', authStrategy: 'SERVER_SIDE' });
+   */
+  login(options: LoginOptions): void {
+    try {
+      if (this.isDestroyed) {
+        const error = new Error('Grain Analytics: Client has been destroyed');
+        const formattedError = this.formatError(error, 'login (client destroyed)');
+        this.logError(formattedError);
+        return;
+      }
+
+      // Set userId if provided
+      if (options.userId) {
+        this.log(`Login: Setting user ID to ${options.userId}`);
+        this.globalUserId = options.userId;
+        // Clear persistent anonymous user ID since we now have a real user ID
+        this.persistentAnonymousUserId = null;
+      }
+
+      // Handle auth token if provided
+      if (options.authToken) {
+        this.log('Login: Setting auth token');
+        // Update auth strategy to JWT if not already set
+        if (this.config.authStrategy === 'NONE') {
+          this.config.authStrategy = 'JWT';
+        }
+        
+        // Create a simple auth provider that returns the provided token
+        this.config.authProvider = {
+          getToken: () => options.authToken!
+        };
+      }
+
+      // Override auth strategy if provided
+      if (options.authStrategy) {
+        this.log(`Login: Setting auth strategy to ${options.authStrategy}`);
+        this.config.authStrategy = options.authStrategy;
+      }
+
+      this.log(`Login successful. Effective user ID: ${this.getEffectiveUserId()}`);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'login');
+      this.logError(formattedError);
+    }
+  }
+
+  /**
+   * Logout and clear user session, fall back to UUIDv4 identifier
+   * 
+   * @example
+   * // Logout user and return to anonymous mode
+   * client.logout();
+   * 
+   * // After logout, events will use the persistent UUIDv4 identifier
+   * client.track('page_view', { page: 'home' });
+   */
+  logout(): void {
+    try {
+      if (this.isDestroyed) {
+        const error = new Error('Grain Analytics: Client has been destroyed');
+        const formattedError = this.formatError(error, 'logout (client destroyed)');
+        this.logError(formattedError);
+        return;
+      }
+
+      this.log('Logout: Clearing user session');
+      
+      // Clear global user ID
+      this.globalUserId = null;
+      
+      // Reset auth strategy to NONE
+      this.config.authStrategy = 'NONE';
+      this.config.authProvider = undefined;
+      
+      // Generate new UUIDv4 identifier if we don't have one
+      if (!this.persistentAnonymousUserId) {
+        this.persistentAnonymousUserId = this.generateAnonymousUserId();
+        
+        // Try to persist the new anonymous ID
+        if (typeof window !== 'undefined') {
+          try {
+            const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+            localStorage.setItem(storageKey, this.persistentAnonymousUserId);
+          } catch (error) {
+            this.log('Failed to persist new anonymous user ID after logout:', error);
+          }
+        }
+      }
+      
+      this.log(`Logout successful. Effective user ID: ${this.getEffectiveUserId()}`);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'logout');
+      this.logError(formattedError);
+    }
   }
 
   /**
@@ -1272,7 +1429,8 @@ export class GrainAnalytics {
     }
 
     this.configRefreshTimer = window.setInterval(() => {
-      if (!this.isDestroyed && this.globalUserId) {
+      if (!this.isDestroyed) {
+        // Use effective userId (will be generated if not set)
         this.fetchConfig().catch((error) => {
           const formattedError = this.formatError(error, 'auto-config refresh');
           this.logError(formattedError);
@@ -1296,10 +1454,9 @@ export class GrainAnalytics {
    */
   async preloadConfig(immediateKeys: string[] = [], properties?: Record<string, string>): Promise<void> {
     try {
-      if (!this.globalUserId) {
-        this.log('Cannot preload config: no user ID set');
-        return;
-      }
+      // Use effective userId (will be generated if not set)
+      const effectiveUserId = this.getEffectiveUserId();
+      this.log(`Preloading config for user: ${effectiveUserId}`);
 
       const response = await this.fetchConfig({ immediateKeys, properties });
       if (response) {

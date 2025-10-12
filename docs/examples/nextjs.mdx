@@ -1,0 +1,399 @@
+---
+title: "Next.js Example"
+description: "Integrate Grain Analytics in Next.js applications"
+---
+
+## App Router Setup (Next.js 13+)
+
+### Root Layout
+
+```typescript
+// app/layout.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+          {children}
+        </GrainProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Client Component
+
+```typescript
+// app/components/HeroSection.tsx
+'use client';
+
+import { useConfig, useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+export default function HeroSection() {
+  const { value: heroText } = useConfig('hero_text');
+  const track = useTrack();
+
+  useEffect(() => {
+    track('hero_viewed');
+  }, [track]);
+
+  return (
+    <section>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked')}>
+        Get Started
+      </button>
+    </section>
+  );
+}
+```
+
+## Pages Router Setup (Next.js 12)
+
+### _app.tsx
+
+```typescript
+// pages/_app.tsx
+import type { AppProps } from 'next/app';
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <GrainProvider config={{ 
+      tenantId: 'your-tenant-id',
+      defaultConfigurations: {
+        hero_text: 'Welcome!',
+        feature_enabled: 'false'
+      }
+    }}>
+      <Component {...pageProps} />
+    </GrainProvider>
+  );
+}
+```
+
+## Server-Side Analytics
+
+### API Route
+
+```typescript
+// app/api/track/route.ts
+import { createGrainAnalytics } from '@grainql/analytics-web';
+import { NextResponse } from 'next/server';
+
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+export async function POST(request: Request) {
+  const { eventName, properties } = await request.json();
+
+  await grain.track(eventName, properties, { flush: true });
+
+  return NextResponse.json({ success: true });
+}
+```
+
+### Usage
+
+```typescript
+// Client component
+'use client';
+
+async function trackServerSide(eventName, properties) {
+  await fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventName, properties })
+  });
+}
+
+export default function Component() {
+  const handleClick = () => {
+    trackServerSide('button_clicked', { button: 'signup' });
+  };
+
+  return <button onClick={handleClick}>Sign Up</button>;
+}
+```
+
+## Route Change Tracking
+
+### App Router
+
+```typescript
+// app/components/RouteTracker.tsx
+'use client';
+
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+export default function RouteTracker() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const track = useTrack();
+
+  useEffect(() => {
+    track('page_viewed', {
+      page: pathname,
+      search: searchParams.toString()
+    });
+  }, [pathname, searchParams, track]);
+
+  return null;
+}
+
+// Add to layout
+export default function Layout({ children }) {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <RouteTracker />
+      {children}
+    </GrainProvider>
+  );
+}
+```
+
+### Pages Router
+
+```typescript
+// pages/_app.tsx
+import { useRouter } from 'next/router';
+import { useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+function RouteTracker() {
+  const router = useRouter();
+  const track = useTrack();
+
+  useEffect(() => {
+    const handleRouteChange = (url) => {
+      track('page_viewed', { page: url });
+    };
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+    return () => router.events.off('routeChangeComplete', handleRouteChange);
+  }, [router, track]);
+
+  return null;
+}
+
+export default function App({ Component, pageProps }) {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <RouteTracker />
+      <Component {...pageProps} />
+    </GrainProvider>
+  );
+}
+```
+
+## Authentication with NextAuth
+
+```typescript
+// app/components/AuthHandler.tsx
+'use client';
+
+import { useSession } from 'next-auth/react';
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+export default function AuthHandler() {
+  const { data: session } = useSession();
+  const grain = useGrainAnalytics();
+
+  useEffect(() => {
+    if (session?.user) {
+      grain.identify(session.user.id);
+      grain.setProperty({
+        email: session.user.email,
+        name: session.user.name
+      });
+    } else {
+      grain.setUserId(null);
+    }
+  }, [session, grain]);
+
+  return null;
+}
+
+// Add to layout
+import { SessionProvider } from 'next-auth/react';
+
+export default function Layout({ children }) {
+  return (
+    <SessionProvider>
+      <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+        <AuthHandler />
+        {children}
+      </GrainProvider>
+    </SessionProvider>
+  );
+}
+```
+
+## Server Component with Remote Config
+
+```typescript
+// app/page.tsx
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+async function getHeroText() {
+  const grain = createGrainAnalytics({
+    tenantId: process.env.GRAIN_TENANT_ID!,
+    authStrategy: 'SERVER_SIDE',
+    secretKey: process.env.GRAIN_SECRET_KEY!
+  });
+
+  const config = await grain.getAllConfigsAsync();
+  return config.hero_text || 'Welcome!';
+}
+
+export default async function HomePage() {
+  const heroText = await getHeroText();
+
+  return (
+    <div>
+      <h1>{heroText}</h1>
+      <p>Server-rendered with remote config</p>
+    </div>
+  );
+}
+```
+
+## Environment Variables
+
+```bash
+# .env.local
+GRAIN_TENANT_ID=your-tenant-id
+GRAIN_SECRET_KEY=your-secret-key
+NEXT_PUBLIC_GRAIN_TENANT_ID=your-tenant-id
+```
+
+```typescript
+// Use in server
+process.env.GRAIN_SECRET_KEY
+
+// Use in client
+process.env.NEXT_PUBLIC_GRAIN_TENANT_ID
+```
+
+## Serverless Function Example
+
+```typescript
+// pages/api/checkout.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const grain = createGrainAnalytics({
+    tenantId: process.env.GRAIN_TENANT_ID!,
+    authStrategy: 'SERVER_SIDE',
+    secretKey: process.env.GRAIN_SECRET_KEY!
+  });
+
+  const { orderId, total, userId } = req.body;
+
+  await grain.trackCheckout({
+    orderId,
+    total,
+    currency: 'USD'
+  }, { flush: true });
+
+  res.json({ success: true });
+}
+```
+
+## Middleware Tracking
+
+```typescript
+// middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  // Track API requests
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    console.log('API request:', request.nextUrl.pathname);
+    // Could send to analytics API here
+  }
+
+  return NextResponse.next();
+}
+```
+
+## Complete Next.js 13+ Example
+
+```typescript
+// app/layout.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+import AuthHandler from './components/AuthHandler';
+import RouteTracker from './components/RouteTracker';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <GrainProvider 
+          config={{ 
+            tenantId: process.env.NEXT_PUBLIC_GRAIN_TENANT_ID!,
+            defaultConfigurations: {
+              hero_text: 'Welcome!',
+              new_ui_enabled: 'false'
+            }
+          }}
+        >
+          <AuthHandler />
+          <RouteTracker />
+          {children}
+        </GrainProvider>
+      </body>
+    </html>
+  );
+}
+
+// app/page.tsx
+'use client';
+
+import { useConfig, useTrack } from '@grainql/analytics-web/react';
+
+export default function HomePage() {
+  const { value: heroText } = useConfig('hero_text');
+  const track = useTrack();
+
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked')}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="React Example" icon="react" href="/examples/react">
+    See React integration
+  </Card>
+  <Card title="E-commerce Example" icon="shopping-cart" href="/examples/ecommerce-store">
+    Complete shopping flow
+  </Card>
+</CardGroup>
+

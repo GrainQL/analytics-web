@@ -1,0 +1,125 @@
+---
+title: "Grain Analytics SDK"
+description: "A lightweight, developer-friendly SDK for tracking analytics and managing remote configurations"
+---
+
+## Welcome to Grain Analytics
+
+Grain Analytics is a modern analytics platform that helps you understand user behavior and dynamically control your application through remote configurations. Our SDK is designed to be simple, powerful, and easy to integrate.
+
+<Note>
+  **New to Grain?** Head over to [grainql.com](https://grainql.com) to create your account and get your tenant ID.
+</Note>
+
+## Why Grain Analytics?
+
+Grain Analytics provides two powerful features that work seamlessly together:
+
+### Analytics Tracking
+
+Track user behavior to understand how people use your application. Grain's analytics engine helps you:
+
+- **Understand user journeys** - See how users navigate through your app
+- **Measure engagement** - Track feature usage and user interactions
+- **Make data-driven decisions** - Use real data to improve your product
+
+The SDK handles the complex parts like batching, retries, and reliable delivery, so you can focus on deciding what to track.
+
+### Remote Configuration
+
+Control your application's behavior without deploying code. Remote configurations let you:
+
+- **A/B test new features** - Show different experiences to different users
+- **Enable feature flags** - Turn features on/off without code changes
+- **Personalize content** - Display user-specific content based on properties
+
+Remote config uses a cache-first strategy, meaning your app loads instantly with cached values while fresh data loads in the background.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Zero Dependencies" icon="feather">
+    Tiny bundle size with no external dependencies
+  </Card>
+  <Card title="TypeScript First" icon="code">
+    Full type safety and autocomplete support
+  </Card>
+  <Card title="Automatic Batching" icon="layer-group">
+    Events are queued and sent efficiently in batches
+  </Card>
+  <Card title="React Hooks" icon="react">
+    Built-in hooks for seamless React integration
+  </Card>
+  <Card title="Retry Logic" icon="rotate">
+    Automatic retries with exponential backoff
+  </Card>
+  <Card title="Cross-Platform" icon="globe">
+    Works in browsers, Node.js, and React Native
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Here's how simple it is to get started with Grain Analytics:
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+// Initialize the SDK
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id'
+});
+
+// Track an event
+grain.track('button_clicked', {
+  button_name: 'signup'
+});
+
+// Get a configuration value
+const heroText = grain.getConfig('hero_text');
+```
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in 5 minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install the SDK in your project
+  </Card>
+  <Card
+    title="React Integration"
+    icon="react"
+    href="/react/overview"
+  >
+    Learn about React hooks
+  </Card>
+  <Card
+    title="API Reference"
+    icon="book"
+    href="/api-reference/overview"
+  >
+    Explore the complete API
+  </Card>
+</CardGroup>
+
+## What's Next?
+
+After installation, you'll want to:
+
+1. **Learn Core Concepts** - Understand event tracking and remote configurations
+2. **Explore Guides** - See real-world examples like e-commerce tracking and A/B testing
+3. **Check API Reference** - Dive deep into all available methods and options
+
+<Note>
+  Need help? Visit our [dashboard at grainql.com](https://grainql.com/dashboard) to manage your configurations and view analytics.
+</Note>

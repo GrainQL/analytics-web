@@ -1,0 +1,419 @@
+---
+title: "E-commerce Store"
+description: "Complete e-commerce tracking implementation"
+---
+
+## Overview
+
+This example shows a complete e-commerce flow with tracking at every step: product browsing, cart management, checkout, and purchase completion.
+
+## Product Listing Page
+
+```typescript
+'use client';
+
+import { useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+import ProductCard from '../components/ProductCard';
+
+export default function ProductsPage({ products }) {
+  const track = useTrack();
+
+  useEffect(() => {
+    track('product_list_viewed', {
+      category: 'all',
+      product_count: products.length
+    });
+  }, [products, track]);
+
+  return (
+    <div className="products-grid">
+      {products.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+```
+
+## Product Card Component
+
+```typescript
+import { useGrainAnalytics, useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+import { useCart } from '../hooks/useCart';
+
+export default function ProductCard({ product }) {
+  const grain = useGrainAnalytics();
+  const track = useTrack();
+  const { addItem } = useCart();
+
+  useEffect(() => {
+    track('product_viewed', {
+      product_id: product.id,
+      product_name: product.name,
+      category: product.category,
+      price: product.price
+    });
+  }, [product, track]);
+
+  const handleAddToCart = async () => {
+    await grain.trackAddToCart({
+      itemId: product.id,
+      itemName: product.name,
+      price: product.price,
+      quantity: 1,
+      currency: 'USD'
+    });
+
+    addItem(product);
+  };
+
+  return (
+    <div className="product-card">
+      <img src={product.image} alt={product.name} />
+      <h3>{product.name}</h3>
+      <p className="price">${product.price}</p>
+      <button onClick={handleAddToCart}>Add to Cart</button>
+    </div>
+  );
+}
+```
+
+## Shopping Cart
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useCart } from '../hooks/useCart';
+
+export default function ShoppingCart() {
+  const grain = useGrainAnalytics();
+  const { items, removeItem, updateQuantity, getTotal } = useCart();
+
+  const handleRemove = async (item) => {
+    await grain.trackRemoveFromCart({
+      itemId: item.id,
+      itemName: item.name,
+      quantity: item.quantity
+    });
+
+    removeItem(item.id);
+  };
+
+  const handleQuantityChange = async (item, newQuantity) => {
+    const quantityDiff = newQuantity - item.quantity;
+    
+    if (quantityDiff > 0) {
+      await grain.trackAddToCart({
+        itemId: item.id,
+        itemName: item.name,
+        price: item.price,
+        quantity: quantityDiff,
+        currency: 'USD'
+      });
+    } else if (quantityDiff < 0) {
+      await grain.trackRemoveFromCart({
+        itemId: item.id,
+        itemName: item.name,
+        quantity: Math.abs(quantityDiff)
+      });
+    }
+
+    updateQuantity(item.id, newQuantity);
+  };
+
+  return (
+    <div className="cart">
+      <h2>Shopping Cart ({items.length} items)</h2>
+      
+      {items.map(item => (
+        <div key={item.id} className="cart-item">
+          <img src={item.image} alt={item.name} />
+          <div>
+            <h4>{item.name}</h4>
+            <p>${item.price}</p>
+          </div>
+          <input
+            type="number"
+            value={item.quantity}
+            onChange={(e) => handleQuantityChange(item, parseInt(e.target.value))}
+            min="1"
+          />
+          <button onClick={() => handleRemove(item)}>Remove</button>
+        </div>
+      ))}
+
+      <div className="cart-total">
+        <strong>Total: ${getTotal()}</strong>
+      </div>
+
+      <a href="/checkout">
+        <button>Proceed to Checkout</button>
+      </a>
+    </div>
+  );
+}
+```
+
+## Checkout Page
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useState } from 'react';
+import { useCart } from '../hooks/useCart';
+import { useRouter } from 'next/navigation';
+
+export default function CheckoutPage() {
+  const grain = useGrainAnalytics();
+  const { items, getTotal, clearCart } = useCart();
+  const router = useRouter();
+  const [paymentMethod, setPaymentMethod] = useState('credit_card');
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+
+    const orderId = `order_${Date.now()}`;
+    const total = getTotal();
+
+    // Track checkout
+    await grain.trackCheckout({
+      orderId,
+      total,
+      currency: 'USD',
+      items: items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      paymentMethod,
+      success: true
+    });
+
+    // Process payment
+    const paymentSuccess = await processPayment({
+      orderId,
+      amount: total,
+      method: paymentMethod
+    });
+
+    if (paymentSuccess) {
+      // Track purchase
+      await grain.trackPurchase({
+        orderId,
+        total,
+        currency: 'USD',
+        paymentMethod,
+        shipping: 5.99,
+        tax: total * 0.08
+      }, { flush: true });
+
+      clearCart();
+      router.push(`/order/${orderId}/success`);
+    } else {
+      // Track failed checkout
+      await grain.trackCheckout({
+        orderId,
+        total,
+        currency: 'USD',
+        paymentMethod,
+        success: false,
+        errorMessage: 'Payment failed'
+      });
+
+      alert('Payment failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="checkout">
+      <h2>Checkout</h2>
+      
+      <div className="order-summary">
+        <h3>Order Summary</h3>
+        {items.map(item => (
+          <div key={item.id}>
+            {item.name} x {item.quantity} = ${item.price * item.quantity}
+          </div>
+        ))}
+        <div className="total">
+          <strong>Total: ${getTotal()}</strong>
+        </div>
+      </div>
+
+      <form onSubmit={handleCheckout}>
+        <h3>Payment Method</h3>
+        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+          <option value="credit_card">Credit Card</option>
+          <option value="paypal">PayPal</option>
+          <option value="apple_pay">Apple Pay</option>
+        </select>
+
+        <button type="submit">Complete Purchase</button>
+      </form>
+    </div>
+  );
+}
+
+async function processPayment(paymentData) {
+  // Simulate payment processing
+  return new Promise(resolve => {
+    setTimeout(() => resolve(true), 1000);
+  });
+}
+```
+
+## Order Success Page
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+export default function OrderSuccessPage({ orderId }) {
+  const grain = useGrainAnalytics();
+
+  useEffect(() => {
+    // Track order confirmation view
+    grain.track('order_confirmation_viewed', {
+      order_id: orderId
+    }, { flush: true });
+  }, [orderId, grain]);
+
+  return (
+    <div className="order-success">
+      <h1>Thank You for Your Order!</h1>
+      <p>Order ID: {orderId}</p>
+      <p>You will receive a confirmation email shortly.</p>
+      
+      <a href="/products">
+        <button>Continue Shopping</button>
+      </a>
+    </div>
+  );
+}
+```
+
+## Search Functionality
+
+```typescript
+import { useTrack } from '@grainql/analytics-web/react';
+import { useState, useEffect } from 'react';
+
+export default function ProductSearch() {
+  const track = useTrack();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+
+  const handleSearch = async (searchQuery) => {
+    const searchResults = await searchProducts(searchQuery);
+    setResults(searchResults);
+
+    // Track search
+    await track('search_performed', {
+      query: searchQuery,
+      results: searchResults.length,
+      has_results: searchResults.length > 0
+    });
+  };
+
+  return (
+    <div className="search">
+      <input
+        type="search"
+        placeholder="Search products..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && handleSearch(query)}
+      />
+      
+      <div className="results">
+        {results.map(product => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Abandoned Cart Tracking
+
+```typescript
+import { useTrack } from '@grainql/analytics-web/react';
+import { useEffect, useRef } from 'react';
+import { useCart } from '../hooks/useCart';
+
+export default function CartAbandonmentTracker() {
+  const track = useTrack();
+  const { items, getTotal } = useCart();
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set 5-minute timer
+    timeoutRef.current = setTimeout(() => {
+      track('cart_abandoned', {
+        item_count: items.length,
+        cart_value: getTotal(),
+        items: items.map(item => item.id)
+      });
+    }, 5 * 60 * 1000);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [items, track, getTotal]);
+
+  return null;
+}
+```
+
+## Complete Store App
+
+```typescript
+// app/layout.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+import { CartProvider } from './contexts/CartContext';
+import CartAbandonmentTracker from './components/CartAbandonmentTracker';
+
+export default function StoreLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <GrainProvider config={{ 
+          tenantId: 'your-tenant-id',
+          defaultConfigurations: {
+            featured_products: 'default',
+            discount_banner: 'false'
+          }
+        }}>
+          <CartProvider>
+            <CartAbandonmentTracker />
+            {children}
+          </CartProvider>
+        </GrainProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    E-commerce tracking guide
+  </Card>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Pre-built event methods
+  </Card>
+</CardGroup>
+

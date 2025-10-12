@@ -1,0 +1,497 @@
+---
+title: "User Authentication Flow"
+description: "Complete authentication tracking implementation"
+---
+
+## Overview
+
+Track the complete user authentication journey: signup, login, email verification, password reset, and logout.
+
+## Signup Flow
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function SignupForm() {
+  const grain = useGrainAnalytics();
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: ''
+  });
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+
+    try {
+      const user = await createUser(formData);
+
+      // Track successful signup
+      await grain.trackSignup({
+        method: 'email',
+        source: 'signup_page',
+        plan: 'free',
+        success: true
+      });
+
+      // Identify user
+      grain.identify(user.id);
+
+      // Set user properties
+      await grain.setProperty({
+        email: user.email,
+        name: user.name,
+        plan: 'free',
+        signup_date: new Date().toISOString(),
+        signup_method: 'email'
+      });
+
+      router.push('/welcome');
+    } catch (error) {
+      // Track failed signup
+      await grain.trackSignup({
+        method: 'email',
+        source: 'signup_page',
+        success: false,
+        errorMessage: error.message
+      });
+
+      alert('Signup failed: ' + error.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSignup}>
+      <h2>Sign Up</h2>
+      
+      <input
+        type="text"
+        placeholder="Name"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        required
+      />
+      
+      <input
+        type="email"
+        placeholder="Email"
+        value={formData.email}
+        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+        required
+      />
+      
+      <input
+        type="password"
+        placeholder="Password"
+        value={formData.password}
+        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+        required
+      />
+      
+      <button type="submit">Create Account</button>
+    </form>
+  );
+}
+```
+
+## Login Flow
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LoginForm() {
+  const grain = useGrainAnalytics();
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    rememberMe: false
+  });
+  const [attemptCount, setAttemptCount] = useState(0);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
+
+    try {
+      const user = await authenticateUser(formData.email, formData.password);
+
+      // Track successful login
+      await grain.trackLogin({
+        method: 'email',
+        success: true,
+        rememberMe: formData.rememberMe,
+        loginAttempt: currentAttempt
+      });
+
+      // Identify user
+      grain.identify(user.id);
+
+      // Update last login property
+      await grain.setProperty({
+        last_login: new Date().toISOString(),
+        login_count: (user.loginCount + 1).toString()
+      });
+
+      router.push('/dashboard');
+    } catch (error) {
+      // Track failed login
+      await grain.trackLogin({
+        method: 'email',
+        success: false,
+        errorMessage: error.message,
+        loginAttempt: currentAttempt
+      });
+
+      alert('Login failed: ' + error.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleLogin}>
+      <h2>Login</h2>
+      
+      <input
+        type="email"
+        placeholder="Email"
+        value={formData.email}
+        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+        required
+      />
+      
+      <input
+        type="password"
+        placeholder="Password"
+        value={formData.password}
+        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+        required
+      />
+      
+      <label>
+        <input
+          type="checkbox"
+          checked={formData.rememberMe}
+          onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+        />
+        Remember me
+      </label>
+      
+      <button type="submit">Login</button>
+      
+      <a href="/forgot-password">Forgot password?</a>
+    </form>
+  );
+}
+```
+
+## Social Login
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+export default function SocialLogin() {
+  const grain = useGrainAnalytics();
+
+  const handleSocialLogin = async (provider) => {
+    try {
+      const user = await loginWithProvider(provider);
+
+      // Track social login
+      await grain.trackLogin({
+        method: provider,
+        success: true,
+        twoFactorEnabled: false
+      });
+
+      // Identify user
+      grain.identify(user.id);
+
+      // Set properties
+      await grain.setProperty({
+        login_method: provider,
+        last_login: new Date().toISOString()
+      });
+
+      window.location.href = '/dashboard';
+    } catch (error) {
+      await grain.trackLogin({
+        method: provider,
+        success: false,
+        errorMessage: error.message
+      });
+
+      alert(`${provider} login failed`);
+    }
+  };
+
+  return (
+    <div className="social-login">
+      <button onClick={() => handleSocialLogin('google')}>
+        Continue with Google
+      </button>
+      <button onClick={() => handleSocialLogin('github')}>
+        Continue with GitHub
+      </button>
+      <button onClick={() => handleSocialLogin('facebook')}>
+        Continue with Facebook
+      </button>
+    </div>
+  );
+}
+```
+
+## Logout Flow
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useRouter } from 'next/navigation';
+
+export default function LogoutButton() {
+  const grain = useGrainAnalytics();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const userId = grain.getUserId();
+    const sessionDuration = calculateSessionDuration(); // Your logic
+
+    // Track logout
+    await grain.track('logout', {
+      user_id: userId,
+      session_duration: sessionDuration
+    }, { flush: true });
+
+    // Clear user ID
+    grain.setUserId(null);
+
+    // Logout from your auth system
+    await logout();
+
+    router.push('/login');
+  };
+
+  return (
+    <button onClick={handleLogout}>Logout</button>
+  );
+}
+```
+
+## Email Verification
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+export default function VerifyEmailPage() {
+  const grain = useGrainAnalytics();
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+
+  useEffect(() => {
+    const verifyEmail = async () => {
+      try {
+        const result = await verifyEmailToken(token);
+
+        // Track successful verification
+        await grain.track('email_verified', {
+          user_id: result.userId,
+          success: true
+        });
+
+        // Update user property
+        grain.setUserId(result.userId);
+        await grain.setProperty({
+          email_verified: 'true',
+          verification_date: new Date().toISOString()
+        });
+      } catch (error) {
+        // Track failed verification
+        await grain.track('email_verified', {
+          success: false,
+          error: error.message
+        });
+      }
+    };
+
+    if (token) {
+      verifyEmail();
+    }
+  }, [token, grain]);
+
+  return (
+    <div>
+      <h2>Verifying your email...</h2>
+    </div>
+  );
+}
+```
+
+## Password Reset
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useState } from 'react';
+
+export default function ForgotPasswordForm() {
+  const grain = useGrainAnalytics();
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      await sendPasswordResetEmail(email);
+
+      // Track password reset request
+      await grain.track('password_reset_requested', {
+        email,
+        success: true
+      });
+
+      setSubmitted(true);
+    } catch (error) {
+      await grain.track('password_reset_requested', {
+        email,
+        success: false,
+        error: error.message
+      });
+
+      alert('Failed to send reset email');
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div>
+        <h2>Check Your Email</h2>
+        <p>We've sent a password reset link to {email}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Forgot Password</h2>
+      <input
+        type="email"
+        placeholder="Enter your email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <button type="submit">Send Reset Link</button>
+    </form>
+  );
+}
+```
+
+## Auth State Manager
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+
+export default function AuthStateManager({ children }) {
+  const grain = useGrainAnalytics();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (user) {
+      // User logged in
+      grain.identify(user.id);
+      grain.setProperty({
+        email: user.email,
+        name: user.name,
+        plan: user.plan,
+        is_verified: user.emailVerified ? 'true' : 'false'
+      });
+    } else {
+      // User logged out
+      grain.setUserId(null);
+    }
+  }, [user, loading, grain]);
+
+  return <>{children}</>;
+}
+
+// Add to your app layout
+export default function Layout({ children }) {
+  return (
+    <AuthProvider>
+      <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+        <AuthStateManager>
+          {children}
+        </AuthStateManager>
+      </GrainProvider>
+    </AuthProvider>
+  );
+}
+```
+
+## Session Tracking
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect, useRef } from 'react';
+
+export default function SessionTracker() {
+  const grain = useGrainAnalytics();
+  const sessionStartRef = useRef(Date.now());
+  const activityRef = useRef(Date.now());
+
+  useEffect(() => {
+    // Track session start
+    grain.track('session_started', {
+      timestamp: sessionStartRef.current
+    });
+
+    // Track activity
+    const handleActivity = () => {
+      activityRef.current = Date.now();
+    };
+
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('keypress', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+
+    // Track session end
+    return () => {
+      const sessionDuration = Date.now() - sessionStartRef.current;
+      const idleTime = Date.now() - activityRef.current;
+
+      grain.track('session_ended', {
+        duration_seconds: Math.floor(sessionDuration / 1000),
+        idle_time_seconds: Math.floor(idleTime / 1000)
+      }, { flush: true });
+
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('keypress', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+    };
+  }, [grain]);
+
+  return null;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Learn about user tracking
+  </Card>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Pre-built event methods
+  </Card>
+</CardGroup>
+

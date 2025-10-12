@@ -1,0 +1,178 @@
+---
+title: "Installation"
+description: "Install Grain Analytics SDK in your project"
+---
+
+## Package Manager
+
+Install Grain Analytics using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install @grainql/analytics-web
+```
+
+```bash yarn
+yarn add @grainql/analytics-web
+```
+
+```bash pnpm
+pnpm add @grainql/analytics-web
+```
+
+</CodeGroup>
+
+The package includes everything you need:
+- Core analytics SDK
+- Remote configuration
+- React hooks (optional)
+- TypeScript definitions
+
+## CDN (Browser)
+
+For quick prototyping or simple websites, use the CDN version:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  const grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id'
+  });
+  
+  grain.track('page_viewed', { page: window.location.pathname });
+</script>
+```
+
+**When to use CDN**: Perfect for landing pages, static sites, or quick demos. For production apps, use the npm package for better tree-shaking and bundle optimization.
+
+## Package Structure
+
+The SDK provides multiple entry points for different use cases:
+
+### Core SDK
+
+```typescript
+import { createGrainAnalytics, GrainAnalytics } from '@grainql/analytics-web';
+```
+
+This is the main SDK for vanilla JavaScript, TypeScript, or any framework.
+
+### React Hooks
+
+```typescript
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+```
+
+React-specific hooks and components. React 16.8+ is required (peer dependency).
+
+## Build Formats
+
+The package includes multiple build formats to support different environments:
+
+- **ESM** (`dist/index.mjs`) - For modern bundlers like Vite, Webpack 5, esbuild
+- **CommonJS** (`dist/index.js`) - For Node.js and older bundlers
+- **IIFE** (`dist/index.global.js`) - For browsers via CDN
+- **TypeScript** (`dist/index.d.ts`) - Type definitions
+
+Your bundler automatically picks the right format based on your environment.
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions:
+
+```typescript
+import { createGrainAnalytics, GrainConfig, GrainEvent } from '@grainql/analytics-web';
+
+// Full type safety and autocomplete
+const config: GrainConfig = {
+  tenantId: 'your-tenant-id',
+  authStrategy: 'NONE',
+  batchSize: 50
+};
+
+const grain = createGrainAnalytics(config);
+```
+
+No additional `@types` packages needed!
+
+## React Native
+
+The SDK works in React Native with some considerations:
+
+```typescript
+import { GrainAnalytics } from '@grainql/analytics-web';
+
+const grain = new GrainAnalytics({
+  tenantId: 'your-tenant-id',
+  // Beacon API not available in React Native
+  // Events are sent via standard fetch
+});
+```
+
+**Note**: The Beacon API (used for page exit events) is not available in React Native, but all other features work normally.
+
+## Node.js
+
+Use Grain Analytics on the server side for backend tracking:
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY
+});
+
+// Track server-side events
+await grain.track('api_request', {
+  endpoint: '/api/users',
+  method: 'POST'
+}, { flush: true }); // Flush immediately in serverless
+```
+
+**Server-side tip**: Use `flush: true` for serverless functions to ensure events are sent before the function terminates.
+
+## Verify Installation
+
+Test that everything is working:
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  debug: true // Enable console logging
+});
+
+grain.track('installation_test', {
+  timestamp: new Date().toISOString()
+});
+
+console.log('Grain Analytics initialized successfully!');
+```
+
+Check your browser console (if debug is enabled) to see batching and sending activity.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Set up authentication for your app
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Start tracking events and using remote config
+  </Card>
+</CardGroup>
+
+## Bundle Size
+
+Grain Analytics is designed to be lightweight:
+
+- **Core SDK (gzipped)**: ~6 KB
+- **With React Hooks (gzipped)**: ~8 KB
+- **Zero dependencies**: No bloat from external libraries
+
+The SDK is tree-shakeable, so you only bundle what you use.
+

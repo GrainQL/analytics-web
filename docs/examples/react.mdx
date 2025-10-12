@@ -1,0 +1,363 @@
+---
+title: "React Example"
+description: "Complete React application with Grain Analytics"
+---
+
+## Setup
+
+Install Grain Analytics:
+
+```bash
+npm install @grainql/analytics-web
+```
+
+## App Structure
+
+```typescript
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ 
+      tenantId: 'your-tenant-id',
+      defaultConfigurations: {
+        hero_text: 'Welcome!',
+        feature_enabled: 'false'
+      }
+    }}>
+      <HomePage />
+    </GrainProvider>
+  );
+}
+
+export default App;
+```
+
+## Homepage Component
+
+```typescript
+import { useConfig, useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+function HomePage() {
+  const { value: heroText } = useConfig('hero_text');
+  const track = useTrack();
+
+  useEffect(() => {
+    track('page_viewed', { page: 'home' });
+  }, [track]);
+
+  const handleCTA = () => {
+    track('cta_clicked', { location: 'hero' });
+  };
+
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={handleCTA}>Get Started</button>
+    </div>
+  );
+}
+```
+
+## Feature Flag Example
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function Dashboard() {
+  const { value: newDashboard } = useConfig('new_dashboard_enabled');
+
+  return newDashboard === 'true' 
+    ? <NewDashboard /> 
+    : <LegacyDashboard />;
+}
+
+function NewDashboard() {
+  return <div>New Dashboard with Latest Features</div>;
+}
+
+function LegacyDashboard() {
+  return <div>Classic Dashboard</div>;
+}
+```
+
+## A/B Testing Example
+
+```typescript
+import { useConfig, useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+function HeroSection() {
+  const { value: variant } = useConfig('hero_variant');
+  const track = useTrack();
+
+  useEffect(() => {
+    track('hero_viewed', { variant: variant || 'A' });
+  }, [variant, track]);
+
+  const variants = {
+    A: {
+      title: 'Welcome to Our App',
+      subtitle: 'The best tool for productivity',
+      buttonText: 'Get Started'
+    },
+    B: {
+      title: 'Boost Your Productivity',
+      subtitle: 'Join thousands of happy users',
+      buttonText: 'Start Free Trial'
+    }
+  };
+
+  const content = variants[variant || 'A'];
+
+  const handleClick = () => {
+    track('hero_cta_clicked', { variant: variant || 'A' });
+  };
+
+  return (
+    <section>
+      <h1>{content.title}</h1>
+      <p>{content.subtitle}</p>
+      <button onClick={handleClick}>{content.buttonText}</button>
+    </section>
+  );
+}
+```
+
+## User Authentication
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+import { useAuth } from './hooks/useAuth'; // Your auth hook
+
+function AuthWrapper({ children }) {
+  const grain = useGrainAnalytics();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      grain.identify(user.id);
+      grain.setProperty({
+        email: user.email,
+        plan: user.plan,
+        signup_date: user.signupDate
+      });
+    } else {
+      grain.setUserId(null);
+    }
+  }, [user, grain]);
+
+  return <>{children}</>;
+}
+```
+
+## E-commerce Product Card
+
+```typescript
+import { useGrainAnalytics, useTrack } from '@grainql/analytics-web/react';
+import { useEffect } from 'react';
+
+function ProductCard({ product }) {
+  const grain = useGrainAnalytics();
+  const track = useTrack();
+
+  useEffect(() => {
+    track('product_viewed', {
+      product_id: product.id,
+      product_name: product.name,
+      price: product.price
+    });
+  }, [product, track]);
+
+  const handleAddToCart = async () => {
+    await grain.trackAddToCart({
+      itemId: product.id,
+      itemName: product.name,
+      price: product.price,
+      quantity: 1,
+      currency: 'USD'
+    });
+
+    // Add to cart logic
+    addToCart(product);
+  };
+
+  return (
+    <div className="product-card">
+      <img src={product.image} alt={product.name} />
+      <h3>{product.name}</h3>
+      <p>${product.price}</p>
+      <button onClick={handleAddToCart}>Add to Cart</button>
+    </div>
+  );
+}
+```
+
+## Personalized Content
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+import { useAuth } from './hooks/useAuth';
+
+function PersonalizedBanner() {
+  const { user } = useAuth();
+  
+  const { value: message } = useConfig('banner_message', {
+    properties: {
+      plan: user?.plan || 'free',
+      location: user?.country || 'US'
+    }
+  });
+
+  if (!message) return null;
+
+  return (
+    <div className="banner">
+      {message}
+    </div>
+  );
+}
+```
+
+## Form Tracking
+
+```typescript
+import { useTrack } from '@grainql/analytics-web/react';
+import { useState } from 'react';
+
+function ContactForm() {
+  const track = useTrack();
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    await track('form_submitted', {
+      form_type: 'contact',
+      fields_filled: Object.values(formData).filter(Boolean).length
+    }, { flush: true });
+
+    // Submit form
+    await submitForm(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        placeholder="Name"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      />
+      <input
+        type="email"
+        placeholder="Email"
+        value={formData.email}
+        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+      />
+      <textarea
+        placeholder="Message"
+        value={formData.message}
+        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+      />
+      <button type="submit">Send</button>
+    </form>
+  );
+}
+```
+
+## Complete App Example
+
+```typescript
+// App.tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import HomePage from './pages/HomePage';
+import ProductsPage from './pages/ProductsPage';
+import CheckoutPage from './pages/CheckoutPage';
+
+function App() {
+  return (
+    <AuthProvider>
+      <GrainWrapper>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+          </Routes>
+        </BrowserRouter>
+      </GrainWrapper>
+    </AuthProvider>
+  );
+}
+
+function GrainWrapper({ children }) {
+  const { user } = useAuth();
+
+  return (
+    <GrainProvider 
+      config={{
+        tenantId: 'your-tenant-id',
+        userId: user?.id,
+        defaultConfigurations: {
+          hero_text: 'Welcome!',
+          new_ui_enabled: 'false',
+          feature_x_enabled: 'false'
+        }
+      }}
+    >
+      {children}
+    </GrainProvider>
+  );
+}
+
+export default App;
+```
+
+## Route Change Tracking
+
+```typescript
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useTrack } from '@grainql/analytics-web/react';
+
+function RouteTracker() {
+  const location = useLocation();
+  const track = useTrack();
+
+  useEffect(() => {
+    track('page_viewed', {
+      page: location.pathname,
+      search: location.search
+    });
+  }, [location, track]);
+
+  return null;
+}
+
+// Add to your app
+function App() {
+  return (
+    <BrowserRouter>
+      <RouteTracker />
+      <Routes>...</Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Next.js Example" icon="arrow-right" href="/examples/nextjs">
+    See Next.js integration
+  </Card>
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Learn about React hooks
+  </Card>
+</CardGroup>
+

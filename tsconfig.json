@@ -4,6 +4,7 @@
     "lib": ["es2020", "dom"],
     "module": "esnext",
     "moduleResolution": "node",
+    "jsx": "react",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,8 +16,9 @@
     "outDir": "dist",
     "removeComments": false,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "scripts"]
+  "exclude": ["node_modules", "dist", "scripts", "tests"]
 }

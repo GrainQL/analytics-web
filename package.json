@@ -1,6 +1,6 @@
 {
   "name": "@grainql/analytics-web",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "description": "Lightweight TypeScript SDK for sending analytics events and managing remote configurations via Grain's REST API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -10,16 +10,30 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js",
+      "types": "./dist/react/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
     }
   },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "npm run build:types && npm run build:esm && npm run build:cjs && npm run build:iife",
+    "build": "npm run build:types && npm run build:esm && npm run build:cjs && npm run build:react && npm run build:iife",
     "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
     "build:esm": "tsc --module esnext --target es2020 --outDir dist/esm && mv dist/esm/index.js dist/index.mjs",
     "build:cjs": "tsc --module commonjs --target es2020 --outDir dist/cjs && mv dist/cjs/index.js dist/index.js",
+    "build:react": "node scripts/build-react.js",
     "build:iife": "node scripts/build-iife.js",
     "clean": "rm -rf dist",
     "test": "jest",
@@ -43,19 +57,23 @@
   "devDependencies": {
     "@jest/globals": "^30.0.5",
     "@size-limit/preset-small-lib": "^11.2.0",
+    "@testing-library/react": "^16.0.0",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^21.1.7",
+    "@types/react": "^18.0.0",
     "esbuild": "^0.19.0",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "jsdom": "^26.1.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "size-limit": "^11.2.0",
     "ts-jest": "^29.4.1",
     "typescript": "^5.5.3"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/grain-analytics/web-sdk.git"
+    "url": "https://github.com/GrainQL/analytics-web"
   },
   "homepage": "https://grainql.com",
   "private": false,

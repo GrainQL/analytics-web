@@ -1,0 +1,286 @@
+---
+title: "E-commerce Tracking"
+description: "Track the complete shopping journey from browse to purchase"
+---
+
+## Overview
+
+E-commerce tracking helps you understand how customers shop, where they drop off, and what drives purchases. Grain provides template events specifically designed for online stores.
+
+## Key Metrics to Track
+
+**Conversion Funnel**:
+- Product views → Add to cart → Checkout → Purchase
+
+**Engagement**:
+- Search behavior and results
+- Product browsing patterns
+- Cart interactions
+
+**Revenue**:
+- Order values and items
+- Payment methods
+- Discount code usage
+
+## Product View Tracking
+
+Track when users view products:
+
+```typescript
+function ProductPage({ product }) {
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('product_viewed', {
+      product_id: product.id,
+      product_name: product.name,
+      category: product.category,
+      price: product.price
+    });
+  }, [product.id, track]);
+  
+  return <div>...</div>;
+}
+```
+
+**Why track this?** Understand which products attract attention and compare views to purchases.
+
+## Add to Cart
+
+Track cart additions to measure interest:
+
+```typescript
+function ProductCard({ product }) {
+  const grain = useGrainAnalytics();
+  
+  const handleAddToCart = async () => {
+    await grain.trackAddToCart({
+      itemId: product.id,
+      itemName: product.name,
+      price: product.price,
+      quantity: 1,
+      currency: 'USD'
+    });
+    
+    // Add to cart logic
+    addToCart(product);
+  };
+  
+  return (
+    <button onClick={handleAddToCart}>Add to Cart</button>
+  );
+}
+```
+
+## Remove from Cart
+
+Track when items are removed:
+
+```typescript
+function CartItem({ item }) {
+  const grain = useGrainAnalytics();
+  
+  const handleRemove = async () => {
+    await grain.trackRemoveFromCart({
+      itemId: item.id,
+      itemName: item.name,
+      quantity: item.quantity
+    });
+    
+    removeFromCart(item.id);
+  };
+  
+  return <button onClick={handleRemove}>Remove</button>;
+}
+```
+
+**Insight**: High remove rates might indicate pricing issues, unexpected costs, or product concerns.
+
+## Checkout Tracking
+
+Track the entire checkout process:
+
+```typescript
+function CheckoutPage() {
+  const grain = useGrainAnalytics();
+  const [cart, setCart] = useState([]);
+  
+  const handleCheckout = async () => {
+    const order = await createOrder(cart);
+    
+    await grain.trackCheckout({
+      orderId: order.id,
+      total: order.total,
+      currency: 'USD',
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      paymentMethod: 'credit_card'
+    });
+    
+    // Continue to payment
+  };
+  
+  return <button onClick={handleCheckout}>Proceed</button>;
+}
+```
+
+## Purchase Completion
+
+Track successful purchases:
+
+```typescript
+function SuccessPage({ order }) {
+  const grain = useGrainAnalytics();
+  
+  useEffect(() => {
+    grain.trackPurchase({
+      orderId: order.id,
+      total: order.total,
+      currency: 'USD',
+      paymentMethod: order.paymentMethod,
+      shipping: order.shippingCost,
+      tax: order.tax
+    }, { flush: true }); // Flush immediately
+  }, [order, grain]);
+  
+  return <div>Thank you for your purchase!</div>;
+}
+```
+
+**Flush immediately**: Ensures the event sends before the user navigates away.
+
+## Complete Shopping Flow
+
+Here's a full example tracking the customer journey:
+
+```typescript
+// 1. User searches for products
+await grain.trackSearch({
+  query: 'running shoes',
+  results: 24,
+  filters: { category: 'footwear' }
+});
+
+// 2. Views a product
+await grain.track('product_viewed', {
+  product_id: 'shoe_123',
+  product_name: 'Running Shoes Pro',
+  price: 89.99
+});
+
+// 3. Adds to cart
+await grain.trackAddToCart({
+  itemId: 'shoe_123',
+  itemName: 'Running Shoes Pro',
+  price: 89.99,
+  quantity: 1
+});
+
+// 4. Starts checkout
+await grain.trackCheckout({
+  orderId: 'order_456',
+  total: 89.99,
+  items: [{ id: 'shoe_123', name: 'Running Shoes Pro', price: 89.99, quantity: 1 }]
+});
+
+// 5. Completes purchase
+await grain.trackPurchase({
+  orderId: 'order_456',
+  total: 89.99
+}, { flush: true });
+```
+
+## Abandoned Cart Recovery
+
+Track cart abandonment to understand drop-off:
+
+```typescript
+function CartPage() {
+  const track = useTrack();
+  
+  useEffect(() => {
+    // Track cart view
+    track('cart_viewed', {
+      item_count: cart.length,
+      total_value: calculateTotal(cart)
+    });
+    
+    // Track abandonment after 5 minutes of inactivity
+    const timeout = setTimeout(() => {
+      track('cart_abandoned', {
+        item_count: cart.length,
+        total_value: calculateTotal(cart)
+      });
+    }, 5 * 60 * 1000);
+    
+    return () => clearTimeout(timeout);
+  }, [cart, track]);
+  
+  return <div>...</div>;
+}
+```
+
+## Discount Code Tracking
+
+Track promotion usage:
+
+```typescript
+function CheckoutForm() {
+  const grain = useGrainAnalytics();
+  
+  const applyDiscount = async (code) => {
+    const discount = await validateCode(code);
+    
+    await grain.track('discount_applied', {
+      code: code,
+      discount_amount: discount.amount,
+      discount_type: discount.type  // 'percentage' or 'fixed'
+    });
+    
+    setDiscount(discount);
+  };
+  
+  return <input onSubmit={applyDiscount} />;
+}
+```
+
+## Analyzing the Funnel
+
+With these events, you can analyze your funnel:
+
+- **View to Cart**: `product_viewed` → `add_to_cart`
+- **Cart to Checkout**: `add_to_cart` → `checkout`
+- **Checkout to Purchase**: `checkout` → `purchase`
+
+View the data in your [Grain Dashboard](https://grainql.com/dashboard) to identify where users drop off.
+
+## Best Practices
+
+**1. Track Early**: Capture events as soon as actions happen.
+
+**2. Include Context**: Always add product IDs, prices, and quantities.
+
+**3. Flush Critical Events**: Use `flush: true` for purchases and checkouts.
+
+**4. Consistent Currency**: Always specify currency codes (USD, EUR, etc.).
+
+**5. Full Item Details**: Include complete item information for better analysis.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    See all e-commerce event methods
+  </Card>
+  <Card title="User Properties" icon="tags" href="/core/user-properties">
+    Track customer attributes
+  </Card>
+  <Card title="A/B Testing" icon="flask" href="/guides/ab-testing">
+    Test different shopping experiences
+  </Card>
+</CardGroup>
+

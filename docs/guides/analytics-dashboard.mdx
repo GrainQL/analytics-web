@@ -1,0 +1,394 @@
+---
+title: "Analytics Dashboard"
+description: "Build dashboards to visualize your analytics data"
+---
+
+## Overview
+
+While Grain provides a dashboard at [grainql.com/dashboard](https://grainql.com/dashboard), you might want to build custom analytics views within your own app. This guide shows how to track data effectively for dashboard building.
+
+## Key Metrics to Track
+
+**Engagement Metrics**:
+- Daily/Monthly active users
+- Feature usage frequency
+- Session duration
+
+**Conversion Metrics**:
+- Signup conversion rate
+- Trial to paid conversion
+- Feature adoption rate
+
+**Behavioral Metrics**:
+- User journey paths
+- Drop-off points
+- Most used features
+
+## Tracking Dashboard Views
+
+Track when users view dashboard pages:
+
+```typescript
+function AnalyticsDashboard() {
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('dashboard_viewed', {
+      page: 'analytics',
+      timestamp: Date.now()
+    });
+  }, [track]);
+  
+  return <DashboardContent />;
+}
+```
+
+Understand which dashboard sections users find valuable.
+
+## Tracking Feature Usage
+
+Monitor which features users engage with:
+
+```typescript
+function FeatureButton({ feature }) {
+  const track = useTrack();
+  
+  const handleClick = () => {
+    track('feature_used', {
+      feature_name: feature.name,
+      feature_category: feature.category,
+      user_plan: currentUser.plan
+    });
+    
+    feature.action();
+  };
+  
+  return <button onClick={handleClick}>{feature.name}</button>;
+}
+```
+
+Build a heatmap showing which features are most popular.
+
+## Real-Time Activity Feed
+
+Show recent activity in your app:
+
+```typescript
+function ActivityFeed() {
+  const [activities, setActivities] = useState([]);
+  
+  const logActivity = (action, details) => {
+    const activity = {
+      id: Date.now(),
+      action,
+      details,
+      timestamp: new Date()
+    };
+    
+    setActivities(prev => [activity, ...prev].slice(0, 50));
+    
+    // Track to Grain
+    grain.track('activity_logged', {
+      action,
+      ...details
+    });
+  };
+  
+  return (
+    <div>
+      <h3>Recent Activity</h3>
+      {activities.map(activity => (
+        <ActivityItem key={activity.id} {...activity} />
+      ))}
+    </div>
+  );
+}
+```
+
+## Usage Statistics
+
+Track and display usage stats:
+
+```typescript
+function UsageStats() {
+  const track = useTrack();
+  const [stats, setStats] = useState({
+    pageViews: 0,
+    features: 0,
+    exports: 0
+  });
+  
+  const incrementStat = (type) => {
+    setStats(prev => ({
+      ...prev,
+      [type]: prev[type] + 1
+    }));
+    
+    track('stat_incremented', { stat_type: type });
+  };
+  
+  return (
+    <div>
+      <StatCard title="Page Views" value={stats.pageViews} />
+      <StatCard title="Features Used" value={stats.features} />
+      <StatCard title="Exports" value={stats.exports} />
+    </div>
+  );
+}
+```
+
+## Tracking User Sessions
+
+Monitor session length and engagement:
+
+```typescript
+function SessionTracker() {
+  const track = useTrack();
+  const sessionStart = useRef(Date.now());
+  
+  useEffect(() => {
+    // Track session start
+    track('session_started', {
+      timestamp: sessionStart.current
+    });
+    
+    // Track session end on unmount
+    return () => {
+      const duration = Date.now() - sessionStart.current;
+      track('session_ended', {
+        duration_seconds: Math.floor(duration / 1000)
+      }, { flush: true });
+    };
+  }, [track]);
+  
+  return null;
+}
+```
+
+Analyze average session length and identify engagement patterns.
+
+## Event Grouping
+
+Group related events for better analysis:
+
+```typescript
+// Define event categories
+const EventCategory = {
+  NAVIGATION: 'navigation',
+  FEATURE: 'feature',
+  CONVERSION: 'conversion',
+  ERROR: 'error'
+};
+
+function trackCategorizedEvent(name, category, properties) {
+  grain.track(name, {
+    ...properties,
+    event_category: category,
+    timestamp: Date.now()
+  });
+}
+
+// Usage
+trackCategorizedEvent('page_viewed', EventCategory.NAVIGATION, {
+  page: '/dashboard'
+});
+
+trackCategorizedEvent('export_clicked', EventCategory.FEATURE, {
+  format: 'csv'
+});
+```
+
+Query events by category in your analytics.
+
+## Custom Dashboard Widgets
+
+Build widgets showing live data:
+
+```typescript
+function ActiveUsersWidget() {
+  const track = useTrack();
+  
+  // Track when widget viewed
+  useEffect(() => {
+    track('widget_viewed', { widget: 'active_users' });
+  }, [track]);
+  
+  return (
+    <div className="widget">
+      <h4>Active Users (24h)</h4>
+      <p className="stat">1,234</p>
+    </div>
+  );
+}
+
+function TopFeaturesWidget() {
+  const topFeatures = [
+    { name: 'Export', count: 456 },
+    { name: 'Reports', count: 389 },
+    { name: 'Analytics', count: 234 }
+  ];
+  
+  return (
+    <div className="widget">
+      <h4>Top Features</h4>
+      {topFeatures.map(feature => (
+        <div key={feature.name}>
+          {feature.name}: {feature.count} uses
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Funnel Analysis
+
+Track conversion funnels:
+
+```typescript
+function SignupFunnel() {
+  const track = useTrack();
+  
+  // Step 1: Landing
+  useEffect(() => {
+    track('funnel_step', {
+      funnel: 'signup',
+      step: 1,
+      step_name: 'landing'
+    });
+  }, [track]);
+  
+  // Step 2: Form Started
+  const handleFormStart = () => {
+    track('funnel_step', {
+      funnel: 'signup',
+      step: 2,
+      step_name: 'form_started'
+    });
+  };
+  
+  // Step 3: Completed
+  const handleComplete = () => {
+    track('funnel_step', {
+      funnel: 'signup',
+      step: 3,
+      step_name: 'completed'
+    });
+  };
+  
+  return <SignupForm onStart={handleFormStart} onComplete={handleComplete} />;
+}
+```
+
+Identify where users drop off in your funnels.
+
+## Cohort Tracking
+
+Track user cohorts:
+
+```typescript
+function trackWithCohort(eventName, properties) {
+  const userSignupDate = new Date(currentUser.signupDate);
+  const cohort = `${userSignupDate.getFullYear()}-${userSignupDate.getMonth() + 1}`;
+  
+  grain.track(eventName, {
+    ...properties,
+    cohort,
+    user_tenure_days: calculateTenure(currentUser.signupDate)
+  });
+}
+
+// Usage
+trackWithCohort('feature_used', { feature: 'export' });
+```
+
+Compare how different signup cohorts behave over time.
+
+## Performance Metrics
+
+Track performance alongside behavior:
+
+```typescript
+function PerformanceTracker() {
+  const track = useTrack();
+  
+  useEffect(() => {
+    // Track page load time
+    if (window.performance) {
+      const perfData = window.performance.timing;
+      const loadTime = perfData.loadEventEnd - perfData.navigationStart;
+      
+      track('page_performance', {
+        load_time_ms: loadTime,
+        page: window.location.pathname
+      });
+    }
+  }, [track]);
+  
+  return null;
+}
+```
+
+Correlate performance with user engagement.
+
+## Dashboard Configuration
+
+Use remote config for dashboard customization:
+
+```typescript
+function CustomDashboard() {
+  const { configs } = useAllConfigs();
+  
+  const widgetConfig = {
+    showActiveUsers: configs.dashboard_show_active_users === 'true',
+    showTopFeatures: configs.dashboard_show_top_features === 'true',
+    refreshInterval: parseInt(configs.dashboard_refresh_interval || '30000')
+  };
+  
+  return (
+    <Dashboard>
+      {widgetConfig.showActiveUsers && <ActiveUsersWidget />}
+      {widgetConfig.showTopFeatures && <TopFeaturesWidget />}
+    </Dashboard>
+  );
+}
+```
+
+Let users customize their dashboard via remote config.
+
+## Best Practices
+
+**1. Track Consistently**: Use consistent naming and structure for events.
+
+**2. Include Context**: Always add relevant properties (user plan, location, etc.).
+
+**3. Timestamp Everything**: Include timestamps for time-series analysis.
+
+**4. Batch Similar Events**: Group related actions to reduce noise.
+
+**5. Monitor Privacy**: Only track what users consent to.
+
+## Viewing Your Data
+
+All events tracked with Grain are visible in your dashboard at [grainql.com/dashboard](https://grainql.com/dashboard), where you can:
+
+- View real-time event streams
+- Build custom reports
+- Create visualizations
+- Export data for analysis
+- Set up alerts
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Master event tracking
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Customize dashboards dynamically
+  </Card>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    Track commerce metrics
+  </Card>
+</CardGroup>
+

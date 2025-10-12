@@ -1,0 +1,264 @@
+---
+title: "Security"
+description: "Security considerations and best practices"
+---
+
+## Authentication Strategies
+
+Choose the right strategy for your security needs:
+
+**NONE**: No authentication, anyone with tenant ID can send events
+- Use for: Public websites, demos, development
+- Security level: Low
+
+**SERVER_SIDE**: Secret key authentication
+- Use for: Backend services, server-side code
+- Security level: High
+- **Never expose secret in client code**
+
+**JWT**: Token-based authentication
+- Use for: Client apps with user authentication
+- Security level: High
+- Validates user identity with each request
+
+Learn more in [Authentication](/authentication).
+
+## User ID Security
+
+### JWT User ID Validation
+
+With JWT auth, user IDs must match the token's subject:
+
+```typescript
+// JWT payload: { sub: "user_123" }
+
+grain.setUserId('user_123');  // ✅ Allowed
+grain.track('event');
+
+grain.setUserId('user_456');  // ❌ Blocked - doesn't match JWT
+grain.track('event');  // Request rejected
+```
+
+**Why**: Prevents users from impersonating others.
+
+### User ID Override Restrictions
+
+Be careful with userId overrides:
+
+```typescript
+// ❌ Risky: Setting properties for many different users
+await grain.setProperty({ plan: 'premium' }, { userId: 'user_1' });
+await grain.setProperty({ plan: 'premium' }, { userId: 'user_2' });
+await grain.setProperty({ plan: 'premium' }, { userId: 'user_3' });
+// ... many more users
+
+// May trigger rate limiting!
+```
+
+**When using overrides**:
+- Ensure you have permission to modify those users
+- Avoid switching between many different user IDs
+- With JWT, user ID must match token subject
+
+### Rate Limiting
+
+Grain may block requests if:
+- Too many distinct user IDs from same source
+- Unusual patterns detected
+- Excessive property updates
+
+**Best practice**: Use global `setUserId()` for current user, avoid overrides unless necessary.
+
+## Secret Key Protection
+
+### Never Expose Secrets
+
+```typescript
+// ❌ NEVER DO THIS - Secret in client code
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: 'sk_live_abc123...'  // Exposed in bundle!
+});
+```
+
+```typescript
+// ✅ Correct - Secret in environment variable
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY  // Safe on server
+});
+```
+
+### Server-Side Only
+
+Use `SERVER_SIDE` auth only in:
+- Node.js backends
+- Serverless functions
+- Server API routes
+
+Never in:
+- Browser JavaScript
+- Mobile apps
+- Any client-side code
+
+## Data Privacy
+
+### Sensitive Data
+
+Never track sensitive information:
+
+```typescript
+// ❌ BAD - Sensitive data
+grain.track('user_action', {
+  password: user.password,
+  ssn: user.ssn,
+  credit_card: user.card
+});
+
+// ✅ Good - Non-sensitive data
+grain.track('user_action', {
+  action_type: 'profile_update',
+  section: 'settings'
+});
+```
+
+### User Properties
+
+Only set properties users consent to:
+
+```typescript
+// With user consent
+await grain.setProperty({
+  email: user.email,
+  location: user.country,
+  preferences: user.preferences
+});
+```
+
+Follow GDPR, CCPA, and other privacy regulations.
+
+## CORS and API Security
+
+Grain API uses CORS to restrict access. Configure allowed origins in your dashboard at [grainql.com/dashboard](https://grainql.com/dashboard).
+
+**Default**: All origins allowed (`*`)
+
+**Recommended**: Whitelist specific domains
+
+```
+Allowed origins:
+- https://yourapp.com
+- https://www.yourapp.com
+- http://localhost:3000  (development)
+```
+
+## Token Refresh
+
+For JWT authentication, ensure tokens stay fresh:
+
+```typescript
+const authProvider = {
+  async getToken() {
+    // Get fresh token (handles refresh automatically)
+    const token = await auth0.getAccessTokenSilently();
+    return token;
+  }
+};
+```
+
+Don't cache tokens yourself - let your auth provider handle refresh.
+
+## Secure Configuration
+
+### Environment-Based Auth
+
+Use different auth for different environments:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: process.env.NODE_ENV === 'production' 
+    ? 'JWT' 
+    : 'NONE',
+  authProvider: process.env.NODE_ENV === 'production'
+    ? jwtAuthProvider
+    : undefined
+});
+```
+
+Development: No auth (easier)
+Production: JWT (secure)
+
+## Content Security Policy (CSP)
+
+If using CSP headers, allow Grain API:
+
+```
+Content-Security-Policy: 
+  connect-src 'self' https://api.grainql.com;
+```
+
+## XSS Protection
+
+Never render user-provided config values as HTML:
+
+```typescript
+const heroText = grain.getConfig('hero_text');
+
+// ❌ Dangerous - XSS risk
+element.innerHTML = heroText;
+
+// ✅ Safe - Escaped
+element.textContent = heroText;
+
+// ✅ Safe - React escapes automatically
+return <h1>{heroText}</h1>;
+```
+
+## Audit Logging
+
+Track security-relevant events:
+
+```typescript
+// Track login attempts
+await grain.trackLogin({
+  method: 'email',
+  success: loginSuccess,
+  ip_address: req.ip  // Don't track unless needed
+});
+
+// Track permission changes
+grain.track('permission_changed', {
+  user_id: targetUser,
+  old_role: oldRole,
+  new_role: newRole
+});
+```
+
+## Best Practices
+
+**1. Principle of Least Privilege**: Grant minimum necessary permissions
+
+**2. Rotate Secrets**: Regularly rotate secret keys
+
+**3. Monitor Suspicious Activity**: Check dashboard for unusual patterns
+
+**4. Validate Input**: Sanitize data before tracking
+
+**5. Use HTTPS**: Always use HTTPS in production
+
+**6. Regular Updates**: Keep SDK updated for security patches
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Choose the right auth strategy
+  </Card>
+  <Card title="Configuration" icon="gear" href="/advanced/configuration">
+    Configure securely
+  </Card>
+</CardGroup>
+

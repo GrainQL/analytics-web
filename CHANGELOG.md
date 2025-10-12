@@ -1,188 +1,96 @@
 # Changelog
 
-All notable changes to the Grain Analytics Web SDK will be documented in this file.
+All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - 2025-10-02
+## [2.0.0] - 2025-10-12
 
 ### Added
-- **Graceful Error Handling**: Comprehensive error handling system to prevent page crashes
-  - Beautiful error formatting with error codes, messages, and event digest
-  - Automatic error classification (NETWORK_ERROR, SERVER_ERROR, CLIENT_ERROR, etc.)
-  - Event digest includes event count, properties count, size info, and event names
-  - Graceful error logging that doesn't throw exceptions to prevent page crashes
-  - All event logging methods now handle errors gracefully without breaking the application
+
+#### React Hooks Package
+- **React Hooks Integration**: New `@grainql/analytics-web/react` subpath export provides seamless React integration
+- **GrainProvider Component**: Context provider supporting two patterns:
+  - Provider-managed: Pass `config` prop for automatic client lifecycle management
+  - External client: Pass `client` prop for fine-grained control
+- **useConfig() Hook**: Cache-first configuration access with automatic background refresh and live updates
+  - Returns cached/default values immediately
+  - Fetches fresh data in background
+  - Auto-updates components when configuration changes
+  - Includes `isRefreshing`, `error`, and `refresh()` function
+- **useAllConfigs() Hook**: Get all configurations as a reactive object
+- **useTrack() Hook**: Returns stable, memoized track function that prevents unnecessary re-renders
+- **useGrainAnalytics() Hook**: Access full client instance from context for advanced operations
+
+#### Documentation
+- Comprehensive React Hooks documentation in README with real-world examples
+- New `REACT_HOOKS.md` architecture documentation
+- Added `examples/react-hooks-example.tsx` with 10 complete usage examples
+
+#### Testing
+- Complete test suite for React hooks in `tests/react/`
+- Tests for provider lifecycle, hook behavior, cache strategies, and listener cleanup
+
+#### Build System
+- Separate React build pipeline with ESM and CommonJS outputs
+- Subpath exports configuration in `package.json`
+- React as optional peer dependency (won't be bundled for non-React users)
 
 ### Changed
-- **Error Recovery**: All methods now return gracefully instead of throwing errors
-  - `track()`, `setProperty()`, `flush()`, and all template event methods handle errors internally
-  - `sendEvents()` and `sendProperties()` methods log errors gracefully instead of throwing
-  - `fetchConfig()` and related methods return null on error instead of throwing
-  - Auto-flush and auto-config refresh timers handle errors gracefully
-
-### Technical
-- Added `ErrorDigest` and `FormattedError` interfaces for structured error reporting
-- Implemented `formatError()` method for consistent error formatting across all operations
-- Added `logError()` method for beautiful, structured error logging
-- Enhanced error classification with specific error codes for different failure types
-- All async operations now have comprehensive try-catch blocks
-- Error logging includes context information and event metadata for better debugging
-
-## [1.6.1] - 2025-10-02
-
-### Technical
-- **Remote Config API**
-  - Updated remote config endpoint and logic
-
-## [1.6.0] - 2025-09-08
-
-### Added
-- **Remote Config API**: Complete remote configuration management system
-  - `getConfig()` and `getAllConfigs()` for synchronous access
-  - `getConfigAsync()` and `getAllConfigsAsync()` for async access with cache-first strategy
-  - `fetchConfig()` for direct API calls
-  - `preloadConfig()` for preloading configurations at page load
-  - Configuration change listeners with `addConfigChangeListener()` and `removeConfigChangeListener()`
-  - Automatic configuration caching with localStorage persistence
-  - Auto-refresh timer for keeping configurations up-to-date
-  - Default values support for immediate access without API calls
-  - User properties support for personalized configurations
-  - Force refresh option to bypass cache
-  - Full authentication support (NONE, SERVER_SIDE, JWT)
-- **Enhanced Configuration Options**:
-  - `defaultConfigurations` for setting default values
-  - `configCacheKey` for custom cache keys
-  - `configRefreshInterval` for auto-refresh timing
-  - `enableConfigCache` for cache control
-
-### Technical
-- Added comprehensive remote config interfaces and types
-- Implemented robust error handling and retry logic for config API
-- Added localStorage-based caching with graceful fallbacks
-- Integrated config refresh timer with proper cleanup
-- Enhanced TypeScript interfaces for better type safety
-- Added comprehensive test coverage for remote config functionality
-- Improved test stability and reliability
-
-## [1.1.0]
-
-### Added
-- **Event Batching Limits**: New `maxEventsPerRequest` configuration option to limit events per API request
-- **Automatic Event Chunking**: Large event batches are automatically split into chunks (default: 160 events max)
-- **Sequential Processing**: Event chunks are sent sequentially to maintain proper event ordering
-- **Backend Compliance**: Ensures no single request exceeds backend limits
-
-### Changed
-- **Payload Structure**: Removed auto-generated fields (`insertId`, `eventTs`, `eventDate`) from client payload - now handled by backend
-- **Event Processing**: Enhanced flush logic to handle large batches with automatic chunking
-- **Page Unload Handling**: Updated beacon API usage to respect event limits during page exit
+- React is now an optional peer dependency (>=16.8.0)
+- Build process updated to compile React package separately
 
 ### Technical Details
-- Default `maxEventsPerRequest` set to 160 events
-- Maintains backward compatibility - no breaking changes to existing API
-- Events maintain their original order across multiple chunked requests
-- All event handlers (auto-flush, manual flush, page unload) respect the new limits
+- Zero additional dependencies for React package
+- Tree-shakeable: Non-React users won't bundle React code
+- Full TypeScript support with exported types for all hooks and components
+- Build outputs: `dist/react/index.mjs` (ESM), `dist/react/index.js` (CJS), `dist/react/index.d.ts` (Types)
 
-## [1.0.1]
+### Migration Guide
+This is a major version bump due to the addition of React hooks and build system changes, but it's **fully backwards compatible** with v1.x. Existing code will continue to work without any changes.
 
-### Added
-- Initial release of @grain-analytics/web SDK
-- Zero-dependency TypeScript SDK for analytics event tracking
-- Multiple authentication strategies:
-  - NONE: No authentication required
-  - SERVER_SIDE: Secret key authentication with `Authorization: Chase {SECRET}` header
-  - JWT: Token-based authentication with configurable auth providers
-- Automatic event batching with configurable batch size and flush intervals
-- Robust error handling with exponential backoff retry logic
-- Beacon API support for reliable event delivery on page exit
-- Cross-platform compatibility (browsers, Node.js, React Native)
-- Multiple build outputs:
-  - ESM: `dist/index.mjs`
-  - CommonJS: `dist/index.js`
-  - IIFE: `dist/index.global.js` (exposes `window.Grain`)
-  - TypeScript definitions: `dist/index.d.ts`
-- Comprehensive documentation and examples
-- React Hook examples for easy integration
-- Auth provider examples for Auth0, NextAuth, Firebase, and custom JWT providers
+To use the new React hooks:
+```bash
+npm install @grainql/analytics-web@2.0.0
+```
 
-### Features
-- Event tracking with automatic batching
-- User identification support
-- Manual event flushing
-- Debug logging mode
-- Configurable retry attempts and delays
-- Automatic page unload event sending via Beacon API
-- Memory-efficient event queueing
-- Graceful error handling and recovery
+```tsx
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
 
-### API
-- `createGrainAnalytics(config)` - Create analytics client
-- `track(eventName, properties?, options?)` - Track events
-- `identify(userId)` - Identify users
-- `flush()` - Manually send queued events
-- `destroy()` - Clean up resources
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <YourApp />
+    </GrainProvider>
+  );
+}
 
-### Configuration Options
-- `tenantId` (required) - Your Grain tenant identifier
-- `apiUrl` - API base URL (default: 'https://api.grainql.com')
-- `authStrategy` - Authentication strategy ('NONE', 'SERVER_SIDE', 'JWT')
-- `secretKey` - Secret key for server-side auth
-- `authProvider` - Token provider for JWT auth
-- `batchSize` - Events per batch (default: 50)
-- `flushInterval` - Auto-flush interval in ms (default: 5000)
-- `retryAttempts` - Retry attempts for failed requests (default: 3)
-- `retryDelay` - Base retry delay in ms (default: 1000)
-- `debug` - Enable debug logging (default: false)
+function YourComponent() {
+  const { value } = useConfig('hero_variant');
+  const track = useTrack();
+  
+  return <button onClick={() => track('clicked')}>Click</button>;
+}
+```
 
-## [1.0.0]
-
-### Added
-- Initial release of @grain-analytics/web SDK
-- Zero-dependency TypeScript SDK for analytics event tracking
-- Multiple authentication strategies:
-  - NONE: No authentication required
-  - SERVER_SIDE: Secret key authentication with `Authorization: Chase {SECRET}` header
-  - JWT: Token-based authentication with configurable auth providers
-- Automatic event batching with configurable batch size and flush intervals
-- Robust error handling with exponential backoff retry logic
-- Beacon API support for reliable event delivery on page exit
-- Cross-platform compatibility (browsers, Node.js, React Native)
-- Multiple build outputs:
-  - ESM: `dist/index.mjs`
-  - CommonJS: `dist/index.js`
-  - IIFE: `dist/index.global.js` (exposes `window.Grain`)
-  - TypeScript definitions: `dist/index.d.ts`
-- Comprehensive documentation and examples
-- React Hook examples for easy integration
-- Auth provider examples for Auth0, NextAuth, Firebase, and custom JWT providers
+## [1.7.4] - Previous Release
 
 ### Features
-- Event tracking with automatic batching
-- User identification support
-- Manual event flushing
-- Debug logging mode
-- Configurable retry attempts and delays
-- Automatic page unload event sending via Beacon API
-- Memory-efficient event queueing
-- Graceful error handling and recovery
+- Critical bugfixes
+- New userId system
+- Anonymous remote config support
+- Comprehensive set of built-in functions
+- Template events for common use cases
+- Multiple authentication strategies (NONE, SERVER_SIDE, JWT)
+- Automatic event batching and retry logic
+- Remote configuration management with caching
+- User property management
+- Global user ID tracking
+- Persistent anonymous user IDs
 
-### API
-- `createGrainAnalytics(config)` - Create analytics client
-- `track(eventName, properties?, options?)` - Track events
-- `identify(userId)` - Identify users
-- `flush()` - Manually send queued events
-- `destroy()` - Clean up resources
+---
 
-### Configuration Options
-- `tenantId` (required) - Your Grain tenant identifier
-- `apiUrl` - API base URL (default: 'https://api.grainql.com')
-- `authStrategy` - Authentication strategy ('NONE', 'SERVER_SIDE', 'JWT')
-- `secretKey` - Secret key for server-side auth
-- `authProvider` - Token provider for JWT auth
-- `batchSize` - Events per batch (default: 50)
-- `flushInterval` - Auto-flush interval in ms (default: 5000)
-- `retryAttempts` - Retry attempts for failed requests (default: 3)
-- `retryDelay` - Base retry delay in ms (default: 1000)
-- `debug` - Enable debug logging (default: false)
+[2.0.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.0.0
+[1.7.4]: https://github.com/GrainQL/analytics-web/releases/tag/v1.7.4
+

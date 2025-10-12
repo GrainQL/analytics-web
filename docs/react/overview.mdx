@@ -1,0 +1,260 @@
+---
+title: "React Hooks Overview"
+description: "Modern React integration for Grain Analytics"
+---
+
+## Why React Hooks?
+
+Grain's React hooks eliminate boilerplate and provide a React-friendly API for analytics and remote configuration.
+
+**Without hooks**:
+```typescript
+// Manual state management, effects, and cleanup
+const [heroText, setHeroText] = useState('Loading...');
+
+useEffect(() => {
+  const fetchConfig = async () => {
+    const value = await grain.getConfigAsync('hero_text');
+    setHeroText(value);
+  };
+  
+  const listener = (configs) => setHeroText(configs.hero_text);
+  grain.addConfigChangeListener(listener);
+  
+  fetchConfig();
+  
+  return () => grain.removeConfigChangeListener(listener);
+}, []);
+```
+
+**With hooks**:
+```typescript
+const { value: heroText } = useConfig('hero_text');
+```
+
+Same functionality, much simpler.
+
+## Installation
+
+Hooks are included in the main package:
+
+```bash
+npm install @grainql/analytics-web
+```
+
+React 16.8+ is required (peer dependency, not bundled).
+
+## Quick Start
+
+Wrap your app with `GrainProvider`, then use hooks in components:
+
+```typescript
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <HomePage />
+    </GrainProvider>
+  );
+}
+
+function HomePage() {
+  const { value: heroText } = useConfig('hero_text');
+  const track = useTrack();
+
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked')}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+## Available Hooks
+
+### useConfig
+
+Get a single configuration value with cache-first loading:
+
+```typescript
+const { value, isRefreshing, error, refresh } = useConfig('hero_text');
+```
+
+Automatically re-renders when configuration changes. Perfect for feature flags and dynamic content.
+
+### useAllConfigs
+
+Get all configurations as an object:
+
+```typescript
+const { configs, isRefreshing, error, refresh } = useAllConfigs();
+```
+
+Use when you need multiple config values or want to iterate over all configurations.
+
+### useTrack
+
+Get a stable track function that doesn't cause re-renders:
+
+```typescript
+const track = useTrack();
+
+// Safe to pass to child components
+<Button onClick={() => track('button_clicked')} />
+```
+
+**Why this matters**: The function reference never changes, preventing unnecessary re-renders in child components.
+
+### useGrainAnalytics
+
+Access the full Grain client for advanced operations:
+
+```typescript
+const grain = useGrainAnalytics();
+
+// Use any client method
+grain.setUserId('user_123');
+await grain.setProperty({ plan: 'premium' });
+await grain.flush();
+```
+
+Use this when you need functionality beyond the specialized hooks.
+
+## The Provider
+
+`GrainProvider` sets up Grain for your app. Two patterns available:
+
+**Provider-managed (recommended)**:
+```typescript
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <App />
+</GrainProvider>
+```
+
+**External client (advanced)**:
+```typescript
+const grain = createGrainAnalytics({ tenantId: 'your-tenant-id' });
+
+<GrainProvider client={grain}>
+  <App />
+</GrainProvider>
+```
+
+Provider-managed is simpler for most cases. Use external client when you need to share the instance across multiple providers or need access outside React.
+
+## Key Benefits
+
+**Cache-First Loading**: 
+Hooks return cached values immediately, then fetch fresh data in the background. Your UI never waits for network requests.
+
+**Automatic Updates**: 
+Components automatically re-render when configurations change. No manual listener management.
+
+**Performance Optimized**:
+Hooks use React's built-in optimization (memo, useCallback) to prevent unnecessary re-renders.
+
+**Type Safe**:
+Full TypeScript support with type inference for all hooks and props.
+
+**React Patterns**:
+Follows React conventions with hooks, context, and functional patterns.
+
+## Context API Explanation
+
+If you're new to React's Context API, here's how it works with Grain:
+
+**Context** lets you share values across your component tree without passing props manually. `GrainProvider` creates a context with the Grain client:
+
+```typescript
+// Provider at the top
+<GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+  <App />          {/* Can use hooks */}
+    <Page />       {/* Can use hooks */}
+      <Component /> {/* Can use hooks */}
+</GrainProvider>
+```
+
+Any component inside the provider can use Grain hooks, no matter how deeply nested. No prop drilling needed.
+
+## Common Patterns
+
+### Feature Flag
+
+```typescript
+function App() {
+  const { value: newUIEnabled } = useConfig('new_ui_enabled');
+  
+  return newUIEnabled === 'true' ? <NewUI /> : <LegacyUI />;
+}
+```
+
+### A/B Test
+
+```typescript
+function Hero() {
+  const { value: variant } = useConfig('hero_variant');
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('hero_viewed', { variant });
+  }, [variant, track]);
+  
+  return variant === 'B' ? <HeroB /> : <HeroA />;
+}
+```
+
+### User Authentication
+
+```typescript
+function App() {
+  const { user } = useAuth();
+  const grain = useGrainAnalytics();
+  
+  useEffect(() => {
+    if (user) {
+      grain.identify(user.id);
+      grain.setProperty({
+        plan: user.plan,
+        email: user.email
+      });
+    }
+  }, [user, grain]);
+  
+  return <AppContent />;
+}
+```
+
+## Compared to Vanilla SDK
+
+| Feature | Vanilla SDK | React Hooks |
+|---------|-------------|-------------|
+| Setup | Manual instance | Provider + hooks |
+| State management | Manual useState | Automatic |
+| Listeners | Manual add/remove | Automatic |
+| Re-renders | Manual updates | Automatic |
+| Cleanup | Manual in useEffect | Automatic |
+| Boilerplate | More code | Minimal code |
+
+Both are powerful. Use hooks for React apps, vanilla SDK for other frameworks or environments.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="GrainProvider" icon="bracket-curly" href="/react/grain-provider">
+    Learn about provider setup
+  </Card>
+  <Card title="useConfig Hook" icon="sliders" href="/react/use-config">
+    Master configuration access
+  </Card>
+  <Card title="useTrack Hook" icon="chart-line" href="/react/use-track">
+    Efficient event tracking
+  </Card>
+  <Card title="React Example" icon="react" href="/examples/react">
+    See a complete example
+  </Card>
+</CardGroup>
+

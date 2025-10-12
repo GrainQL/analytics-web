@@ -1,0 +1,261 @@
+---
+title: "useAllConfigs Hook"
+description: "Get all remote configurations in a single object"
+---
+
+## Basic Usage
+
+Get all configurations as a reactive object:
+
+```typescript
+import { useAllConfigs } from '@grainql/analytics-web/react';
+
+function ConfigDashboard() {
+  const { configs } = useAllConfigs();
+  
+  return (
+    <div>
+      {Object.entries(configs).map(([key, value]) => (
+        <div key={key}>
+          <strong>{key}:</strong> {value}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+Perfect for when you need multiple configurations or want to iterate over all of them.
+
+## Return Values
+
+```typescript
+const { configs, isRefreshing, error, refresh } = useAllConfigs();
+```
+
+**configs**: Object with all configuration key-value pairs
+**isRefreshing**: True while fetching fresh data
+**error**: Error object if fetch failed
+**refresh**: Function to manually refresh all configs
+
+## When to Use
+
+Use `useAllConfigs` when you:
+- Need multiple configuration values
+- Want to build a configuration dashboard
+- Need to apply styles from multiple configs
+- Want to iterate over all available configs
+
+Use `useConfig` when you:
+- Only need one or two specific values
+- Want to minimize re-renders (only updates when specific config changes)
+
+## Styling Example
+
+Apply multiple configs for styling:
+
+```typescript
+function ThemedButton() {
+  const { configs } = useAllConfigs();
+  
+  const styles = {
+    backgroundColor: configs.button_bg_color || '#007bff',
+    color: configs.button_text_color || 'white',
+    borderRadius: configs.button_radius || '4px',
+    fontSize: configs.button_font_size || '16px'
+  };
+  
+  return (
+    <button style={styles}>
+      {configs.button_text || 'Click Me'}
+    </button>
+  );
+}
+```
+
+## Cache-First Loading
+
+Like `useConfig`, this hook uses cache-first strategy:
+
+```typescript
+function Component() {
+  const { configs, isRefreshing } = useAllConfigs();
+  
+  return (
+    <div>
+      <h1>{configs.hero_text || 'Welcome'}</h1>
+      {isRefreshing && <span>Checking for updates...</span>}
+    </div>
+  );
+}
+```
+
+Renders immediately with cached values, then refreshes in background.
+
+## Manual Refresh
+
+Force refresh all configurations:
+
+```typescript
+function ConfigPanel() {
+  const { configs, refresh } = useAllConfigs();
+  
+  return (
+    <div>
+      <button onClick={refresh}>Refresh All</button>
+      <pre>{JSON.stringify(configs, null, 2)}</pre>
+    </div>
+  );
+}
+```
+
+## With Personalization
+
+Pass properties to get personalized configuration set:
+
+```typescript
+function PersonalizedApp() {
+  const { user } = useAuth();
+  
+  const { configs } = useAllConfigs({
+    properties: {
+      plan: user.plan,
+      location: user.location
+    }
+  });
+  
+  return <div>Hero: {configs.hero_text}</div>;
+}
+```
+
+All returned configurations are evaluated based on these properties.
+
+## Error Handling
+
+Handle errors gracefully:
+
+```typescript
+function Component() {
+  const { configs, error } = useAllConfigs();
+  
+  if (error) {
+    return (
+      <div>
+        <p>Failed to load configurations</p>
+        <p>Using defaults...</p>
+      </div>
+    );
+  }
+  
+  return <div>{configs.hero_text}</div>;
+}
+```
+
+Even if fetch fails, `configs` still contains cached/default values.
+
+## Configuration Dashboard Example
+
+Build a dashboard to view all configs:
+
+```typescript
+function ConfigDashboard() {
+  const { configs, isRefreshing, refresh } = useAllConfigs();
+  
+  return (
+    <div>
+      <h2>Current Configurations</h2>
+      <button onClick={refresh} disabled={isRefreshing}>
+        {isRefreshing ? 'Refreshing...' : 'Refresh'}
+      </button>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(configs).map(([key, value]) => (
+            <tr key={key}>
+              <td>{key}</td>
+              <td>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+## Multi-Config Form
+
+Use configs to control a form:
+
+```typescript
+function DynamicForm() {
+  const { configs } = useAllConfigs();
+  
+  const formConfig = {
+    title: configs.form_title || 'Contact Us',
+    submitText: configs.form_submit || 'Submit',
+    showPhone: configs.form_show_phone === 'true',
+    showAddress: configs.form_show_address === 'true'
+  };
+  
+  return (
+    <form>
+      <h2>{formConfig.title}</h2>
+      <input type="email" placeholder="Email" />
+      {formConfig.showPhone && <input type="tel" placeholder="Phone" />}
+      {formConfig.showAddress && <input type="text" placeholder="Address" />}
+      <button type="submit">{formConfig.submitText}</button>
+    </form>
+  );
+}
+```
+
+## Performance Consideration
+
+`useAllConfigs` causes re-renders when ANY configuration changes. If you only need specific values, use `useConfig` instead for better performance:
+
+```typescript
+// ✅ Better: Only re-renders when hero_text changes
+function Hero() {
+  const { value: heroText } = useConfig('hero_text');
+  return <h1>{heroText}</h1>;
+}
+
+// ⚠️ Less optimal: Re-renders when any config changes
+function Hero() {
+  const { configs } = useAllConfigs();
+  return <h1>{configs.hero_text}</h1>;
+}
+```
+
+## Comparing to useConfig
+
+| Feature | useAllConfigs | useConfig |
+|---------|---------------|-----------|
+| Returns | All configs | Single config |
+| Re-renders | Any config change | Specific config change |
+| Use for | Multiple values, iteration | Single or few values |
+| Performance | Broader re-renders | Optimized re-renders |
+
+Both are valid. Choose based on your needs.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="useConfig" icon="sliders" href="/react/use-config">
+    Get single configuration values
+  </Card>
+  <Card title="Remote Config" icon="gear" href="/core/remote-config">
+    Learn about remote configuration
+  </Card>
+  <Card title="Personalization Guide" icon="user-gear" href="/guides/personalization">
+    Build personalized experiences
+  </Card>
+</CardGroup>
+

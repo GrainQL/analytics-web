@@ -1,0 +1,348 @@
+---
+title: "TypeScript"
+description: "Type-safe analytics with full TypeScript support"
+---
+
+## Type-Safe by Default
+
+Grain SDK is written in TypeScript and includes complete type definitions:
+
+```typescript
+import { createGrainAnalytics, GrainAnalytics } from '@grainql/analytics-web';
+
+const grain: GrainAnalytics = createGrainAnalytics({
+  tenantId: 'your-tenant-id'
+});
+```
+
+No `@types` packages needed - types are built-in.
+
+## Configuration Types
+
+Full type safety for configuration:
+
+```typescript
+import { GrainConfig } from '@grainql/analytics-web';
+
+const config: GrainConfig = {
+  tenantId: 'your-tenant-id',
+  authStrategy: 'JWT',  // 'NONE' | 'SERVER_SIDE' | 'JWT'
+  batchSize: 50,
+  debug: true
+};
+
+const grain = createGrainAnalytics(config);
+```
+
+TypeScript catches invalid options at compile time.
+
+## Event Types
+
+Type your event properties:
+
+```typescript
+interface ButtonClickEvent {
+  button_name: string;
+  page: string;
+  timestamp: number;
+}
+
+grain.track('button_clicked', {
+  button_name: 'signup',
+  page: '/home',
+  timestamp: Date.now()
+} as ButtonClickEvent);
+```
+
+Or create typed track functions:
+
+```typescript
+function trackButtonClick(button: string, page: string) {
+  grain.track('button_clicked', {
+    button_name: button,
+    page,
+    timestamp: Date.now()
+  });
+}
+```
+
+## Template Event Types
+
+Template methods have built-in types:
+
+```typescript
+import { LoginEventProperties } from '@grainql/analytics-web';
+
+const loginEvent: LoginEventProperties = {
+  method: 'email',
+  success: true,
+  rememberMe: false
+};
+
+await grain.trackLogin(loginEvent);
+// TypeScript knows all valid properties
+```
+
+## Custom Event Types
+
+Create type-safe custom events:
+
+```typescript
+type CustomEventName = 
+  | 'video_started'
+  | 'video_paused'
+  | 'video_completed';
+
+interface VideoEventProps {
+  video_id: string;
+  duration: number;
+  progress: number;
+}
+
+function trackVideoEvent(
+  name: CustomEventName,
+  props: VideoEventProps
+) {
+  grain.track(name, props);
+}
+
+// Type-safe usage
+trackVideoEvent('video_started', {
+  video_id: 'abc123',
+  duration: 120,
+  progress: 0
+});
+```
+
+## React Hook Types
+
+Hooks have full type inference:
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function Component() {
+  // TypeScript infers return type
+  const { value, isRefreshing, error, refresh } = useConfig('hero_text');
+  
+  // value: string | undefined
+  // isRefreshing: boolean
+  // error: Error | null
+  // refresh: () => Promise<void>
+}
+```
+
+## Generic Client Type
+
+For dependency injection or testing:
+
+```typescript
+import { GrainAnalytics } from '@grainql/analytics-web';
+
+class AnalyticsService {
+  constructor(private grain: GrainAnalytics) {}
+  
+  trackPageView(page: string) {
+    this.grain.track('page_viewed', { page });
+  }
+}
+
+const service = new AnalyticsService(grain);
+```
+
+## Strict Null Checks
+
+SDK works with strict null checks:
+
+```typescript
+// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "strictNullChecks": true
+  }
+}
+```
+
+```typescript
+const userId = grain.getUserId();
+// userId: string | null
+
+if (userId) {
+  console.log(userId.toUpperCase());  // Safe
+}
+```
+
+## Auth Provider Types
+
+Type-safe auth providers:
+
+```typescript
+import { AuthProvider } from '@grainql/analytics-web';
+
+const authProvider: AuthProvider = {
+  async getToken(): Promise<string> {
+    const token = await auth0.getAccessToken();
+    return token;
+  }
+};
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'JWT',
+  authProvider
+});
+```
+
+## Remote Config Types
+
+Type your configurations:
+
+```typescript
+interface AppConfig {
+  hero_text: string;
+  button_color: string;
+  feature_enabled: 'true' | 'false';
+}
+
+// Type-safe config access
+function getTypedConfig<K extends keyof AppConfig>(
+  key: K
+): AppConfig[K] | undefined {
+  return grain.getConfig(key) as AppConfig[K] | undefined;
+}
+
+const heroText = getTypedConfig('hero_text');  // string | undefined
+const color = getTypedConfig('button_color');  // string | undefined
+```
+
+## Enum Event Names
+
+Use enums for event names:
+
+```typescript
+enum EventName {
+  PAGE_VIEWED = 'page_viewed',
+  BUTTON_CLICKED = 'button_clicked',
+  FORM_SUBMITTED = 'form_submitted'
+}
+
+grain.track(EventName.PAGE_VIEWED, { page: '/home' });
+grain.track(EventName.BUTTON_CLICKED, { button: 'signup' });
+```
+
+Autocomplete suggests valid event names.
+
+## Type Guards
+
+Create type guards for safer code:
+
+```typescript
+function isConfigLoaded(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0;
+}
+
+const config = grain.getConfig('feature_flag');
+
+if (isConfigLoaded(config)) {
+  // TypeScript knows config is string here
+  console.log(config.toUpperCase());
+}
+```
+
+## Exporting Types
+
+Re-export types for your app:
+
+```typescript
+// types/analytics.ts
+export type {
+  GrainAnalytics,
+  GrainConfig,
+  GrainEvent,
+  AuthProvider,
+  LoginEventProperties,
+  CheckoutEventProperties
+} from '@grainql/analytics-web';
+
+export type {
+  UseConfigResult,
+  UseAllConfigsResult
+} from '@grainql/analytics-web/react';
+```
+
+```typescript
+// components/MyComponent.tsx
+import type { UseConfigResult } from '@/types/analytics';
+```
+
+## Testing with Types
+
+Type-safe testing:
+
+```typescript
+import { GrainAnalytics } from '@grainql/analytics-web';
+
+const mockGrain: jest.Mocked<GrainAnalytics> = {
+  track: jest.fn(),
+  setUserId: jest.fn(),
+  getConfig: jest.fn(),
+  // ... other methods
+} as any;
+
+// Type-safe mock usage
+mockGrain.track('test_event', { foo: 'bar' });
+expect(mockGrain.track).toHaveBeenCalledWith(
+  'test_event',
+  { foo: 'bar' }
+);
+```
+
+## Type-Safe Wrappers
+
+Create type-safe wrappers for your domain:
+
+```typescript
+class TypedGrainAnalytics {
+  constructor(private grain: GrainAnalytics) {}
+  
+  trackSignup(method: 'email' | 'google' | 'github') {
+    this.grain.track('signup', { method });
+  }
+  
+  trackPurchase(amount: number, currency: 'USD' | 'EUR' | 'GBP') {
+    this.grain.track('purchase', { amount, currency });
+  }
+}
+
+const analytics = new TypedGrainAnalytics(grain);
+analytics.trackSignup('email');  // Type-safe
+// analytics.trackSignup('facebook');  // Error: invalid method
+```
+
+## Best Practices
+
+**1. Use Type Imports**: Import only types when possible:
+```typescript
+import type { GrainConfig } from '@grainql/analytics-web';
+```
+
+**2. Define Event Interfaces**: Type your event properties
+
+**3. Leverage Inference**: Let TypeScript infer return types
+
+**4. Use Enums**: For event names and categories
+
+**5. Strict Mode**: Enable strict TypeScript checks
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api-reference/types">
+    See all available types
+  </Card>
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Type-safe React integration
+  </Card>
+</CardGroup>
+

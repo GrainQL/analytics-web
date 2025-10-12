@@ -1,0 +1,251 @@
+---
+title: "User Properties"
+description: "Add attributes to user profiles for segmentation and personalization"
+---
+
+## What Are User Properties?
+
+User properties are attributes about your users, like their subscription plan, location, or preferences. They help you:
+
+- **Segment users**: Group users by plan, location, behavior
+- **Personalize experiences**: Show different content based on properties
+- **Analyze behavior**: Compare how different user groups behave
+
+Think of properties as tags or labels that describe a user beyond just their ID.
+
+## Setting Properties
+
+Use `setProperty()` to add attributes to a user:
+
+```typescript
+await grain.setProperty({
+  plan: 'premium',
+  location: 'US',
+  signup_date: '2024-01-15'
+});
+```
+
+**Key points**:
+- Set up to **4 properties** per request
+- All values are automatically converted to strings
+- Properties persist for the user
+- Works with the current user ID (from `setUserId()`)
+
+## Property Values
+
+All property values become strings, regardless of what you pass:
+
+```typescript
+await grain.setProperty({
+  plan: 'premium',        // String: "premium"
+  age: 25,               // Becomes: "25"
+  is_active: true,       // Becomes: "true"
+  preferences: {         // Becomes: JSON string
+    theme: 'dark',
+    language: 'en'
+  }
+});
+```
+
+**Why strings?** This keeps the API simple and ensures consistent storage. When checking properties, compare as strings.
+
+## When to Set Properties
+
+Set properties when they change or when a user first signs up:
+
+```typescript
+// After signup
+grain.setUserId('user_123');
+await grain.setProperty({
+  plan: 'free',
+  signup_date: new Date().toISOString(),
+  source: 'landing_page'
+});
+
+// When user upgrades
+await grain.setProperty({
+  plan: 'premium',
+  upgrade_date: new Date().toISOString()
+});
+
+// When preferences change
+await grain.setProperty({
+  theme: 'dark',
+  language: 'es'
+});
+```
+
+## Setting for Specific Users
+
+Override which user receives properties using options:
+
+```typescript
+// Set properties for a different user
+await grain.setProperty({
+  status: 'inactive'
+}, { userId: 'user_456' });
+```
+
+<Warning>
+  **Security**: Only use `userId` overrides when you have permission to modify other users. With JWT auth, the user ID must match your token. Learn more in [Security](/advanced/security).
+</Warning>
+
+## Properties for Personalization
+
+Properties power remote configuration personalization. When fetching configs, pass properties to get personalized values:
+
+```typescript
+// User properties influence which config values are returned
+const heroText = await grain.getConfigAsync('hero_text', {
+  properties: {
+    plan: 'premium',
+    location: 'US'
+  }
+});
+```
+
+For example, premium users might see "Welcome back, premium member!" while free users see "Upgrade to premium!".
+
+This is covered in depth in [Remote Configuration](/core/remote-config) and [Personalization Guide](/guides/personalization).
+
+## Common Properties
+
+Here are properties commonly tracked in applications:
+
+### Account Properties
+```typescript
+await grain.setProperty({
+  plan: 'premium',
+  status: 'active',
+  trial_end: '2024-12-31'
+});
+```
+
+### Demographic Properties
+```typescript
+await grain.setProperty({
+  location: 'US',
+  language: 'en',
+  timezone: 'America/New_York'
+});
+```
+
+### Behavioral Properties
+```typescript
+await grain.setProperty({
+  last_login: new Date().toISOString(),
+  feature_usage_count: '42',
+  onboarding_completed: 'true'
+});
+```
+
+## Property Limits
+
+To prevent abuse and ensure performance:
+- **4 properties per request** maximum
+- Rate limiting may apply if setting properties too frequently
+- Property keys and values have size limits (typically 256 chars)
+
+If you need to set more than 4 properties:
+
+```typescript
+// Set in batches
+await grain.setProperty({
+  plan: 'premium',
+  status: 'active',
+  location: 'US',
+  language: 'en'
+});
+
+await grain.setProperty({
+  theme: 'dark',
+  notifications: 'enabled',
+  last_login: new Date().toISOString()
+});
+```
+
+## Security Considerations
+
+User properties have security restrictions to prevent abuse:
+
+### User ID Must Match JWT
+
+With JWT authentication, you can only set properties for the authenticated user:
+
+```typescript
+// JWT subject: "user_123"
+
+// ✅ Allowed: Setting properties for yourself
+grain.setUserId('user_123');
+await grain.setProperty({ plan: 'premium' });
+
+// ❌ Blocked: Can't set properties for other users
+await grain.setProperty({ 
+  plan: 'premium' 
+}, { userId: 'user_456' });
+```
+
+### Rate Limiting
+
+Setting properties for many different user IDs from the same source may trigger rate limiting. This prevents one client from modifying many user profiles.
+
+Learn more in [Security](/advanced/security).
+
+## Async Operations
+
+`setProperty()` is asynchronous - it returns a Promise:
+
+```typescript
+// Wait for completion
+await grain.setProperty({ plan: 'premium' });
+
+// Or handle with .then()
+grain.setProperty({ status: 'active' })
+  .then(() => console.log('Properties set!'))
+  .catch(err => console.error('Failed:', err));
+```
+
+**Error handling**:
+
+```typescript
+try {
+  await grain.setProperty({ plan: 'premium' });
+} catch (error) {
+  console.error('Failed to set properties:', error);
+  // Show user an error message
+}
+```
+
+## React Integration
+
+With React hooks, manage properties easily:
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+function SettingsPage() {
+  const grain = useGrainAnalytics();
+  
+  const handleThemeChange = async (theme) => {
+    await grain.setProperty({ theme });
+    // UI updates...
+  };
+  
+  return <button onClick={() => handleThemeChange('dark')}>Dark Mode</button>;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Remote Configuration" icon="sliders" href="/core/remote-config">
+    Use properties for personalization
+  </Card>
+  <Card title="Personalization Guide" icon="user-gear" href="/guides/personalization">
+    Build personalized experiences
+  </Card>
+  <Card title="Security" icon="shield" href="/advanced/security">
+    Understand security restrictions
+  </Card>
+</CardGroup>
+

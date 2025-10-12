@@ -1,0 +1,167 @@
+---
+title: "Quick Start"
+description: "Get up and running with Grain Analytics in 5 minutes"
+---
+
+## Get Your Tenant ID
+
+Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com). This identifies your application in the Grain platform.
+
+<Steps>
+  <Step title="Install the SDK">
+    Install Grain Analytics using npm, yarn, or pnpm:
+
+    ```bash
+    npm install @grainql/analytics-web
+    ```
+  </Step>
+
+  <Step title="Initialize the SDK">
+    Create a Grain client with your tenant ID:
+
+    ```typescript
+    import { createGrainAnalytics } from '@grainql/analytics-web';
+
+    const grain = createGrainAnalytics({
+      tenantId: 'your-tenant-id'
+    });
+    ```
+
+    <Note>
+      This is the simplest setup with no authentication. For production apps, check out [authentication options](/authentication).
+    </Note>
+  </Step>
+
+  <Step title="Track Your First Event">
+    Track user actions to understand behavior:
+
+    ```typescript
+    // Track a page view
+    grain.track('page_viewed', {
+      page: '/home'
+    });
+
+    // Track a button click
+    grain.track('button_clicked', {
+      button_name: 'signup',
+      location: 'header'
+    });
+    ```
+
+    **What's happening here?** The `track` method sends an event with a name and optional properties. Events are batched automatically and sent every 5 seconds for efficiency.
+  </Step>
+
+  <Step title="Use Remote Configuration">
+    Get configuration values to control your app:
+
+    ```typescript
+    // Set defaults for instant access
+    const grain = createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      defaultConfigurations: {
+        hero_text: 'Welcome!'
+      }
+    });
+
+    // Get config value (instant, from cache or defaults)
+    const heroText = grain.getConfig('hero_text');
+    console.log(heroText); // "Welcome!"
+    ```
+
+    **Cache-first strategy**: `getConfig` returns cached values instantly. In the background, fresh values are fetched from the API and your app updates automatically.
+  </Step>
+</Steps>
+
+## React Quick Start
+
+Using React? The SDK includes hooks for a better experience:
+
+```typescript
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <HomePage />
+    </GrainProvider>
+  );
+}
+
+function HomePage() {
+  const { value: heroText } = useConfig('hero_text');
+  const track = useTrack();
+
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+**Why hooks?** They eliminate boilerplate, handle re-renders automatically, and provide a React-friendly API. Learn more in the [React Integration](/react/overview) guide.
+
+## Understanding Events
+
+Events represent actions users take in your app. Each event has:
+
+- **Event name**: What happened (e.g., 'button_clicked', 'purchase_completed')
+- **Properties**: Additional context (e.g., button_name, price, product_id)
+- **User ID**: Who performed the action (optional, but recommended)
+
+```typescript
+// Set a user ID for all events
+grain.setUserId('user_123');
+
+// Now all events include this user ID
+grain.track('feature_used', {
+  feature_name: 'export_data'
+});
+```
+
+## Understanding Remote Config
+
+Remote configuration lets you change your app's behavior without deploying code. Common uses:
+
+- **Feature flags**: Turn features on/off remotely
+- **A/B testing**: Show different content to different users
+- **Personalization**: Display user-specific messages
+
+Set up configurations in the [Grain dashboard](https://grainql.com/dashboard), then access them in your app:
+
+```typescript
+// Check if a feature is enabled
+const isNewUIEnabled = grain.getConfig('new_ui_enabled');
+
+if (isNewUIEnabled === 'true') {
+  // Show new UI
+} else {
+  // Show old UI
+}
+```
+
+## Next Steps
+
+Now that you have the basics, explore these topics:
+
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn about batching, flushing, and best practices
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Track users across sessions
+  </Card>
+  <Card title="Remote Configuration" icon="sliders" href="/core/remote-config">
+    Master cache-first configuration
+  </Card>
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Integrate with React apps
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Important**: For production apps, use proper [authentication](/authentication) to secure your analytics and configurations.
+</Warning>

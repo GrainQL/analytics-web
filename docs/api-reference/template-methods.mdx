@@ -1,0 +1,347 @@
+---
+title: "Template Methods"
+description: "Pre-built event methods for common scenarios"
+---
+
+## Overview
+
+Template methods provide type-safe, pre-structured events for common tracking scenarios. They're shortcuts that ensure consistent event structure.
+
+All template methods accept optional properties and options parameters.
+
+---
+
+## trackLogin()
+
+Track user login events.
+
+```typescript
+await grain.trackLogin(
+  properties?: LoginEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  method?: string;              // 'email', 'google', 'facebook', etc.
+  success?: boolean;            // Whether login succeeded
+  errorMessage?: string;        // Error message if failed
+  loginAttempt?: number;        // Attempt number
+  rememberMe?: boolean;         // "Remember me" checkbox
+  twoFactorEnabled?: boolean;   // 2FA used
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackLogin({
+  method: 'email',
+  success: true,
+  rememberMe: false
+});
+```
+
+---
+
+## trackSignup()
+
+Track user registration events.
+
+```typescript
+await grain.trackSignup(
+  properties?: SignupEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  method?: string;        // Signup method
+  source?: string;        // Where they came from
+  plan?: string;          // Selected plan
+  success?: boolean;      // Signup succeeded
+  referralCode?: string;  // Referral code used
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackSignup({
+  method: 'google',
+  source: 'landing_page',
+  plan: 'pro'
+});
+```
+
+---
+
+## trackCheckout()
+
+Track checkout process events.
+
+```typescript
+await grain.trackCheckout(
+  properties?: CheckoutEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  orderId?: string;                // Order identifier
+  total?: number;                  // Total amount
+  currency?: string;               // Currency code
+  items?: Array<{                  // Cart items
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+  }>;
+  paymentMethod?: string;          // Payment method
+  success?: boolean;               // Checkout succeeded
+  errorMessage?: string;           // Error if failed
+  couponCode?: string;             // Discount code
+  discount?: number;               // Discount amount
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackCheckout({
+  orderId: 'order_123',
+  total: 149.98,
+  currency: 'USD',
+  items: [
+    { id: 'prod_1', name: 'Shoes', price: 89.99, quantity: 1 },
+    { id: 'prod_2', name: 'Socks', price: 59.99, quantity: 1 }
+  ],
+  paymentMethod: 'credit_card',
+  success: true
+});
+```
+
+---
+
+## trackPurchase()
+
+Track completed purchase events.
+
+```typescript
+await grain.trackPurchase(
+  properties?: PurchaseEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  orderId?: string;        // Order identifier
+  total?: number;          // Total amount
+  currency?: string;       // Currency code
+  paymentMethod?: string;  // Payment method
+  shipping?: number;       // Shipping cost
+  tax?: number;            // Tax amount
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackPurchase({
+  orderId: 'order_123',
+  total: 99.99,
+  currency: 'USD',
+  paymentMethod: 'credit_card'
+}, { flush: true });
+```
+
+---
+
+## trackAddToCart()
+
+Track items added to cart.
+
+```typescript
+await grain.trackAddToCart(
+  properties?: AddToCartEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  itemId?: string;      // Product ID
+  itemName?: string;    // Product name
+  price?: number;       // Item price
+  quantity?: number;    // Quantity added
+  currency?: string;    // Currency code
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackAddToCart({
+  itemId: 'prod_123',
+  itemName: 'Running Shoes',
+  price: 89.99,
+  quantity: 1,
+  currency: 'USD'
+});
+```
+
+---
+
+## trackRemoveFromCart()
+
+Track items removed from cart.
+
+```typescript
+await grain.trackRemoveFromCart(
+  properties?: RemoveFromCartEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  itemId?: string;      // Product ID
+  itemName?: string;    // Product name
+  price?: number;       // Item price
+  quantity?: number;    // Quantity removed
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackRemoveFromCart({
+  itemId: 'prod_123',
+  itemName: 'Running Shoes',
+  quantity: 1
+});
+```
+
+---
+
+## trackPageView()
+
+Track page view events.
+
+```typescript
+await grain.trackPageView(
+  properties?: PageViewEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  page?: string;      // Page path
+  title?: string;     // Page title
+  url?: string;       // Full URL
+  referrer?: string;  // Referrer URL
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackPageView({
+  page: '/products',
+  title: 'Product Catalog',
+  url: window.location.href,
+  referrer: document.referrer
+});
+```
+
+---
+
+## trackSearch()
+
+Track search query events.
+
+```typescript
+await grain.trackSearch(
+  properties?: SearchEventProperties,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Properties:**
+```typescript
+{
+  query?: string;                      // Search query
+  results?: number;                    // Number of results
+  filters?: Record<string, unknown>;   // Applied filters
+  sortBy?: string;                     // Sort order
+  // ... plus any custom properties
+}
+```
+
+**Example:**
+```typescript
+await grain.trackSearch({
+  query: 'running shoes',
+  results: 24,
+  filters: { category: 'footwear', color: 'blue' },
+  sortBy: 'price_asc'
+});
+```
+
+---
+
+## Custom Properties
+
+All template methods accept additional custom properties:
+
+```typescript
+await grain.trackLogin({
+  method: 'email',
+  success: true,
+  // Custom properties
+  ip_address: req.ip,
+  user_agent: req.headers['user-agent'],
+  custom_field: 'custom_value'
+});
+```
+
+---
+
+## Flush Option
+
+All template methods support the `flush` option:
+
+```typescript
+await grain.trackPurchase({
+  orderId: 'order_123',
+  total: 99.99
+}, { flush: true });
+```
+
+Forces immediate sending instead of batching.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Template Events Guide" icon="sparkles" href="/core/template-events">
+    Learn about template events
+  </Card>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    E-commerce tracking guide
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,304 @@
+---
+title: "Remote Configuration"
+description: "Control your app's behavior dynamically without deploying code"
+---
+
+## What is Remote Configuration?
+
+Remote configuration lets you change how your app behaves without shipping new code. Update text, toggle features, or change colors - all from the Grain dashboard.
+
+**Traditional way**:
+```typescript
+const heroText = "Welcome!";  // Hardcoded - requires deploy to change
+```
+
+**With remote config**:
+```typescript
+const heroText = grain.getConfig('hero_text');  // Dynamic - change anytime
+```
+
+Now you can update that text from the dashboard and all users see the new version instantly.
+
+## Why Use Remote Config?
+
+**A/B Testing**: Show variant A to some users, variant B to others:
+```typescript
+const variant = grain.getConfig('hero_variant'); // 'A' or 'B'
+```
+
+**Feature Flags**: Enable/disable features without code:
+```typescript
+if (grain.getConfig('new_ui_enabled') === 'true') {
+  // Show new UI
+}
+```
+
+**Personalization**: Different content for different users:
+```typescript
+// Premium users see different text
+const message = grain.getConfig('welcome_message'); 
+```
+
+**Emergency Off Switch**: Disable broken features instantly:
+```typescript
+if (grain.getConfig('chat_enabled') !== 'false') {
+  // Show chat widget
+}
+```
+
+## Cache-First Strategy
+
+This is the key to making remote config fast. Grain uses a **cache-first** approach:
+
+1. **First access**: Return default or cached value (instant)
+2. **Background fetch**: Load fresh values from API
+3. **Update**: When new values arrive, update cache and notify listeners
+
+Your app never waits for the network. It shows content immediately with cached or default values.
+
+```typescript
+// Returns instantly from cache or defaults
+const heroText = grain.getConfig('hero_text');
+
+// Meanwhile, fresh values load in the background
+// When they arrive, listeners are notified
+```
+
+## Setting Defaults
+
+Always provide default values for immediate access:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  defaultConfigurations: {
+    hero_text: 'Welcome!',
+    button_color: 'blue',
+    feature_enabled: 'false'
+  }
+});
+
+// Works immediately, even offline
+const heroText = grain.getConfig('hero_text'); // "Welcome!"
+```
+
+Without defaults, `getConfig()` returns `undefined` until values load from the API.
+
+## Getting Configuration Values
+
+### Synchronous Access
+
+Get values instantly from cache or defaults:
+
+```typescript
+// Returns immediately
+const heroText = grain.getConfig('hero_text');
+const buttonColor = grain.getConfig('button_color');
+```
+
+Use this in render functions, event handlers, or anywhere you need instant access.
+
+### Asynchronous Access
+
+Fetch fresh values from the API:
+
+```typescript
+// Fetches from API (cache-first)
+const heroText = await grain.getConfigAsync('hero_text');
+```
+
+This still uses cache-first: returns cached value immediately, then fetches fresh value in background.
+
+**Force refresh**:
+```typescript
+// Skip cache, fetch directly from API
+const heroText = await grain.getConfigAsync('hero_text', {
+  forceRefresh: true
+});
+```
+
+### Get All Configurations
+
+```typescript
+// Synchronous: from cache/defaults
+const configs = grain.getAllConfigs();
+console.log(configs); // { hero_text: "Welcome!", button_color: "blue", ... }
+
+// Asynchronous: fetch from API
+const configs = await grain.getAllConfigsAsync();
+```
+
+## Preloading Configurations
+
+Preload configs at app startup for instant access:
+
+```typescript
+// On app load
+grain.setUserId('user_123');
+await grain.preloadConfig(['hero_text', 'button_color', 'feature_enabled']);
+
+// Now these are available synchronously
+const heroText = grain.getConfig('hero_text');
+```
+
+This is perfect for loading critical configs before rendering your UI.
+
+## Configuration Change Listeners
+
+React to configuration changes in real-time:
+
+```typescript
+// Listen for updates
+grain.addConfigChangeListener((configs) => {
+  console.log('Configs updated:', configs);
+  
+  // Update your UI
+  document.getElementById('hero').textContent = configs.hero_text;
+});
+```
+
+**When listeners fire**:
+- After background fetch completes
+- When manual refresh happens
+- When cache updates
+
+Remove listeners when no longer needed:
+
+```typescript
+const listener = (configs) => { /* ... */ };
+grain.addConfigChangeListener(listener);
+
+// Later...
+grain.removeConfigChangeListener(listener);
+```
+
+## Personalized Configurations
+
+Pass user properties to get personalized values:
+
+```typescript
+const heroText = await grain.getConfigAsync('hero_text', {
+  properties: {
+    plan: 'premium',
+    location: 'US'
+  }
+});
+```
+
+**How it works**: Grain evaluates rules based on these properties and returns values matched to the user. Premium users might see different text than free users.
+
+Set up rules in the [Grain dashboard](https://grainql.com/dashboard) to define which users see which values.
+
+## Practical Examples
+
+### Feature Flag
+
+```typescript
+// Simple feature flag
+const newUIEnabled = grain.getConfig('new_ui_enabled');
+
+function App() {
+  return newUIEnabled === 'true' ? <NewUI /> : <LegacyUI />;
+}
+```
+
+### A/B Test
+
+```typescript
+// A/B test with variants
+const heroVariant = grain.getConfig('hero_variant'); // 'A' or 'B'
+
+const variants = {
+  A: { title: 'Welcome!', color: 'blue' },
+  B: { title: 'Hello there!', color: 'green' }
+};
+
+const content = variants[heroVariant || 'A'];
+```
+
+### Dynamic Styling
+
+```typescript
+// Remote controlled theme
+const primaryColor = grain.getConfig('primary_color');
+const borderRadius = grain.getConfig('border_radius');
+
+const styles = {
+  backgroundColor: primaryColor || '#007bff',
+  borderRadius: borderRadius || '4px'
+};
+```
+
+### Emergency Control
+
+```typescript
+// Disable features remotely if issues arise
+const chatEnabled = grain.getConfig('chat_enabled');
+
+if (chatEnabled !== 'false') {
+  initializeChat();
+}
+```
+
+## Auto-Refresh
+
+Configs automatically refresh in the background:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  configRefreshInterval: 120000  // Refresh every 2 minutes
+});
+```
+
+Default is 5 minutes. Set to `0` to disable auto-refresh.
+
+## Caching
+
+Configs are cached in `localStorage` (or memory in Node.js):
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  enableConfigCache: true,  // Default
+  configCacheKey: 'my_app_config'  // Custom cache key
+});
+```
+
+**Why cache?** Your app loads instantly with previously fetched values, even offline.
+
+Disable caching if needed:
+```typescript
+enableConfigCache: false  // Always fetch from API
+```
+
+## Managing Configs
+
+Configure values in the Grain dashboard:
+
+1. Go to [grainql.com/dashboard](https://grainql.com/dashboard)
+2. Navigate to **Remote Config**
+3. Create configuration keys
+4. Set default values
+5. Add rules for personalization
+6. Publish changes
+
+Changes take effect immediately for all clients.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="A/B Testing Guide" icon="flask" href="/guides/ab-testing">
+    Build A/B tests with remote config
+  </Card>
+  <Card title="Feature Flags Guide" icon="flag" href="/guides/feature-flags">
+    Implement feature flags
+  </Card>
+  <Card title="Personalization" icon="user-gear" href="/guides/personalization">
+    Create personalized experiences
+  </Card>
+  <Card title="Config Methods API" icon="book" href="/api-reference/config-methods">
+    See all configuration methods
+  </Card>
+</CardGroup>
+

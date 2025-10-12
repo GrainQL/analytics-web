@@ -1,0 +1,320 @@
+---
+title: "useGrainAnalytics Hook"
+description: "Access the full Grain client for advanced operations"
+---
+
+## Basic Usage
+
+Get access to the complete Grain client instance:
+
+```typescript
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  // Use any client method
+  grain.setUserId('user_123');
+  grain.track('event', { data: 'value' });
+  await grain.flush();
+  
+  return <div>...</div>;
+}
+```
+
+This hook gives you the full client API for operations not covered by specialized hooks.
+
+## When to Use
+
+Use `useGrainAnalytics` when you need:
+
+- **User identification**: `setUserId()`, `identify()`
+- **User properties**: `setProperty()`
+- **Manual flushing**: `flush()`
+- **Template events**: `trackLogin()`, `trackPurchase()`, etc.
+- **Advanced config**: `fetchConfig()`, `preloadConfig()`
+- **Client management**: `destroy()`
+
+For common operations, prefer specialized hooks:
+- `useConfig` for configurations
+- `useTrack` for event tracking
+- `useAllConfigs` for multiple configs
+
+## User Identification
+
+Set user ID when users log in:
+
+```typescript
+function LoginHandler() {
+  const grain = useGrainAnalytics();
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    if (user) {
+      grain.identify(user.id);
+    } else {
+      grain.setUserId(null);
+    }
+  }, [user, grain]);
+  
+  return <div>...</div>;
+}
+```
+
+**Note**: If you pass `userId` to `GrainProvider`, this happens automatically. Only use this hook if you need manual control.
+
+## User Properties
+
+Set attributes for user profiles:
+
+```typescript
+function ProfilePage() {
+  const grain = useGrainAnalytics();
+  
+  const handleUpgrade = async () => {
+    await grain.setProperty({
+      plan: 'premium',
+      upgrade_date: new Date().toISOString()
+    });
+    
+    // Show success message
+  };
+  
+  return <button onClick={handleUpgrade}>Upgrade</button>;
+}
+```
+
+## Template Events
+
+Use pre-built event methods:
+
+```typescript
+function CheckoutPage() {
+  const grain = useGrainAnalytics();
+  
+  const handleCheckout = async (order) => {
+    await grain.trackCheckout({
+      orderId: order.id,
+      total: order.total,
+      currency: 'USD',
+      paymentMethod: 'credit_card',
+      success: true
+    });
+    
+    // Continue with checkout
+  };
+  
+  return <button onClick={handleCheckout}>Checkout</button>;
+}
+```
+
+## Manual Flushing
+
+Force send events immediately:
+
+```typescript
+function CriticalAction() {
+  const grain = useGrainAnalytics();
+  
+  const handleAction = async () => {
+    grain.track('critical_action', { data: 'value' });
+    
+    // Ensure event is sent before navigation
+    await grain.flush();
+    
+    router.push('/next-page');
+  };
+  
+  return <button onClick={handleAction}>Continue</button>;
+}
+```
+
+## Preload Configurations
+
+Load configs before rendering:
+
+```typescript
+function App() {
+  const grain = useGrainAnalytics();
+  const [ready, setReady] = useState(false);
+  
+  useEffect(() => {
+    const loadConfigs = async () => {
+      await grain.preloadConfig([
+        'hero_text',
+        'button_color',
+        'feature_enabled'
+      ]);
+      setReady(true);
+    };
+    
+    loadConfigs();
+  }, [grain]);
+  
+  if (!ready) return <div>Loading...</div>;
+  
+  return <HomePage />;
+}
+```
+
+Now configs are available synchronously in child components.
+
+## Get Current User ID
+
+Check who's currently identified:
+
+```typescript
+function UserStatus() {
+  const grain = useGrainAnalytics();
+  const userId = grain.getUserId();
+  
+  return (
+    <div>
+      {userId ? `Logged in as: ${userId}` : 'Anonymous'}
+    </div>
+  );
+}
+```
+
+## Advanced Configuration
+
+Fetch configurations with specific options:
+
+```typescript
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  const loadConfig = async () => {
+    const response = await grain.fetchConfig({
+      immediateKeys: ['feature_flag'],
+      properties: {
+        plan: 'premium',
+        location: 'US'
+      }
+    });
+    
+    console.log('Snapshot ID:', response.snapshotId);
+    console.log('Configs:', response.configurations);
+  };
+  
+  return <button onClick={loadConfig}>Load Config</button>;
+}
+```
+
+## Configuration Listeners
+
+Add listeners for config changes:
+
+```typescript
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  useEffect(() => {
+    const listener = (configs) => {
+      console.log('Configs updated:', configs);
+      // Update UI or trigger actions
+    };
+    
+    grain.addConfigChangeListener(listener);
+    
+    return () => {
+      grain.removeConfigChangeListener(listener);
+    };
+  }, [grain]);
+  
+  return <div>...</div>;
+}
+```
+
+**Note**: Usually not needed with hooks. `useConfig` and `useAllConfigs` handle updates automatically.
+
+## Cleanup
+
+The client is automatically cleaned up when the provider unmounts. Manual cleanup is rarely needed:
+
+```typescript
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  useEffect(() => {
+    return () => {
+      // Only if you need manual cleanup
+      grain.destroy();
+    };
+  }, [grain]);
+  
+  return <div>...</div>;
+}
+```
+
+## Stable Reference
+
+The client reference returned by this hook is stable and won't change between renders:
+
+```typescript
+function Component() {
+  const grain = useGrainAnalytics();
+  
+  // Safe to use in effects without listing as dependency
+  useEffect(() => {
+    grain.track('mounted');
+  }, []); // grain is stable, no need in dependencies
+  
+  return <div>...</div>;
+}
+```
+
+## Authentication Flow Example
+
+Complete authentication integration:
+
+```typescript
+function AuthHandler() {
+  const grain = useGrainAnalytics();
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const setupUser = async () => {
+      if (user) {
+        // Identify user
+        grain.identify(user.id);
+        
+        // Set user properties
+        await grain.setProperty({
+          email: user.email,
+          plan: user.plan,
+          signup_date: user.createdAt
+        });
+        
+        // Track login
+        await grain.trackLogin({
+          method: user.loginMethod,
+          success: true
+        });
+      } else {
+        // Clear user ID on logout
+        grain.setUserId(null);
+      }
+    };
+    
+    setupUser();
+  }, [user, grain]);
+  
+  return null;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Methods API" icon="book" href="/api-reference/core-methods">
+    See all available methods
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Learn about user tracking
+  </Card>
+  <Card title="Template Events" icon="sparkles" href="/core/template-events">
+    Pre-built event methods
+  </Card>
+</CardGroup>
+

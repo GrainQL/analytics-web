@@ -1,0 +1,244 @@
+---
+title: "Authentication"
+description: "Choose the right authentication strategy for your app"
+---
+
+## Overview
+
+Grain Analytics supports three authentication strategies to fit different security needs. Choosing the right one depends on where your app runs and who can access it.
+
+<Note>
+  **Starting out?** Use `NONE` for development and demos. Switch to `SERVER_SIDE` or `JWT` for production.
+</Note>
+
+## Strategy Comparison
+
+| Strategy | Use Case | Security | Complexity |
+|----------|----------|----------|------------|
+| `NONE` | Public apps, demos | Low | Simple |
+| `SERVER_SIDE` | Backend/Node.js | High | Medium |
+| `JWT` | Client apps with auth | High | Medium |
+
+## NONE Authentication
+
+No authentication required. Events and configs are accessed without credentials.
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'NONE' // or omit (default)
+});
+```
+
+**When to use**:
+- Public websites or landing pages
+- Development and testing
+- Apps without user authentication
+
+**Security note**: Anyone with your tenant ID can send events or read configurations. Don't use for sensitive data.
+
+## SERVER_SIDE Authentication
+
+Uses a secret key to authenticate requests. Best for backend applications where the secret can be kept secure.
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: 'your-secret-key'
+});
+```
+
+**How it works**: The SDK sends requests with an `Authorization: Chase {SECRET}` header. The server validates the secret before processing.
+
+### Getting Your Secret Key
+
+1. Go to [grainql.com/dashboard](https://grainql.com/dashboard)
+2. Navigate to your tenant settings
+3. Generate or copy your secret key
+4. Store it securely (environment variable recommended)
+
+```typescript
+// ✅ Good: Secret from environment
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY
+});
+
+// ❌ Bad: Secret in client code
+const grain = createGrainAnalytics({
+  secretKey: 'sk_live_abc123...' // Never expose in client bundles!
+});
+```
+
+**When to use**:
+- Node.js backends
+- Server-side API routes
+- Serverless functions
+- Any environment where secrets can be kept secure
+
+<Warning>
+  **Never** include your secret key in client-side code. It will be visible in your bundle and anyone can use it.
+</Warning>
+
+## JWT Authentication
+
+Uses JSON Web Tokens for authentication. Perfect for client-side apps that already have user authentication.
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'JWT',
+  authProvider: {
+    async getToken() {
+      // Return a valid JWT from your auth system
+      return await getAccessToken();
+    }
+  }
+});
+```
+
+**How it works**: Before each API request, the SDK calls `getToken()` to get a fresh JWT. The token is sent in the `Authorization: Bearer {TOKEN}` header.
+
+### Setting Up JWT Auth
+
+**Step 1**: Configure JWT in Grain Dashboard
+
+Go to your tenant settings at [grainql.com/dashboard](https://grainql.com/dashboard) and configure:
+- JWT issuer (e.g., your Auth0 domain)
+- JWT audience
+- Public key or JWKS endpoint
+
+**Step 2**: Implement Auth Provider
+
+The auth provider is an object with a `getToken` method:
+
+```typescript
+const authProvider = {
+  async getToken() {
+    // Get token from your auth system
+    // This could be Auth0, next-auth, Firebase, etc.
+    return await yourAuthSystem.getAccessToken();
+  }
+};
+```
+
+**Step 3**: Initialize SDK
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'JWT',
+  authProvider
+});
+```
+
+### Common Auth Integrations
+
+<Tabs>
+  <Tab title="Auth0">
+    ```typescript
+    import { useAuth0 } from '@auth0/auth0-react';
+
+    function App() {
+      const { getAccessTokenSilently } = useAuth0();
+
+      const grain = createGrainAnalytics({
+        tenantId: 'your-tenant-id',
+        authStrategy: 'JWT',
+        authProvider: {
+          getToken: () => getAccessTokenSilently()
+        }
+      });
+
+      // Use grain...
+    }
+    ```
+  </Tab>
+
+  <Tab title="NextAuth.js">
+    ```typescript
+    import { getSession } from 'next-auth/react';
+
+    const grain = createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      authStrategy: 'JWT',
+      authProvider: {
+        async getToken() {
+          const session = await getSession();
+          return session?.accessToken;
+        }
+      }
+    });
+    ```
+  </Tab>
+
+  <Tab title="Custom">
+    ```typescript
+    // Your custom auth system
+    const grain = createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      authStrategy: 'JWT',
+      authProvider: {
+        async getToken() {
+          // Fetch from your API or local storage
+          const token = localStorage.getItem('jwt_token');
+          return token;
+        }
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### JWT User ID Requirements
+
+When using JWT authentication, the user ID in events must match the JWT's `sub` (subject) claim:
+
+```typescript
+// JWT payload: { sub: "user_123", ... }
+
+grain.setUserId('user_123'); // ✅ Matches JWT subject
+grain.track('button_clicked', { button: 'submit' });
+
+grain.setUserId('user_456'); // ❌ Doesn't match - will be rejected
+```
+
+**Why this matters**: This prevents users from impersonating others. The server validates that the user ID in events matches the authenticated user.
+
+## Choosing a Strategy
+
+Use this decision tree:
+
+1. **Is this a public website?** → Use `NONE`
+2. **Does your app have user authentication?** 
+   - Yes, client-side → Use `JWT`
+   - Yes, server-side → Use `SERVER_SIDE`
+3. **Is this backend code?** → Use `SERVER_SIDE`
+4. **Still unsure?** → Start with `NONE`, upgrade later
+
+## Switching Strategies
+
+You can change authentication strategies without code changes in most cases:
+
+```typescript
+// Development
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: process.env.NODE_ENV === 'production' ? 'JWT' : 'NONE',
+  authProvider: process.env.NODE_ENV === 'production' ? authProvider : undefined
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn how to track events securely
+  </Card>
+  <Card title="Security" icon="shield" href="/advanced/security">
+    Deep dive into security considerations
+  </Card>
+</CardGroup>
+

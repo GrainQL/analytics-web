@@ -1,0 +1,231 @@
+---
+title: "Error Handling"
+description: "Handle errors gracefully in your application"
+---
+
+## Overview
+
+Grain SDK handles most errors automatically with retries and fallbacks. However, understanding error scenarios helps you build robust applications.
+
+## Automatic Error Handling
+
+The SDK automatically handles common failures:
+
+**Network Errors**: Retries with exponential backoff
+**Rate Limits**: Backs off and retries later
+**Server Errors**: Retries failed requests
+**Invalid Data**: Logs warning, continues
+
+You don't need to handle these explicitly.
+
+## Manual Error Handling
+
+For critical operations, catch errors explicitly:
+
+```typescript
+try {
+  await grain.setProperty({
+    plan: 'premium'
+  });
+  showSuccess('Properties updated!');
+} catch (error) {
+  showError('Failed to update properties');
+  console.error(error);
+}
+```
+
+## Track Method Errors
+
+The `track` method is fire-and-forget by default:
+
+```typescript
+// Doesn't throw - events queue and send in background
+grain.track('button_clicked', { button: 'signup' });
+```
+
+With `flush: true`, it returns a Promise you can catch:
+
+```typescript
+try {
+  await grain.track('purchase', { total: 99.99 }, { flush: true });
+} catch (error) {
+  console.error('Failed to track purchase:', error);
+  // Maybe retry or log locally
+}
+```
+
+## Configuration Errors
+
+Config methods degrade gracefully:
+
+```typescript
+// Returns cached/default value even if API fails
+const heroText = grain.getConfig('hero_text');
+
+// With async, catch errors
+try {
+  const heroText = await grain.getConfigAsync('hero_text');
+} catch (error) {
+  console.error('Config fetch failed:', error);
+  // Use default value
+  const heroText = grain.getConfig('hero_text');
+}
+```
+
+**Key point**: Your app never breaks due to config failures. Cached or default values always available.
+
+## React Hook Error Handling
+
+Hooks provide error states:
+
+```typescript
+function Component() {
+  const { value, error } = useConfig('hero_text');
+  
+  if (error) {
+    return <div>Using default content due to error</div>;
+  }
+  
+  return <h1>{value || 'Welcome'}</h1>;
+}
+```
+
+## Authentication Errors
+
+JWT token errors are thrown, so catch them:
+
+```typescript
+const authProvider = {
+  async getToken() {
+    try {
+      return await auth0.getAccessToken();
+    } catch (error) {
+      console.error('Auth failed:', error);
+      // Maybe redirect to login
+      return null;
+    }
+  }
+};
+```
+
+## Network Offline
+
+When offline, events queue locally:
+
+```typescript
+// Works offline - events queue
+grain.track('button_clicked', { button: 'signup' });
+
+// When back online, queued events send automatically
+```
+
+No special handling needed. SDK manages the queue.
+
+## Debug Mode
+
+Enable debug mode to see detailed error information:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  debug: true  // See all errors in console
+});
+```
+
+## Error Types
+
+Common errors you might encounter:
+
+**Network Errors**: `Failed to fetch`, `Network request failed`
+- Usually temporary - SDK retries automatically
+
+**Auth Errors**: `Unauthorized`, `Invalid token`
+- Check your auth configuration
+
+**Validation Errors**: `Invalid event`, `Missing required field`
+- Review your event structure
+
+**Rate Limit**: `Too many requests`
+- SDK backs off automatically
+
+## Handling Critical Failures
+
+For must-not-fail scenarios:
+
+```typescript
+async function criticalPurchaseTracking(order) {
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      await grain.trackPurchase({
+        orderId: order.id,
+        total: order.total
+      }, { flush: true });
+      
+      return; // Success
+    } catch (error) {
+      attempt++;
+      console.error(`Attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        // All retries failed - log locally
+        logToLocalStorage('failed_purchase_track', order);
+      }
+    }
+  }
+}
+```
+
+## Fallback Strategies
+
+Provide fallbacks for failed operations:
+
+```typescript
+async function getHeroText() {
+  try {
+    return await grain.getConfigAsync('hero_text', {
+      forceRefresh: true
+    });
+  } catch (error) {
+    // Fallback chain
+    return grain.getConfig('hero_text')  // Try cache
+      || 'Welcome!';  // Use hardcoded default
+  }
+}
+```
+
+## Best Practices
+
+**1. Don't Block UI**: Never wait indefinitely for analytics
+
+```typescript
+// ❌ Bad: Blocking UI
+await grain.track('page_viewed');
+renderPage();
+
+// ✅ Good: Fire and forget
+grain.track('page_viewed');
+renderPage();
+```
+
+**2. Provide Defaults**: Always have fallback content
+
+**3. Log Don't Crash**: Log errors, don't throw them to users
+
+**4. Retry Critical Events**: Use `flush: true` and manual retries for important events
+
+**5. Monitor Errors**: Check dashboard for error patterns
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/advanced/configuration">
+    Configure retry behavior
+  </Card>
+  <Card title="Security" icon="shield" href="/advanced/security">
+    Secure error handling
+  </Card>
+</CardGroup>
+

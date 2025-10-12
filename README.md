@@ -1,6 +1,6 @@
-# @grainql/analytics-web
+# GrainQL Web SDK
 
-A lightweight, dependency-free TypeScript SDK for sending analytics events and managing remote configurations via Grain's REST API with automatic batching, retry logic, and reliable event delivery.
+A lightweight, dependency-free TypeScript SDK for sending analytics events and managing remote configurations via GrainQL API with automatic batching, retry logic, and reliable event delivery.
 
 ## Features
 
@@ -21,7 +21,7 @@ A lightweight, dependency-free TypeScript SDK for sending analytics events and m
 npm install @grainql/analytics-web
 ```
 
-> **Latest Version**: v1.6.0 includes comprehensive remote configuration management capabilities alongside the existing analytics features.
+> **Latest Version**: v2.0.0 introduces React Hooks for seamless integration with React apps, including `useConfig` for cache-first configuration management, `useTrack` for optimized event tracking, and `GrainProvider` with both provider-managed and external client patterns. Fully backwards compatible with v1.x.
 
 ## Quick Start
 
@@ -315,6 +315,351 @@ function App() {
       </h1>
     </div>
   );
+}
+```
+
+## React Hooks
+
+The SDK includes a powerful React hooks package that eliminates boilerplate and provides a seamless integration for React applications.
+
+### Installation
+
+The React hooks are included in the main package with no additional dependencies:
+
+```bash
+npm install @grainql/analytics-web
+```
+
+React (>=16.8.0) is a peer dependency and won't be bundled into your app.
+
+### Quick Start
+
+#### Provider-Managed Client (Recommended)
+
+The simplest way to use Grain in React - the provider creates and manages the client:
+
+```tsx
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <Hero />
+    </GrainProvider>
+  );
+}
+
+function Hero() {
+  const { value: variant } = useConfig('hero_variant');
+  const track = useTrack();
+  
+  return (
+    <div>
+      <h1>Hero Variant: {variant || 'A'}</h1>
+      <button onClick={() => track('hero_cta_clicked', { variant })}>
+        Click Me
+      </button>
+    </div>
+  );
+}
+```
+
+#### External Client (Advanced)
+
+For fine-grained control or sharing a client instance:
+
+```tsx
+import { GrainAnalytics } from '@grainql/analytics-web';
+import { GrainProvider, useConfig } from '@grainql/analytics-web/react';
+
+// Create client outside React (can be in a separate file)
+const grain = new GrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'JWT',
+  authProvider: { getToken: () => getAccessToken() }
+});
+
+function App() {
+  return (
+    <GrainProvider client={grain}>
+      <YourApp />
+    </GrainProvider>
+  );
+}
+```
+
+### Hooks API
+
+#### `useConfig(key, options?)`
+
+Cache-first configuration access with automatic background refresh and live updates.
+
+```tsx
+import { useConfig } from '@grainql/analytics-web/react';
+
+function FeatureComponent() {
+  const { value, isRefreshing, error, refresh } = useConfig('feature_flag');
+  
+  if (error) {
+    return <div>Failed to load config</div>;
+  }
+  
+  return (
+    <div>
+      <p>Feature: {value || 'disabled'}</p>
+      {isRefreshing && <span>Updating...</span>}
+      <button onClick={refresh}>Refresh</button>
+    </div>
+  );
+}
+```
+
+**Returns:**
+- `value: string | undefined` - Configuration value (from cache or default)
+- `isRefreshing: boolean` - True during background fetch
+- `error: Error | null` - Error if fetch failed
+- `refresh: () => Promise<void>` - Manual refresh function
+
+**Options:**
+```typescript
+{
+  forceRefresh?: boolean;           // Force API fetch, bypass cache
+  immediateKeys?: string[];         // Keys to fetch immediately
+  properties?: Record<string, string>; // User properties for personalization
+}
+```
+
+#### `useAllConfigs(options?)`
+
+Get all configurations as a reactive object.
+
+```tsx
+import { useAllConfigs } from '@grainql/analytics-web/react';
+
+function ConfigDashboard() {
+  const { configs, isRefreshing, error } = useAllConfigs();
+  
+  return (
+    <div>
+      <h2>Current Configurations</h2>
+      {Object.entries(configs).map(([key, value]) => (
+        <div key={key}>{key}: {value}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Returns:**
+- `configs: Record<string, string>` - All configurations
+- `isRefreshing: boolean` - True during background fetch
+- `error: Error | null` - Error if fetch failed
+- `refresh: () => Promise<void>` - Manual refresh function
+
+#### `useTrack()`
+
+Returns a stable, memoized track function that prevents unnecessary re-renders.
+
+```tsx
+import { useTrack } from '@grainql/analytics-web/react';
+
+function ProductCard({ product }) {
+  const track = useTrack();
+  
+  return (
+    <div>
+      <h3>{product.name}</h3>
+      <button onClick={() => track('product_viewed', { 
+        productId: product.id,
+        category: product.category 
+      })}>
+        View Details
+      </button>
+    </div>
+  );
+}
+```
+
+**Benefits:**
+- Stable function reference (won't cause re-renders)
+- No need for `useCallback`
+- Type-safe with full TypeScript support
+
+#### `useGrainAnalytics()`
+
+Access the full client instance for advanced use cases.
+
+```tsx
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+function UserProfile() {
+  const grain = useGrainAnalytics();
+  
+  const handleLogin = async (userId) => {
+    grain.identify(userId);
+    await grain.setProperty({
+      lastLogin: new Date().toISOString(),
+      loginMethod: 'email'
+    });
+  };
+  
+  return <button onClick={() => handleLogin('user123')}>Login</button>;
+}
+```
+
+### Real-World Examples
+
+#### A/B Testing with Variants
+
+```tsx
+import { useConfig } from '@grainql/analytics-web/react';
+
+const heroVariants = {
+  A: HeroVariantA,
+  B: HeroVariantB,
+  C: HeroVariantC
+};
+
+function DynamicHero() {
+  const { value: variant } = useConfig('hero_variant');
+  const HeroComponent = heroVariants[variant || 'A'];
+  
+  return <HeroComponent />;
+}
+```
+
+#### Feature Flags
+
+```tsx
+import { useConfig } from '@grainql/analytics-web/react';
+
+function App() {
+  const { value: newUIEnabled } = useConfig('new_ui_enabled');
+  
+  return newUIEnabled === 'true' ? <NewUI /> : <LegacyUI />;
+}
+```
+
+#### Personalized Content
+
+```tsx
+import { useConfig } from '@grainql/analytics-web/react';
+
+function PersonalizedBanner() {
+  const { value: bannerText } = useConfig('banner_text', {
+    properties: {
+      plan: 'premium',
+      location: 'US'
+    }
+  });
+  
+  return <div className="banner">{bannerText || 'Welcome!'}</div>;
+}
+```
+
+#### Event Tracking with Flush
+
+```tsx
+import { useTrack } from '@grainql/analytics-web/react';
+
+function CheckoutButton({ orderId, total }) {
+  const track = useTrack();
+  
+  const handleCheckout = () => {
+    // Track with immediate flush for critical events
+    track('checkout_completed', {
+      orderId,
+      total,
+      currency: 'USD'
+    }, { flush: true });
+    
+    // Navigate to success page
+    window.location.href = '/success';
+  };
+  
+  return <button onClick={handleCheckout}>Complete Purchase</button>;
+}
+```
+
+#### Multiple Configs in One Component
+
+```tsx
+import { useAllConfigs } from '@grainql/analytics-web/react';
+
+function ThemedComponent() {
+  const { configs } = useAllConfigs();
+  
+  const styles = {
+    backgroundColor: configs.primary_color || '#007bff',
+    fontSize: configs.font_size || '16px',
+    borderRadius: configs.border_radius || '4px'
+  };
+  
+  return (
+    <button style={styles}>
+      {configs.button_text || 'Click Me'}
+    </button>
+  );
+}
+```
+
+#### User Authentication Flow
+
+```tsx
+import { useGrainAnalytics, useTrack } from '@grainql/analytics-web/react';
+
+function LoginForm() {
+  const grain = useGrainAnalytics();
+  const track = useTrack();
+  
+  const handleLogin = async (email, password) => {
+    try {
+      const user = await authenticateUser(email, password);
+      
+      // Identify user in Grain
+      grain.identify(user.id);
+      
+      // Set user properties
+      await grain.setProperty({
+        email: user.email,
+        plan: user.plan,
+        signupDate: user.signupDate
+      });
+      
+      // Track successful login
+      await track('login', {
+        method: 'email',
+        success: true
+      }, { flush: true });
+      
+    } catch (error) {
+      // Track failed login
+      await track('login', {
+        method: 'email',
+        success: false,
+        errorMessage: error.message
+      });
+    }
+  };
+  
+  return <form onSubmit={handleLogin}>...</form>;
+}
+```
+
+### TypeScript Support
+
+All hooks are fully typed for the best developer experience:
+
+```tsx
+import type { UseConfigResult } from '@grainql/analytics-web/react';
+
+function TypedComponent() {
+  const result: UseConfigResult = useConfig('my_key');
+  
+  // TypeScript knows the shape of result
+  const { value, isRefreshing, error, refresh } = result;
+  
+  return <div>{value}</div>;
 }
 ```
 
@@ -770,65 +1115,6 @@ await grain.trackPageView({ page: '/dashboard' });
 grain.setUserId(null);
 ```
 
-## Changelog
-
-### [1.6.0] - 2025-09-08
-
-#### Added
-- **Remote Config API**: Complete remote configuration management system
-  - `getConfig()` and `getAllConfigs()` for synchronous access
-  - `getConfigAsync()` and `getAllConfigsAsync()` for async access with cache-first strategy
-  - `fetchConfig()` for direct API calls
-  - `preloadConfig()` for preloading configurations at page load
-  - Configuration change listeners with `addConfigChangeListener()` and `removeConfigChangeListener()`
-  - Automatic configuration caching with localStorage persistence
-  - Auto-refresh timer for keeping configurations up-to-date
-  - Default values support for immediate access without API calls
-  - User properties support for personalized configurations
-  - Force refresh option to bypass cache
-  - Full authentication support (NONE, SERVER_SIDE, JWT)
-- **Enhanced Configuration Options**:
-  - `defaultConfigurations` for setting default values
-  - `configCacheKey` for custom cache keys
-  - `configRefreshInterval` for auto-refresh timing
-  - `enableConfigCache` for cache control
-
-#### Technical
-- Added comprehensive remote config interfaces and types
-- Implemented robust error handling and retry logic for config API
-- Added localStorage-based caching with graceful fallbacks
-- Integrated config refresh timer with proper cleanup
-- Enhanced TypeScript interfaces for better type safety
-- Added comprehensive test coverage for remote config functionality
-- Improved test stability and reliability
-
-### [1.4.0] - 2024-12-19
-
-#### Added
-- **User Properties API**: New `setProperty()` method for setting user properties
-  - Set up to 4 properties per request
-  - Automatic string serialization for all values
-  - Support for user-specific property overrides
-  - Full authentication support (NONE, SERVER_SIDE, JWT)
-- **Updated API Endpoints**: 
-  - Events now use `/v1/events/{tenant}/multi` endpoint
-  - Properties use `/v1/events/{tenant}/properties` endpoint
-
-#### Changed
-- Updated all event sending to use the new `/multi` endpoint
-- Enhanced error handling and retry logic for properties API
-
-#### Technical
-- Added comprehensive test coverage for properties functionality
-- Updated all existing tests to use new endpoint structure
-- Improved TypeScript interfaces for better type safety
-
-### [1.3.0] - Previous Release
-
-- Template events for common analytics scenarios
-- Enhanced user ID management
-- Improved error handling and retry logic
-- Cross-platform compatibility improvements
 
 ## License
 

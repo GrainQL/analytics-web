@@ -1,0 +1,239 @@
+---
+title: "Core Methods"
+description: "Event tracking and user management methods"
+---
+
+## createGrainAnalytics()
+
+Creates a new Grain client instance.
+
+```typescript
+const grain = createGrainAnalytics(config: GrainConfig): GrainAnalytics
+```
+
+**Parameters:**
+- `config` - Configuration object (see [Configuration](/advanced/configuration))
+
+**Returns:** GrainAnalytics client instance
+
+**Example:**
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  userId: 'user_123'
+});
+```
+
+---
+
+## track()
+
+Track an event. Two signatures available:
+
+### track(eventName, properties?, options?)
+
+```typescript
+grain.track(
+  eventName: string,
+  properties?: Record<string, unknown>,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Parameters:**
+- `eventName` - Name of the event
+- `properties` - Optional event properties
+- `options.flush` - Force immediate send (default: false)
+
+**Example:**
+```typescript
+grain.track('button_clicked', {
+  button: 'signup',
+  page: '/home'
+});
+
+// With flush
+await grain.track('purchase', { total: 99.99 }, { flush: true });
+```
+
+### track(event, options?)
+
+```typescript
+grain.track(
+  event: GrainEvent,
+  options?: SendEventOptions
+): Promise<void>
+```
+
+**Parameters:**
+- `event` - Complete event object
+- `options.flush` - Force immediate send
+
+**Example:**
+```typescript
+grain.track({
+  eventName: 'purchase',
+  userId: 'user_123',
+  properties: { total: 99.99 },
+  timestamp: new Date()
+});
+```
+
+---
+
+## flush()
+
+Manually flush all queued events.
+
+```typescript
+await grain.flush(): Promise<void>
+```
+
+**Returns:** Promise that resolves when events are sent
+
+**Example:**
+```typescript
+await grain.flush();
+console.log('All events sent');
+```
+
+**When to use:**
+- Before page navigation
+- Critical events
+- Serverless functions
+- Before app closes
+
+---
+
+## setUserId()
+
+Set global user ID for all subsequent events.
+
+```typescript
+grain.setUserId(userId: string | null): void
+```
+
+**Parameters:**
+- `userId` - User identifier, or `null` to clear
+
+**Example:**
+```typescript
+// Set user ID
+grain.setUserId('user_123');
+
+// Clear on logout
+grain.setUserId(null);
+```
+
+---
+
+## identify()
+
+Alias for `setUserId()`. Sets user ID for subsequent events.
+
+```typescript
+grain.identify(userId: string | null): void
+```
+
+**Parameters:**
+- `userId` - User identifier, or `null` to clear
+
+**Example:**
+```typescript
+grain.identify('user_123');
+```
+
+---
+
+## getUserId()
+
+Get current user ID.
+
+```typescript
+grain.getUserId(): string | null
+```
+
+**Returns:** Current user ID or `null` if not set
+
+**Example:**
+```typescript
+const userId = grain.getUserId();
+if (userId) {
+  console.log(`Tracking as: ${userId}`);
+}
+```
+
+---
+
+## setProperty()
+
+Set user properties for analytics and personalization.
+
+```typescript
+await grain.setProperty(
+  properties: Record<string, unknown>,
+  options?: SetPropertyOptions
+): Promise<void>
+```
+
+**Parameters:**
+- `properties` - Up to 4 key-value pairs (values converted to strings)
+- `options.userId` - Optional user ID override
+
+**Returns:** Promise that resolves when properties are set
+
+**Example:**
+```typescript
+// Set for current user
+await grain.setProperty({
+  plan: 'premium',
+  location: 'US',
+  signup_date: '2024-01-15'
+});
+
+// Set for specific user
+await grain.setProperty({
+  status: 'active'
+}, { userId: 'user_456' });
+```
+
+**Limits:**
+- Maximum 4 properties per request
+- All values converted to strings
+- Subject to rate limiting
+
+---
+
+## destroy()
+
+Clean up resources and send remaining events.
+
+```typescript
+grain.destroy(): void
+```
+
+**Example:**
+```typescript
+// On app unmount
+grain.destroy();
+```
+
+**What it does:**
+- Flushes queued events
+- Removes event listeners
+- Cleans up timers
+- Stops auto-refresh
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Config Methods" icon="sliders" href="/api-reference/config-methods">
+    Remote configuration methods
+  </Card>
+  <Card title="Template Methods" icon="sparkles" href="/api-reference/template-methods">
+    Pre-built event methods
+  </Card>
+</CardGroup>
+

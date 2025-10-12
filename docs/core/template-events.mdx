@@ -1,0 +1,327 @@
+---
+title: "Template Events"
+description: "Pre-built event methods for common tracking scenarios"
+---
+
+## What Are Template Events?
+
+Template events are pre-built methods for common tracking scenarios. Instead of remembering property names and structure, use ready-made methods:
+
+**Without templates**:
+```typescript
+grain.track('login', {
+  method: 'email',
+  success: true,
+  rememberMe: false
+});
+```
+
+**With templates**:
+```typescript
+grain.trackLogin({
+  method: 'email',
+  success: true,
+  rememberMe: false
+});
+```
+
+Same result, but template methods guide you with type hints and ensure consistency.
+
+## Why Use Templates?
+
+**Type Safety**: TypeScript knows which properties are available:
+```typescript
+grain.trackLogin({
+  method: 'email',
+  success: true,
+  // TypeScript suggests: rememberMe, errorMessage, loginAttempt, etc.
+});
+```
+
+**Consistency**: Everyone on your team tracks events the same way.
+
+**Documentation**: Method names make it clear what you're tracking.
+
+You can still use `grain.track()` for custom events. Templates are optional helpers for common cases.
+
+## Authentication Events
+
+### trackLogin()
+
+Track when users log in:
+
+```typescript
+await grain.trackLogin({
+  method: 'email',
+  success: true
+});
+```
+
+**Common properties**:
+- `method`: 'email', 'google', 'github', etc.
+- `success`: Whether login succeeded
+- `errorMessage`: If login failed, why?
+- `rememberMe`: Whether "remember me" was checked
+- `twoFactorEnabled`: If 2FA was used
+
+**Example with error**:
+```typescript
+await grain.trackLogin({
+  method: 'email',
+  success: false,
+  errorMessage: 'Invalid password',
+  loginAttempt: 3
+});
+```
+
+### trackSignup()
+
+Track new user registrations:
+
+```typescript
+await grain.trackSignup({
+  method: 'google',
+  source: 'landing_page',
+  plan: 'free'
+});
+```
+
+**Common properties**:
+- `method`: How they signed up
+- `source`: Where they came from
+- `plan`: Which plan they chose
+- `success`: Whether signup completed
+- `referralCode`: If they used a referral
+
+## E-commerce Events
+
+### trackCheckout()
+
+Track when users start or complete checkout:
+
+```typescript
+await grain.trackCheckout({
+  orderId: 'order_123',
+  total: 99.99,
+  currency: 'USD',
+  paymentMethod: 'credit_card',
+  success: true
+});
+```
+
+**Common properties**:
+- `orderId`: Unique order identifier
+- `total`: Total amount
+- `currency`: Currency code (USD, EUR, etc.)
+- `items`: Array of products (see below)
+- `paymentMethod`: How they're paying
+- `couponCode`: Any discount codes used
+
+**With items**:
+```typescript
+await grain.trackCheckout({
+  orderId: 'order_123',
+  total: 149.98,
+  items: [
+    { id: 'prod_1', name: 'Blue Sneakers', price: 89.99, quantity: 1 },
+    { id: 'prod_2', name: 'Socks', price: 59.99, quantity: 1 }
+  ]
+});
+```
+
+### trackPurchase()
+
+Track completed purchases:
+
+```typescript
+await grain.trackPurchase({
+  orderId: 'order_123',
+  total: 99.99,
+  currency: 'USD',
+  paymentMethod: 'credit_card'
+});
+```
+
+Similar to checkout, but specifically for completed transactions. Track both to measure checkout completion rate.
+
+### trackAddToCart()
+
+Track when items are added to cart:
+
+```typescript
+await grain.trackAddToCart({
+  itemId: 'prod_123',
+  itemName: 'Blue Sneakers',
+  price: 89.99,
+  quantity: 1,
+  currency: 'USD'
+});
+```
+
+### trackRemoveFromCart()
+
+Track when items are removed:
+
+```typescript
+await grain.trackRemoveFromCart({
+  itemId: 'prod_123',
+  itemName: 'Blue Sneakers',
+  quantity: 1
+});
+```
+
+## Navigation Events
+
+### trackPageView()
+
+Track page views:
+
+```typescript
+await grain.trackPageView({
+  page: '/products',
+  title: 'Product Catalog',
+  url: 'https://yoursite.com/products'
+});
+```
+
+**Common properties**:
+- `page`: Page path
+- `title`: Page title
+- `url`: Full URL
+- `referrer`: Where user came from
+
+**SPA (Single Page App) example**:
+```typescript
+// Track route changes
+router.afterEach((to) => {
+  grain.trackPageView({
+    page: to.path,
+    title: to.meta.title
+  });
+});
+```
+
+### trackSearch()
+
+Track search queries:
+
+```typescript
+await grain.trackSearch({
+  query: 'blue shoes',
+  results: 24,
+  filters: { category: 'footwear', color: 'blue' }
+});
+```
+
+**Common properties**:
+- `query`: What user searched for
+- `results`: Number of results found
+- `filters`: Any filters applied
+- `sortBy`: Sort order used
+
+## Using Template Events
+
+All template methods work like `track()`:
+
+```typescript
+// Basic usage
+await grain.trackLogin({ method: 'email' });
+
+// With flush
+await grain.trackLogin({ 
+  method: 'email' 
+}, { flush: true });
+
+// With user ID override
+await grain.trackLogin({ 
+  method: 'email' 
+}, { userId: 'user_123' });
+```
+
+## Creating Custom Events
+
+For events not covered by templates, use `track()`:
+
+```typescript
+// Custom event
+grain.track('video_watched', {
+  video_id: 'video_123',
+  duration: 120,
+  completed: false,
+  progress: 0.75
+});
+```
+
+Templates are just helpers. You're never limited to them.
+
+## Real-World Example
+
+Here's a complete user flow with template events:
+
+```typescript
+// User lands on site
+await grain.trackPageView({
+  page: '/',
+  referrer: 'https://google.com'
+});
+
+// Searches for products
+await grain.trackSearch({
+  query: 'running shoes',
+  results: 48
+});
+
+// Adds item to cart
+await grain.trackAddToCart({
+  itemId: 'prod_123',
+  itemName: 'Running Shoes',
+  price: 79.99,
+  quantity: 1
+});
+
+// Completes checkout
+await grain.trackCheckout({
+  orderId: 'order_456',
+  total: 79.99,
+  paymentMethod: 'credit_card',
+  success: true
+});
+
+// Completes purchase
+await grain.trackPurchase({
+  orderId: 'order_456',
+  total: 79.99
+}, { flush: true });
+```
+
+Now you can analyze the complete journey from landing to purchase.
+
+## Available Templates
+
+Current template methods:
+
+- `trackLogin()` - User login
+- `trackSignup()` - User registration
+- `trackCheckout()` - Checkout process
+- `trackPurchase()` - Completed purchase
+- `trackAddToCart()` - Add to cart
+- `trackRemoveFromCart()` - Remove from cart
+- `trackPageView()` - Page views
+- `trackSearch()` - Search queries
+
+More templates may be added based on common use cases.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    Complete e-commerce tracking guide
+  </Card>
+  <Card title="Template Methods API" icon="book" href="/api-reference/template-methods">
+    Full API reference for templates
+  </Card>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn more about custom events
+  </Card>
+</CardGroup>
+

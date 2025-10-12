@@ -1,0 +1,155 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "quill",
+  "name": "Grain Analytics",
+  "colors": {
+    "primary": "#0F172A",
+    "light": "#3B82F6",
+    "dark": "#0F172A"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "index",
+              "quickstart",
+              "installation",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core/event-tracking",
+              "core/user-identification",
+              "core/user-properties",
+              "core/remote-config",
+              "core/template-events"
+            ]
+          },
+          {
+            "group": "React Integration",
+            "pages": [
+              "react/overview",
+              "react/grain-provider",
+              "react/use-config",
+              "react/use-track",
+              "react/use-all-configs",
+              "react/use-grain-analytics"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/ecommerce",
+              "guides/ab-testing",
+              "guides/feature-flags",
+              "guides/personalization",
+              "guides/analytics-dashboard"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "advanced/configuration",
+              "advanced/error-handling",
+              "advanced/security",
+              "advanced/performance",
+              "advanced/typescript"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Documentation",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/core-methods",
+              "api-reference/config-methods",
+              "api-reference/template-methods",
+              "api-reference/react-hooks",
+              "api-reference/types"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Code Examples",
+            "pages": [
+              "examples/vanilla-js",
+              "examples/react",
+              "examples/nextjs",
+              "examples/ecommerce-store",
+              "examples/auth-flow"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Website",
+          "href": "https://grainql.com",
+          "icon": "globe"
+        },
+        {
+          "anchor": "Dashboard",
+          "href": "https://grainql.com/dashboard",
+          "icon": "chart-line"
+        },
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/GrainQL/analytics-web",
+          "icon": "github"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:support@grainql.com"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get Started",
+      "href": "/quickstart"
+    }
+  },
+  "contextual": {
+    "options": [
+     "copy",
+     "view",
+     "chatgpt",
+     "claude",
+     "perplexity",
+     "mcp",
+     "cursor",
+     "vscode"
+   ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/GrainQL/analytics-web",
+      "website": "https://grainql.com"
+    }
+  }
+}

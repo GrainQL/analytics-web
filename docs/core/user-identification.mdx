@@ -1,0 +1,265 @@
+---
+title: "User Identification"
+description: "Track users across sessions and understand your audience"
+---
+
+## Why Identify Users?
+
+When users interact with your app anonymously, you see disconnected events. When you identify users, those events connect into a journey:
+
+**Anonymous tracking**:
+```
+Event: button_clicked
+Event: page_viewed
+Event: purchase_made
+```
+
+**Identified tracking**:
+```
+User user_123:
+  → button_clicked
+  → page_viewed
+  → purchase_made
+```
+
+Now you can answer questions like "What do users do before they purchase?" or "How many times did this user visit?"
+
+## Setting User ID
+
+Set the user ID once, and all future events include it:
+
+```typescript
+// When user logs in
+grain.setUserId('user_123');
+
+// All these events now belong to user_123
+grain.track('dashboard_viewed');
+grain.track('report_generated');
+grain.track('settings_updated');
+```
+
+**When to set user ID**:
+- Right after user logs in
+- When app loads (if user already authenticated)
+- After successful signup
+
+## The identify() Method
+
+`identify()` is an alias for `setUserId()` - they do the same thing:
+
+```typescript
+// These are equivalent
+grain.identify('user_123');
+grain.setUserId('user_123');
+```
+
+Use whichever reads better in your code. Many analytics tools use `identify()`, so we support both for familiarity.
+
+## Getting Current User ID
+
+Check which user is currently identified:
+
+```typescript
+const userId = grain.getUserId();
+
+if (userId) {
+  console.log(`Tracking as user: ${userId}`);
+} else {
+  console.log('Anonymous tracking');
+}
+```
+
+This is useful for conditionally showing features or debugging.
+
+## User ID in Initialization
+
+You can set the user ID when creating the client:
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  userId: 'user_123'
+});
+
+// Events immediately track with this user ID
+grain.track('app_opened');
+```
+
+This is convenient when you know the user ID upfront, like in server-side code or after authentication.
+
+## Clearing User ID
+
+When users log out, clear the user ID to stop associating events with them:
+
+```typescript
+// User logs out
+grain.setUserId(null);
+
+// Events are now anonymous
+grain.track('logged_out');
+```
+
+<Warning>
+  Always clear user IDs on logout! Otherwise, the next user's events will be attributed to the previous user.
+</Warning>
+
+## Persistent vs Session-Based
+
+The SDK doesn't persist user IDs automatically. When the page reloads, you need to set it again:
+
+```typescript
+// On app load, restore user from your auth system
+const currentUser = getCurrentUser(); // Your auth logic
+
+if (currentUser) {
+  grain.setUserId(currentUser.id);
+}
+```
+
+**Why not persist automatically?** User sessions are managed by your authentication system (Auth0, Firebase, etc.). Grain follows your lead instead of duplicating session logic.
+
+## Best Practices
+
+### Use Stable IDs
+
+Use IDs that don't change, like database IDs or UUIDs:
+
+```typescript
+// ✅ Good: Stable user ID
+grain.setUserId('user_8f3a2c1b');
+
+// ❌ Bad: Email might change
+grain.setUserId('user@example.com');
+
+// ❌ Bad: Session ID changes every session
+grain.setUserId('session_xyz123');
+```
+
+### Set Early
+
+Identify users as early as possible to capture all their events:
+
+```typescript
+// React example
+function App() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      grain.setUserId(user.id);
+    } else {
+      grain.setUserId(null);
+    }
+  }, [user]);
+
+  // ... rest of app
+}
+```
+
+### Don't Switch Frequently
+
+Avoid switching between many different user IDs from the same client. This can trigger rate limiting. Learn more in [Security](/advanced/security).
+
+## User Properties
+
+After identifying users, you can add properties to their profile. This is covered in detail in [User Properties](/core/user-properties).
+
+```typescript
+// Identify user
+grain.setUserId('user_123');
+
+// Add properties
+await grain.setProperty({
+  plan: 'premium',
+  signup_date: '2024-01-15'
+});
+```
+
+## Anonymous to Identified
+
+You can track users anonymously first, then identify them later:
+
+```typescript
+// Anonymous tracking
+grain.track('landing_page_viewed');
+grain.track('signup_button_clicked');
+
+// User signs up - now identify them
+grain.setUserId('user_123');
+
+// Identified tracking
+grain.track('account_created');
+```
+
+Events before identification remain anonymous. Only events after `setUserId()` are associated with the user.
+
+## Server-Side Identification
+
+In backend code, set the user ID for each request:
+
+```typescript
+// API route handler
+app.post('/api/action', async (req, res) => {
+  const userId = req.user.id;
+  
+  grain.setUserId(userId);
+  await grain.track('api_action_performed', {
+    endpoint: '/api/action'
+  }, { flush: true });
+  
+  // ... handle request
+});
+```
+
+In serverless environments, create a new Grain instance per request to avoid mixing user IDs:
+
+```typescript
+// Serverless function
+export async function handler(event) {
+  const grain = createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    userId: event.userId
+  });
+
+  await grain.track('function_executed', {}, { flush: true });
+  
+  return { statusCode: 200 };
+}
+```
+
+## React Integration
+
+When using React hooks, user identification happens automatically through the provider:
+
+```typescript
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+function App() {
+  const { user } = useAuth();
+
+  return (
+    <GrainProvider 
+      config={{ 
+        tenantId: 'your-tenant-id',
+        userId: user?.id  // Updates automatically when user changes
+      }}
+    >
+      <YourApp />
+    </GrainProvider>
+  );
+}
+```
+
+Learn more in [React Integration](/react/overview).
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Properties" icon="tags" href="/core/user-properties">
+    Add attributes to user profiles
+  </Card>
+  <Card title="Security" icon="shield" href="/advanced/security">
+    Understand user ID security
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,287 @@
+---
+title: "A/B Testing"
+description: "Test different experiences and measure what works best"
+---
+
+## What is A/B Testing?
+
+A/B testing shows different versions of your app to different users, then measures which performs better. Version A might have a blue button, version B a green button - data shows which gets more clicks.
+
+**Why A/B test?**
+- Remove guesswork from design decisions
+- Improve conversion rates with data
+- Validate changes before rolling out to everyone
+
+## Simple A/B Test
+
+Start with a basic two-variant test:
+
+```typescript
+import { useConfig, useTrack } from '@grainql/analytics-web/react';
+
+function Hero() {
+  const { value: variant } = useConfig('hero_variant');
+  const track = useTrack();
+  
+  const variantA = {
+    title: 'Welcome to Our App',
+    subtitle: 'The best tool for productivity',
+    buttonText: 'Get Started'
+  };
+  
+  const variantB = {
+    title: 'Boost Your Productivity',
+    subtitle: 'Join thousands of happy users',
+    buttonText: 'Start Free Trial'
+  };
+  
+  const content = variant === 'B' ? variantB : variantA;
+  
+  const handleClick = () => {
+    track('cta_clicked', { variant: variant || 'A' });
+  };
+  
+  return (
+    <div>
+      <h1>{content.title}</h1>
+      <p>{content.subtitle}</p>
+      <button onClick={handleClick}>{content.buttonText}</button>
+    </div>
+  );
+}
+```
+
+**Set up in Grain Dashboard**:
+1. Create config key: `hero_variant`
+2. Set values: `A` for 50% of users, `B` for the other 50%
+3. Track which variant converts better
+
+## Multi-Variant Testing
+
+Test more than two options:
+
+```typescript
+function PricingCard() {
+  const { value: pricingVariant } = useConfig('pricing_variant');
+  
+  const variants = {
+    control: { price: 29, label: 'Pro Plan' },
+    test_1: { price: 24, label: 'Pro Plan - Special' },
+    test_2: { price: 29, label: 'Professional' },
+    test_3: { price: 27, label: 'Pro Plan - Limited' }
+  };
+  
+  const { price, label } = variants[pricingVariant || 'control'];
+  
+  return (
+    <div>
+      <h3>{label}</h3>
+      <p>${price}/month</p>
+    </div>
+  );
+}
+```
+
+Test multiple variants to find the optimal price and messaging.
+
+## Component-Based Testing
+
+Swap entire components:
+
+```typescript
+import { useConfig } from '@grainql/analytics-web/react';
+
+function LandingPage() {
+  const { value: heroVersion } = useConfig('hero_version');
+  
+  const HeroComponent = {
+    'minimal': HeroMinimal,
+    'detailed': HeroDetailed,
+    'video': HeroWithVideo
+  }[heroVersion || 'minimal'];
+  
+  return (
+    <>
+      <HeroComponent />
+      <Features />
+      <Pricing />
+    </>
+  );
+}
+```
+
+Test completely different design approaches.
+
+## Tracking Test Results
+
+Track when users see and interact with variants:
+
+```typescript
+function ABTest() {
+  const { value: variant } = useConfig('test_variant');
+  const track = useTrack();
+  
+  // Track impression
+  useEffect(() => {
+    track('test_viewed', {
+      test_name: 'hero_cta',
+      variant: variant || 'A'
+    });
+  }, [variant, track]);
+  
+  // Track conversion
+  const handleConversion = () => {
+    track('test_converted', {
+      test_name: 'hero_cta',
+      variant: variant || 'A'
+    });
+    
+    // Conversion action (signup, purchase, etc.)
+  };
+  
+  return <button onClick={handleConversion}>Convert</button>;
+}
+```
+
+Now you can compare conversion rates: `test_converted` / `test_viewed` for each variant.
+
+## Personalized Testing
+
+Combine A/B testing with user segmentation:
+
+```typescript
+function PersonalizedHero() {
+  const { value: variant } = useConfig('hero_variant', {
+    properties: {
+      plan: userPlan,
+      signup_date: userSignupDate
+    }
+  });
+  
+  // New users see variant B, existing users see variant A
+  return <HeroComponent variant={variant} />;
+}
+```
+
+Set rules in the dashboard to show different variants based on user properties.
+
+## Button Style Test
+
+Test button designs:
+
+```typescript
+function CTAButton() {
+  const { value: buttonStyle } = useConfig('button_style');
+  const track = useTrack();
+  
+  const styles = {
+    default: {
+      backgroundColor: '#007bff',
+      borderRadius: '4px',
+      padding: '12px 24px'
+    },
+    bold: {
+      backgroundColor: '#ff4500',
+      borderRadius: '8px',
+      padding: '16px 32px',
+      fontWeight: 'bold'
+    },
+    minimal: {
+      backgroundColor: 'transparent',
+      border: '2px solid #007bff',
+      borderRadius: '4px',
+      padding: '12px 24px'
+    }
+  };
+  
+  const style = styles[buttonStyle || 'default'];
+  
+  const handleClick = () => {
+    track('cta_button_clicked', { button_style: buttonStyle || 'default' });
+  };
+  
+  return (
+    <button style={style} onClick={handleClick}>
+      Sign Up
+    </button>
+  );
+}
+```
+
+## Feature Launch Testing
+
+Test new features with a subset of users:
+
+```typescript
+function Dashboard() {
+  const { value: newDashboard } = useConfig('new_dashboard_enabled');
+  
+  if (newDashboard === 'true') {
+    return <NewDashboard />;
+  }
+  
+  return <LegacyDashboard />;
+}
+```
+
+Start with 10% of users, gradually increase if metrics improve.
+
+## Best Practices
+
+**1. Test One Thing**: Change one element at a time to know what caused the difference.
+
+```typescript
+// ✅ Good: Testing one element
+const buttonText = variant === 'B' ? 'Start Free' : 'Get Started';
+
+// ❌ Bad: Too many changes
+const content = variant === 'B' 
+  ? { text: 'Start Free', color: 'red', size: 'large' }
+  : { text: 'Get Started', color: 'blue', size: 'medium' };
+```
+
+**2. Track Both Impressions and Conversions**: Know how many saw each variant and how many converted.
+
+**3. Run Tests Long Enough**: At least 1-2 weeks to account for day-of-week variations.
+
+**4. Significant Sample Size**: Need enough users to draw conclusions (typically 1000+ per variant).
+
+**5. Document Tests**: Track what you're testing and why in your dashboard.
+
+## Analyzing Results
+
+After running your test, compare metrics in the [Grain Dashboard](https://grainql.com/dashboard):
+
+- **Impressions**: How many saw each variant
+- **Conversions**: How many completed the goal action
+- **Conversion Rate**: Conversions / Impressions
+- **Statistical Significance**: Is the difference real or luck?
+
+## Gradual Rollout
+
+Once you have a winner, roll it out gradually:
+
+```typescript
+// Dashboard config progression:
+// Week 1: 50% A, 50% B (testing)
+// Week 2: 25% A, 75% B (B is winning)
+// Week 3: 10% A, 90% B (confirming)
+// Week 4: 0% A, 100% B (full rollout)
+```
+
+This catches any issues before full deployment.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Learn about configuration management
+  </Card>
+  <Card title="Feature Flags" icon="flag" href="/guides/feature-flags">
+    Control features with flags
+  </Card>
+  <Card title="Analytics Dashboard" icon="chart-line" href="/guides/analytics-dashboard">
+    Build analytics dashboards
+  </Card>
+</CardGroup>
+

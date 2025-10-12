@@ -1,0 +1,163 @@
+---
+title: "API Overview"
+description: "Complete API reference for Grain Analytics SDK"
+---
+
+## SDK Structure
+
+The Grain Analytics SDK provides:
+
+**Core Methods**: Event tracking, user identification, flushing
+**Config Methods**: Remote configuration access and management
+**Template Methods**: Pre-built events for common scenarios
+**React Hooks**: React-specific integration
+
+## Import Paths
+
+```typescript
+// Core SDK
+import { createGrainAnalytics, GrainAnalytics } from '@grainql/analytics-web';
+
+// React Hooks
+import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+
+// Types
+import type { GrainConfig, GrainEvent } from '@grainql/analytics-web';
+```
+
+## Core API
+
+### Client Creation
+
+```typescript
+const grain = createGrainAnalytics(config);
+```
+
+Creates a new Grain client instance.
+
+### Event Tracking
+
+```typescript
+grain.track(eventName, properties?, options?);
+await grain.flush();
+```
+
+Track events and manually flush when needed.
+
+### User Management
+
+```typescript
+grain.setUserId(userId);
+grain.identify(userId);
+grain.getUserId();
+await grain.setProperty(properties, options?);
+```
+
+Identify users and set their properties.
+
+### Remote Configuration
+
+```typescript
+grain.getConfig(key);
+grain.getAllConfigs();
+await grain.getConfigAsync(key, options?);
+await grain.getAllConfigsAsync(options?);
+await grain.preloadConfig(keys?, properties?);
+```
+
+Access and manage remote configurations.
+
+## Template Events
+
+Pre-built methods for common scenarios:
+
+```typescript
+await grain.trackLogin(properties?, options?);
+await grain.trackSignup(properties?, options?);
+await grain.trackCheckout(properties?, options?);
+await grain.trackPurchase(properties?, options?);
+await grain.trackAddToCart(properties?, options?);
+await grain.trackRemoveFromCart(properties?, options?);
+await grain.trackPageView(properties?, options?);
+await grain.trackSearch(properties?, options?);
+```
+
+## React Hooks
+
+### Provider
+
+```typescript
+<GrainProvider config={grainConfig}>
+  <App />
+</GrainProvider>
+```
+
+### Hooks
+
+```typescript
+const { value, isRefreshing, error, refresh } = useConfig(key, options?);
+const { configs, isRefreshing, error, refresh } = useAllConfigs(options?);
+const track = useTrack();
+const grain = useGrainAnalytics();
+```
+
+## Method Categories
+
+<CardGroup cols={2}>
+  <Card title="Core Methods" icon="code" href="/api-reference/core-methods">
+    Event tracking and user management
+  </Card>
+  <Card title="Config Methods" icon="sliders" href="/api-reference/config-methods">
+    Remote configuration access
+  </Card>
+  <Card title="Template Methods" icon="sparkles" href="/api-reference/template-methods">
+    Pre-built event methods
+  </Card>
+  <Card title="React Hooks" icon="react" href="/api-reference/react-hooks">
+    React integration hooks
+  </Card>
+  <Card title="Types" icon="code-simple" href="/api-reference/types">
+    TypeScript type definitions
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+### Most Common Methods
+
+```typescript
+// Track an event
+grain.track('event_name', { property: 'value' });
+
+// Set user ID
+grain.setUserId('user_123');
+
+// Get config value
+const value = grain.getConfig('config_key');
+
+// Use in React
+const { value } = useConfig('config_key');
+const track = useTrack();
+```
+
+## Return Values
+
+Most methods return:
+- **Synchronous methods**: Direct values or `undefined`
+- **Async methods**: `Promise<T>` that resolves to the result
+- **Hooks**: Objects with data, loading states, and errors
+
+## Error Handling
+
+Methods handle errors gracefully:
+- **track()**: Fire-and-forget, errors logged if debug enabled
+- **Config methods**: Return cached/default on failure
+- **Async methods**: Throw errors, catch with try/catch
+- **Hooks**: Provide `error` property
+
+Learn more in [Error Handling](/advanced/error-handling).
+
+## Next Steps
+
+Explore specific API sections for detailed documentation.
+

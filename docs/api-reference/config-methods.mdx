@@ -1,0 +1,293 @@
+---
+title: "Config Methods"
+description: "Remote configuration access and management"
+---
+
+## getConfig()
+
+Get configuration value synchronously from cache or defaults.
+
+```typescript
+grain.getConfig(key: string): string | undefined
+```
+
+**Parameters:**
+- `key` - Configuration key
+
+**Returns:** Configuration value or `undefined`
+
+**Example:**
+```typescript
+const heroText = grain.getConfig('hero_text');
+console.log(heroText); // Returns immediately
+```
+
+**Behavior:**
+- Returns cached value instantly
+- Returns default if provided
+- Returns `undefined` if not found
+- Triggers background refresh
+
+---
+
+## getAllConfigs()
+
+Get all configurations synchronously.
+
+```typescript
+grain.getAllConfigs(): Record<string, string>
+```
+
+**Returns:** Object with all configuration key-value pairs
+
+**Example:**
+```typescript
+const configs = grain.getAllConfigs();
+console.log(configs);
+// { hero_text: "Welcome", button_color: "blue", ... }
+```
+
+---
+
+## getConfigAsync()
+
+Get configuration value asynchronously with cache-first strategy.
+
+```typescript
+await grain.getConfigAsync(
+  key: string,
+  options?: RemoteConfigOptions
+): Promise<string | undefined>
+```
+
+**Parameters:**
+- `key` - Configuration key
+- `options.properties` - User properties for personalization
+- `options.forceRefresh` - Skip cache, fetch from API
+- `options.immediateKeys` - Keys to fetch immediately
+
+**Returns:** Promise resolving to configuration value
+
+**Example:**
+```typescript
+// Basic usage
+const value = await grain.getConfigAsync('hero_text');
+
+// With personalization
+const value = await grain.getConfigAsync('hero_text', {
+  properties: {
+    plan: 'premium',
+    location: 'US'
+  }
+});
+
+// Force refresh
+const value = await grain.getConfigAsync('hero_text', {
+  forceRefresh: true
+});
+```
+
+---
+
+## getAllConfigsAsync()
+
+Get all configurations asynchronously.
+
+```typescript
+await grain.getAllConfigsAsync(
+  options?: RemoteConfigOptions
+): Promise<Record<string, string>>
+```
+
+**Parameters:**
+- `options.properties` - User properties for personalization
+- `options.forceRefresh` - Skip cache, fetch from API
+
+**Returns:** Promise resolving to all configurations
+
+**Example:**
+```typescript
+// Basic usage
+const configs = await grain.getAllConfigsAsync();
+
+// With personalization
+const configs = await grain.getAllConfigsAsync({
+  properties: {
+    plan: 'premium',
+    location: 'US'
+  }
+});
+```
+
+---
+
+## fetchConfig()
+
+Fetch configurations directly from API.
+
+```typescript
+await grain.fetchConfig(
+  options?: RemoteConfigOptions
+): Promise<RemoteConfigResponse>
+```
+
+**Parameters:**
+- `options.immediateKeys` - Keys to fetch immediately
+- `options.properties` - User properties for personalization
+- `options.userId` - User ID override
+
+**Returns:** Promise resolving to full API response
+
+**Example:**
+```typescript
+const response = await grain.fetchConfig({
+  immediateKeys: ['hero_text', 'button_color'],
+  properties: {
+    plan: 'premium'
+  }
+});
+
+console.log(response.configurations);
+console.log(response.snapshotId);
+console.log(response.qualifiedSegments);
+```
+
+**Response includes:**
+- `configurations` - Config key-value pairs
+- `snapshotId` - Configuration snapshot ID
+- `qualifiedSegments` - Matched user segments
+- `qualifiedRuleSets` - Matched rule sets
+- `isFinal` - Whether more configs may load
+- `timestamp` - Response timestamp
+
+---
+
+## preloadConfig()
+
+Preload configurations for immediate synchronous access.
+
+```typescript
+await grain.preloadConfig(
+  immediateKeys?: string[],
+  properties?: Record<string, string>
+): Promise<void>
+```
+
+**Parameters:**
+- `immediateKeys` - Specific keys to preload (optional, loads all if omitted)
+- `properties` - User properties for personalization
+
+**Returns:** Promise that resolves when configs are loaded
+
+**Example:**
+```typescript
+// Preload specific keys
+await grain.preloadConfig(['hero_text', 'button_color']);
+
+// Now available synchronously
+const heroText = grain.getConfig('hero_text');
+
+// Preload all configs
+await grain.preloadConfig();
+```
+
+**When to use:**
+- App startup
+- Before rendering UI
+- Critical configs needed immediately
+
+---
+
+## addConfigChangeListener()
+
+Add listener for configuration changes.
+
+```typescript
+grain.addConfigChangeListener(
+  listener: ConfigChangeListener
+): void
+```
+
+**Parameters:**
+- `listener` - Callback function receiving updated configs
+
+**Example:**
+```typescript
+const listener = (configurations) => {
+  console.log('Configs updated:', configurations);
+  // Update UI
+};
+
+grain.addConfigChangeListener(listener);
+```
+
+**When listeners fire:**
+- After background refresh completes
+- When manual refresh happens
+- When cache updates
+
+---
+
+## removeConfigChangeListener()
+
+Remove configuration change listener.
+
+```typescript
+grain.removeConfigChangeListener(
+  listener: ConfigChangeListener
+): void
+```
+
+**Parameters:**
+- `listener` - Previously added listener function
+
+**Example:**
+```typescript
+grain.removeConfigChangeListener(listener);
+```
+
+**When to remove:**
+- Component unmounts
+- No longer need updates
+- Cleanup on destroy
+
+---
+
+## Configuration Flow
+
+**Cache-first strategy:**
+
+1. `getConfig()` returns cached value (instant)
+2. Background fetch starts automatically
+3. When fresh data arrives, listeners fire
+4. Cache updates for next access
+
+**Personalization:**
+
+Pass properties to get user-specific values:
+
+```typescript
+const message = await grain.getConfigAsync('welcome_message', {
+  properties: {
+    plan: user.plan,
+    signup_date: user.signupDate,
+    location: user.country
+  }
+});
+```
+
+Rules in dashboard determine which values match which users.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Learn configuration concepts
+  </Card>
+  <Card title="Core Methods" icon="code" href="/api-reference/core-methods">
+    Event tracking methods
+  </Card>
+</CardGroup>
+

@@ -127,7 +127,7 @@ MIT © Grain Analytics
 
 ## Support
 
-- **Documentation**: [docs.grainql.com](https://docs.grainql.com) <!-- Update with actual URL -->
+- **Documentation**: [docs.grainql.com](https://docs.grainql.com)
 - **Dashboard**: [grainql.com/dashboard](https://grainql.com/dashboard)
 - **Issues**: [GitHub Issues](https://github.com/GrainQL/analytics-web/issues)
 - **Email**: support@grainql.com

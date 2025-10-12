@@ -1,13 +1,13 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "aspen",
+  "theme": "mint",
   "name": "Grain Analytics",
   "colors": {
-    "primary": "#0F172A",
-    "light": "#3B82F6",
-    "dark": "#0F172A"
+    "primary": "#8803fc",
+    "light": "#8803fc",
+    "dark": "#8803fc"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.ico",
   "navigation": {
     "tabs": [
       {

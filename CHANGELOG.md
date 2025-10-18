@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-10-18
+
+### Added
+
+#### Privacy & GDPR Compliance System
+- **Consent Management**: Configurable consent modes (opt-in, opt-out, disabled) with event queueing
+- **Cookie Support**: Optional first-party cookies with configurable options (domain, sameSite, secure, maxAge)
+- **Data Minimization**: IP anonymization, property whitelisting, and automatic property controls
+- **Consent Methods**: `grantConsent()`, `revokeConsent()`, `getConsentState()`, `hasConsent()`
+- **Privacy-Safe Mode**: No tracking or storage until explicit consent granted
+
+#### Automatic Tracking Features
+- **Heartbeat Tracking**: Session activity monitoring (2min active, 5min inactive intervals)
+- **Auto Page View Tracking**: Framework-agnostic navigation detection with query param stripping
+- **Consent-Aware Behavior**: Minimal tracking before consent, full tracking after consent
+- **Ephemeral Sessions**: Memory-only session IDs for pre-consent tracking
+- **Consent Upgrade Flow**: Automatic linking of pre/post-consent data
+
+#### React Privacy Components
+- **ConsentBanner**: Glassmorphic consent popup with themes and positions
+- **PrivacyPreferenceCenter**: Detailed preference management with category toggles
+- **Privacy Hooks**: `useConsent()`, `usePrivacyPreferences()`, `useDataDeletion()`
+
+#### Backend Privacy API
+- **Privacy Settings**: Tenant-configurable consent modes, data retention, and privacy policies
+- **Data Management**: User data deletion, anonymization, and export endpoints
+- **Consent Audit**: Complete audit trail of consent changes for compliance
+- **Data Retention**: Configurable auto-deletion policies (7-365 days)
+
+### Changed
+- **Default Behavior**: Opt-out mode enabled by default (tracking allowed, easy opt-out)
+- **Session Tracking**: Enhanced with automatic heartbeat and page view detection
+- **Privacy Compliance**: Built-in GDPR/CCPA compliance features
+
+### Technical Details
+- **Framework Support**: Automatic tracking works with React, Vue, Next.js, and vanilla JS
+- **Privacy-First**: Minimal data collection before consent, full features after consent
+- **Performance**: Debounced activity detection and efficient event batching
+- **Compliance**: Legitimate interest justification for minimal tracking
+
 ## [2.0.0] - 2025-10-12
 
 ### Added
@@ -91,6 +131,7 @@ function YourComponent() {
 
 ---
 
+[2.1.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.0
 [2.0.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.0.0
 [1.7.4]: https://github.com/GrainQL/analytics-web/releases/tag/v1.7.4
 

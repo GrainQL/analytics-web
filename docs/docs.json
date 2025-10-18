@@ -29,7 +29,8 @@
               "core/user-identification",
               "core/user-properties",
               "core/remote-config",
-              "core/template-events"
+              "core/template-events",
+              "core/automatic-tracking"
             ]
           },
           {

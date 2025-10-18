@@ -37,6 +37,16 @@ export { useConfig } from './hooks/useConfig';
 export { useAllConfigs } from './hooks/useAllConfigs';
 export { useTrack } from './hooks/useTrack';
 
+// Privacy hooks
+export { useConsent } from './hooks/useConsent';
+export { usePrivacyPreferences } from './hooks/usePrivacyPreferences';
+export { useDataDeletion } from './hooks/useDataDeletion';
+
+// Privacy components
+export { ConsentBanner } from './components/ConsentBanner';
+export { PrivacyPreferenceCenter } from './components/PrivacyPreferenceCenter';
+export { CookieNotice } from './components/CookieNotice';
+
 // Types
 export type {
   GrainProviderProps,
@@ -46,4 +56,11 @@ export type {
   UseAllConfigsResult,
   TrackFunction,
 } from './types';
+
+// Privacy component types
+export type { ConsentBannerProps } from './components/ConsentBanner';
+export type { PrivacyPreferenceCenterProps } from './components/PrivacyPreferenceCenter';
+export type { CookieNoticeProps } from './components/CookieNotice';
+export type { PrivacyPreferences } from './hooks/usePrivacyPreferences';
+export type { DataDeletionOptions } from './hooks/useDataDeletion';
 

@@ -155,6 +155,87 @@ console.log('Grain Analytics initialized successfully!');
 
 Check your browser console (if debug is enabled) to see batching and sending activity.
 
+## Privacy & GDPR Compliance Setup
+
+Grain Analytics includes built-in GDPR compliance features. Configure privacy settings based on your requirements:
+
+### Consent Management
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  // Privacy settings
+  consentMode: 'opt-in',        // 'opt-in' | 'opt-out' | 'disabled'
+  waitForConsent: true,          // Queue events until consent granted
+  enableCookies: true,           // Use cookies for cross-session tracking
+  anonymizeIP: true,             // Anonymize IP addresses
+  cookieOptions: {
+    domain: '.example.com',
+    sameSite: 'lax',
+    secure: true,
+    maxAge: 365 * 24 * 60 * 60, // 365 days
+  },
+});
+```
+
+### Consent Banner (React)
+
+```tsx
+import { GrainProvider, ConsentBanner } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ 
+      tenantId: 'your-tenant-id',
+      consentMode: 'opt-in',
+      enableCookies: true
+    }}>
+      <ConsentBanner 
+        position="bottom"
+        theme="glass"
+        privacyPolicyUrl="https://example.com/privacy"
+      />
+      {/* Your app */}
+    </GrainProvider>
+  );
+}
+```
+
+### Managing Consent
+
+```typescript
+// Grant consent
+grain.grantConsent(['necessary', 'analytics', 'functional']);
+
+// Revoke consent
+grain.revokeConsent();
+
+// Check consent status
+const hasConsent = grain.hasConsent('analytics');
+const consentState = grain.getConsentState();
+```
+
+### React Hooks
+
+```tsx
+import { useConsent, usePrivacyPreferences } from '@grainql/analytics-web/react';
+
+function PrivacySettings() {
+  const { consentState, grantConsent, revokeConsent, hasConsent } = useConsent();
+  const { preferences, updatePreferences, acceptAll, rejectAll } = usePrivacyPreferences();
+
+  return (
+    <div>
+      <button onClick={acceptAll}>Accept All</button>
+      <button onClick={rejectAll}>Reject All</button>
+      <p>Analytics enabled: {hasConsent('analytics') ? 'Yes' : 'No'}</p>
+    </div>
+  );
+}
+```
+
 ## Next Steps
 
 <CardGroup cols={2}>

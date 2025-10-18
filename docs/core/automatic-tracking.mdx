@@ -1,0 +1,333 @@
+---
+title: "Automatic Tracking"
+description: "Heartbeat and page view tracking with privacy-first design"
+---
+
+## Overview
+
+Grain Analytics includes built-in automatic tracking for:
+
+- **Heartbeat events**: Track session activity to understand user engagement
+- **Page views**: Automatically detect navigation changes
+
+Both features are **privacy-aware** and adapt their behavior based on user consent status.
+
+## Heartbeat Tracking
+
+Heartbeat tracking monitors user activity and sends periodic events to understand session engagement. This helps you:
+
+- Detect active vs. inactive sessions
+- Measure session duration accurately
+- Identify when users are engaged with your app
+
+### Configuration
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  
+  // Heartbeat options
+  enableHeartbeat: true, // Default: true
+  heartbeatActiveInterval: 120000, // 2 minutes when active (default)
+  heartbeatInactiveInterval: 300000, // 5 minutes when inactive (default)
+});
+```
+
+### How It Works
+
+1. **Activity Detection**: Tracks mouse, keyboard, touch, and scroll events
+2. **Smart Intervals**: 
+   - Active users: heartbeat every 2 minutes
+   - Inactive users: heartbeat every 5 minutes
+3. **Automatic**: Starts when SDK initializes, stops on destroy
+
+### Consent-Aware Behavior
+
+**Without Consent** (Minimal tracking):
+```json
+{
+  "eventName": "_grain_heartbeat",
+  "userId": "ephemeral-session-id-123", // Memory-only, not persisted
+  "properties": {
+    "type": "heartbeat",
+    "status": "active",
+    "timestamp": 1704067200000,
+    "_minimal": true,
+    "_consent_status": "pending"
+  }
+}
+```
+
+**With Consent** (Full tracking):
+```json
+{
+  "eventName": "_grain_heartbeat",
+  "userId": "user-persistent-id-456",
+  "properties": {
+    "type": "heartbeat",
+    "status": "active",
+    "timestamp": 1704067200000,
+    "page": "/dashboard/settings",
+    "duration": 120000,
+    "event_count": 15,
+    "_minimal": false,
+    "_consent_status": "granted"
+  }
+}
+```
+
+### Disabling Heartbeat
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  enableHeartbeat: false, // Disable heartbeat tracking
+});
+```
+
+## Automatic Page View Tracking
+
+Page view tracking automatically detects navigation changes in your application, including:
+
+- Initial page load
+- History API changes (pushState, replaceState)
+- Back/forward navigation (popstate)
+- Hash changes
+
+### Configuration
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  
+  // Page view options
+  enableAutoPageView: true, // Default: true
+  stripQueryParams: true, // Default: true (removes ?query=params)
+});
+```
+
+### Framework Support
+
+Works automatically with:
+
+- **React Router** (pushState-based navigation)
+- **Vue Router** (History mode)
+- **Next.js** (App Router and Pages Router)
+- **Vanilla JS** (manual history manipulation)
+- **Hash-based routing** (hashchange events)
+
+No framework-specific configuration required!
+
+### Query Parameter Stripping
+
+By default, query parameters are stripped for privacy:
+
+```typescript
+// URL: https://example.com/products?search=shoes&category=athletic
+
+// With stripQueryParams: true (default)
+{
+  "page": "/products"  // Query params removed
+}
+
+// With stripQueryParams: false
+{
+  "page": "/products?search=shoes&category=athletic"
+}
+```
+
+### Consent-Aware Behavior
+
+**Without Consent** (Minimal tracking):
+```json
+{
+  "eventName": "page_view",
+  "userId": "ephemeral-session-id-123",
+  "properties": {
+    "page": "/dashboard/settings",
+    "timestamp": 1704067200000,
+    "_minimal": true,
+    "_consent_status": "pending"
+  }
+}
+```
+
+**With Consent** (Full tracking):
+```json
+{
+  "eventName": "page_view",
+  "userId": "user-persistent-id-456",
+  "properties": {
+    "page": "/dashboard/settings",
+    "timestamp": 1704067200000,
+    "referrer": "https://google.com",
+    "title": "Settings - Dashboard",
+    "full_url": "https://example.com/dashboard/settings?tab=profile",
+    "_minimal": false,
+    "_consent_status": "granted"
+  }
+}
+```
+
+### Disabling Auto Page View
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  enableAutoPageView: false, // Disable automatic page views
+});
+
+// Manually track page views instead
+grain.trackPageView({ page: '/custom-page' });
+```
+
+## Consent Upgrade Flow
+
+When a user grants consent, the SDK automatically upgrades from minimal to full tracking:
+
+1. **Before Consent**: Events use ephemeral session ID (memory-only)
+2. **Consent Granted**: SDK fires `_grain_consent_granted` event with mapping
+3. **After Consent**: All subsequent events use persistent user ID
+
+```json
+{
+  "eventName": "_grain_consent_granted",
+  "userId": "user-persistent-id-456",
+  "properties": {
+    "previous_session_id": "ephemeral-session-id-123",
+    "new_user_id": "user-persistent-id-456",
+    "timestamp": 1704067200000
+  }
+}
+```
+
+This allows your backend to merge pre-consent and post-consent data if needed.
+
+## Accessing Session Information
+
+```typescript
+// Get current session ID (ephemeral or persistent based on consent)
+const sessionId = grain.getSessionId();
+
+// Get effective user ID (persistent if available)
+const userId = grain.getEffectiveUserId();
+
+// Get ephemeral session ID (memory-only)
+const ephemeralId = grain.getEphemeralSessionId();
+
+// Get current page path
+const currentPage = grain.getCurrentPage();
+
+// Check consent status
+const hasConsent = grain.hasConsent('analytics');
+```
+
+## Privacy & Compliance
+
+### Data Minimization
+
+**Before Consent**:
+- ✅ Ephemeral session ID (memory-only, not persisted)
+- ✅ Page path (no query params)
+- ✅ Timestamp
+- ❌ No cookies
+- ❌ No persistent identifiers
+- ❌ No personal information
+
+**After Consent**:
+- ✅ Persistent user ID (stored in localStorage/cookie)
+- ✅ Full page URL
+- ✅ Referrer, page title
+- ✅ Event counts, durations
+- ✅ All standard tracking features
+
+### Legitimate Interest
+
+Minimal tracking (heartbeat, page views) can be justified under **legitimate interest** for:
+
+- **Security**: Detect bot activity and abuse
+- **Service delivery**: Ensure application functions properly
+- **Analytics quality**: Basic session metrics for product improvement
+
+Consult your legal team to ensure compliance with GDPR, CCPA, and other regulations.
+
+### Opting Out
+
+Users can disable tracking through consent management:
+
+```typescript
+// Revoke consent
+grain.revokeConsent();
+
+// After revocation, automatic tracking continues with minimal data
+// or stops entirely based on your consent configuration
+```
+
+## Best Practices
+
+1. **Use Default Settings**: Heartbeat and page view tracking are on by default for good reason
+2. **Strip Query Params**: Keep `stripQueryParams: true` to avoid tracking sensitive data
+3. **Document in Privacy Policy**: Explain what data is collected before and after consent
+4. **Test Consent Flow**: Verify that minimal tracking works without consent
+5. **Monitor Session Metrics**: Use heartbeat data to understand engagement patterns
+
+## Example: Complete Setup
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  
+  // Privacy settings
+  consentMode: 'opt-in', // Require consent (GDPR strict)
+  enableCookies: true,
+  anonymizeIP: true,
+  
+  // Automatic tracking (privacy-aware)
+  enableHeartbeat: true,
+  heartbeatActiveInterval: 120000, // 2 min
+  heartbeatInactiveInterval: 300000, // 5 min
+  enableAutoPageView: true,
+  stripQueryParams: true,
+  
+  debug: true, // See console logs
+});
+
+// Heartbeat and page views start automatically!
+// No additional code needed.
+
+// When user grants consent:
+grain.grantConsent(['necessary', 'analytics']);
+// → Tracking upgrades from minimal to full automatically
+```
+
+## FAQ
+
+**Q: Does automatic tracking work in server-side rendering (SSR)?**  
+A: No, automatic tracking only works in browser environments. The SDK detects `window` and initializes tracking only on the client side.
+
+**Q: Can I customize heartbeat intervals?**  
+A: Yes, use `heartbeatActiveInterval` and `heartbeatInactiveInterval` config options.
+
+**Q: Will automatic tracking slow down my app?**  
+A: No. Event listeners are passive and debounced. Heartbeats run on intervals (not per-event). Impact is negligible.
+
+**Q: How do I track page views in Next.js?**  
+A: It works automatically! No special configuration needed for App Router or Pages Router.
+
+**Q: Can I disable automatic tracking temporarily?**  
+A: Yes, destroy the client to stop all tracking, or set `enableHeartbeat: false` and `enableAutoPageView: false` during initialization.
+
+**Q: What happens to pre-consent events?**  
+A: They're sent with an ephemeral session ID. After consent, the `_grain_consent_granted` event allows backend merging if needed.
+
+## Related
+
+- [Privacy & Consent](/core/privacy)
+- [Configuration](/advanced/configuration)
+- [Event Tracking](/core/event-tracking)
+- [Remote Config](/core/remote-config)
+

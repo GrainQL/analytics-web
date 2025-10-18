@@ -3,6 +3,12 @@
  * A lightweight, dependency-free TypeScript SDK for sending analytics events to Grain's REST API
  */
 
+import { ConsentManager, ConsentState, ConsentMode } from './consent';
+import { setCookie, getCookie, deleteCookie, areCookiesEnabled, CookieConfig } from './cookies';
+import { ActivityDetector } from './activity';
+import { HeartbeatManager, type HeartbeatTracker } from './heartbeat';
+import { PageTrackingManager, type PageTracker } from './page-tracking';
+
 export interface GrainEvent {
   eventName: string;
   userId?: string;
@@ -22,6 +28,9 @@ export interface AuthProvider {
   getToken(): Promise<string> | string;
 }
 
+// Re-export privacy types
+export type { ConsentState, ConsentMode, CookieConfig };
+
 export interface GrainConfig {
   tenantId: string;
   apiUrl?: string;
@@ -40,6 +49,20 @@ export interface GrainConfig {
   configCacheKey?: string; // Custom cache key for configurations
   configRefreshInterval?: number; // Auto-refresh interval in milliseconds (default: 5 minutes)
   enableConfigCache?: boolean; // Enable/disable configuration caching (default: true)
+  // Privacy & Consent options
+  consentMode?: ConsentMode; // 'opt-in' | 'opt-out' | 'disabled' (default: 'opt-out')
+  waitForConsent?: boolean; // Queue events until consent is granted (default: false)
+  enableCookies?: boolean; // Use cookies for persistent user ID (default: false)
+  cookieOptions?: CookieConfig; // Cookie configuration options
+  anonymizeIP?: boolean; // Anonymize IP addresses (default: false)
+  disableAutoProperties?: boolean; // Disable automatic property collection (default: false)
+  allowedProperties?: string[]; // Whitelist of allowed event properties (default: all)
+  // Automatic Tracking options
+  enableHeartbeat?: boolean; // Enable heartbeat tracking (default: true)
+  heartbeatActiveInterval?: number; // Active interval in ms (default: 120000 - 2 min)
+  heartbeatInactiveInterval?: number; // Inactive interval in ms (default: 300000 - 5 min)
+  enableAutoPageView?: boolean; // Enable automatic page view tracking (default: true)
+  stripQueryParams?: boolean; // Strip query params from URLs (default: true)
 }
 
 export interface SendEventOptions {
@@ -214,16 +237,21 @@ export interface FormattedError {
  * - Login/logout functionality for dynamic auth token injection
  * - Persistent anonymous user ID across sessions
  * - Support for multiple auth strategies (NONE, SERVER_SIDE, JWT)
+ * - GDPR-compliant consent management
+ * - Optional cookie support for cross-session tracking
  */
-type RequiredConfig = Required<Omit<GrainConfig, 'secretKey' | 'authProvider' | 'userId'>> & {
+type RequiredConfig = Required<Omit<GrainConfig, 'secretKey' | 'authProvider' | 'userId' | 'cookieOptions' | 'allowedProperties'>> & {
   secretKey?: string;
   authProvider?: AuthProvider;
   userId?: string;
+  cookieOptions?: CookieConfig;
+  allowedProperties?: string[];
 };
 
-export class GrainAnalytics {
+export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   private config: RequiredConfig;
   private eventQueue: EventPayload[] = [];
+  private waitingForConsentQueue: EventPayload[] = [];
   private flushTimer: number | null = null;
   private isDestroyed = false;
   private globalUserId: string | null = null;
@@ -233,6 +261,15 @@ export class GrainAnalytics {
   private configRefreshTimer: number | null = null;
   private configChangeListeners: ConfigChangeListener[] = [];
   private configFetchPromise: Promise<RemoteConfigResponse> | null = null;
+  // Privacy & Consent properties
+  private consentManager: ConsentManager;
+  private cookiesEnabled: boolean = false;
+  // Automatic Tracking properties
+  private activityDetector: ActivityDetector | null = null;
+  private heartbeatManager: HeartbeatManager | null = null;
+  private pageTrackingManager: PageTrackingManager | null = null;
+  private ephemeralSessionId: string | null = null;
+  private eventCountSinceLastHeartbeat: number = 0;
 
   constructor(config: GrainConfig) {
     this.config = {
@@ -249,9 +286,32 @@ export class GrainAnalytics {
       configCacheKey: 'grain_config',
       configRefreshInterval: 300000, // 5 minutes
       enableConfigCache: true,
+      // Privacy defaults
+      consentMode: 'opt-out',
+      waitForConsent: false,
+      enableCookies: false,
+      anonymizeIP: false,
+      disableAutoProperties: false,
+      // Automatic Tracking defaults
+      enableHeartbeat: true,
+      heartbeatActiveInterval: 120000, // 2 minutes
+      heartbeatInactiveInterval: 300000, // 5 minutes
+      enableAutoPageView: true,
+      stripQueryParams: true,
       ...config,
       tenantId: config.tenantId,
     };
+
+    // Initialize consent manager
+    this.consentManager = new ConsentManager(this.config.tenantId, this.config.consentMode);
+
+    // Check if cookies are enabled
+    if (this.config.enableCookies) {
+      this.cookiesEnabled = areCookiesEnabled();
+      if (!this.cookiesEnabled && this.config.debug) {
+        console.warn('[Grain Analytics] Cookies are not available, falling back to localStorage');
+      }
+    }
 
     // Set global userId if provided in config
     if (config.userId) {
@@ -263,6 +323,21 @@ export class GrainAnalytics {
     this.setupBeforeUnload();
     this.startFlushTimer();
     this.initializeConfigCache();
+
+    // Initialize ephemeral session ID (memory-only, not persisted)
+    this.ephemeralSessionId = this.generateUUID();
+
+    // Initialize automatic tracking (browser only)
+    if (typeof window !== 'undefined') {
+      this.initializeAutomaticTracking();
+    }
+
+    // Set up consent change listener to flush waiting events and handle consent upgrade
+    this.consentManager.addListener((state) => {
+      if (state.granted) {
+        this.handleConsentGranted();
+      }
+    });
   }
 
   private validateConfig(): void {
@@ -303,22 +378,40 @@ export class GrainAnalytics {
   }
 
   /**
-   * Initialize persistent anonymous user ID from localStorage or create new one
+   * Initialize persistent anonymous user ID from cookies or localStorage
+   * Priority: Cookie → localStorage → generate new
    */
   private initializePersistentAnonymousUserId(): void {
     if (typeof window === 'undefined') return;
 
     const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+    const cookieName = '_grain_uid';
     
     try {
+      // Try to load from cookie first if enabled
+      if (this.cookiesEnabled) {
+        const cookieValue = getCookie(cookieName);
+        if (cookieValue) {
+          this.persistentAnonymousUserId = cookieValue;
+          this.log('Loaded persistent anonymous user ID from cookie:', this.persistentAnonymousUserId);
+          return;
+        }
+      }
+
+      // Fallback to localStorage
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         this.persistentAnonymousUserId = stored;
-        this.log('Loaded persistent anonymous user ID:', this.persistentAnonymousUserId);
+        this.log('Loaded persistent anonymous user ID from localStorage:', this.persistentAnonymousUserId);
+        
+        // Migrate to cookie if enabled
+        if (this.cookiesEnabled) {
+          this.savePersistentAnonymousUserId(stored);
+        }
       } else {
         // Generate new UUIDv4 anonymous user ID
         this.persistentAnonymousUserId = this.generateAnonymousUserId();
-        localStorage.setItem(storageKey, this.persistentAnonymousUserId);
+        this.savePersistentAnonymousUserId(this.persistentAnonymousUserId);
         this.log('Generated new persistent anonymous user ID:', this.persistentAnonymousUserId);
       }
     } catch (error) {
@@ -329,9 +422,37 @@ export class GrainAnalytics {
   }
 
   /**
+   * Save persistent anonymous user ID to cookie and/or localStorage
+   */
+  private savePersistentAnonymousUserId(userId: string): void {
+    if (typeof window === 'undefined') return;
+
+    const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
+    const cookieName = '_grain_uid';
+
+    try {
+      // Save to cookie if enabled
+      if (this.cookiesEnabled) {
+        const cookieOptions: CookieConfig = {
+          maxAge: 365 * 24 * 60 * 60, // 365 days
+          sameSite: 'lax',
+          secure: window.location.protocol === 'https:',
+          ...this.config.cookieOptions,
+        };
+        setCookie(cookieName, userId, cookieOptions);
+      }
+
+      // Always save to localStorage as fallback
+      localStorage.setItem(storageKey, userId);
+    } catch (error) {
+      this.log('Failed to save persistent anonymous user ID:', error);
+    }
+  }
+
+  /**
    * Get the effective user ID (global userId or persistent anonymous ID)
    */
-  private getEffectiveUserId(): string {
+  private getEffectiveUserIdInternal(): string {
     if (this.globalUserId) {
       return this.globalUserId;
     }
@@ -496,7 +617,7 @@ export class GrainAnalytics {
   private formatEvent(event: GrainEvent): EventPayload {
     return {
       eventName: event.eventName,
-      userId: event.userId || this.getEffectiveUserId(),
+      userId: event.userId || this.getEffectiveUserIdInternal(),
       properties: event.properties || {},
     };
   }
@@ -704,6 +825,140 @@ export class GrainAnalytics {
   }
 
   /**
+   * Initialize automatic tracking (heartbeat and page views)
+   */
+  private initializeAutomaticTracking(): void {
+    if (this.config.enableHeartbeat) {
+      try {
+        this.activityDetector = new ActivityDetector();
+        this.heartbeatManager = new HeartbeatManager(
+          this,
+          this.activityDetector,
+          {
+            activeInterval: this.config.heartbeatActiveInterval,
+            inactiveInterval: this.config.heartbeatInactiveInterval,
+            debug: this.config.debug,
+          }
+        );
+        this.log('Heartbeat tracking initialized');
+      } catch (error) {
+        this.log('Failed to initialize heartbeat tracking:', error);
+      }
+    }
+
+    if (this.config.enableAutoPageView) {
+      try {
+        this.pageTrackingManager = new PageTrackingManager(
+          this,
+          {
+            stripQueryParams: this.config.stripQueryParams,
+            debug: this.config.debug,
+          }
+        );
+        this.log('Auto page view tracking initialized');
+      } catch (error) {
+        this.log('Failed to initialize page view tracking:', error);
+      }
+    }
+  }
+
+  /**
+   * Handle consent granted - upgrade ephemeral session to persistent user
+   */
+  private handleConsentGranted(): void {
+    this.flushWaitingForConsentQueue();
+
+    // Track consent granted event with mapping
+    if (this.ephemeralSessionId) {
+      this.trackSystemEvent('_grain_consent_granted', {
+        previous_session_id: this.ephemeralSessionId,
+        new_user_id: this.getEffectiveUserId(),
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  /**
+   * Track system events that bypass consent checks (for necessary/functional tracking)
+   */
+  trackSystemEvent(eventName: string, properties: Record<string, unknown>): void {
+    if (this.isDestroyed) return;
+
+    const hasConsent = this.consentManager.hasConsent('analytics');
+
+    // Create event with appropriate user ID
+    const event: EventPayload = {
+      eventName,
+      userId: hasConsent ? this.getEffectiveUserId() : this.getEphemeralSessionId(),
+      properties: {
+        ...properties,
+        _minimal: !hasConsent, // Flag to indicate minimal tracking
+        _consent_status: hasConsent ? 'granted' : 'pending',
+      },
+    };
+
+    // Bypass consent check for necessary system events
+    this.eventQueue.push(event);
+    this.eventCountSinceLastHeartbeat++;
+
+    this.log(`Queued system event: ${eventName}`, properties);
+
+    // Consider flushing
+    if (this.eventQueue.length >= this.config.batchSize) {
+      this.flush().catch((error) => {
+        const formattedError = this.formatError(error, 'flush system event');
+        this.logError(formattedError);
+      });
+    }
+  }
+
+  /**
+   * Get ephemeral session ID (memory-only, not persisted)
+   */
+  getEphemeralSessionId(): string {
+    if (!this.ephemeralSessionId) {
+      this.ephemeralSessionId = this.generateUUID();
+    }
+    return this.ephemeralSessionId;
+  }
+
+  /**
+   * Get the current page path from page tracker
+   */
+  getCurrentPage(): string | null {
+    return this.pageTrackingManager?.getCurrentPage() || null;
+  }
+
+  /**
+   * Get event count since last heartbeat
+   */
+  getEventCountSinceLastHeartbeat(): number {
+    return this.eventCountSinceLastHeartbeat;
+  }
+
+  /**
+   * Reset event count since last heartbeat
+   */
+  resetEventCountSinceLastHeartbeat(): void {
+    this.eventCountSinceLastHeartbeat = 0;
+  }
+
+  /**
+   * Get the effective user ID (public method)
+   */
+  getEffectiveUserId(): string {
+    return this.getEffectiveUserIdInternal();
+  }
+
+  /**
+   * Get the session ID (ephemeral or persistent based on consent)
+   */
+  getSessionId(): string {
+    const hasConsent = this.consentManager.hasConsent('analytics');
+    return hasConsent ? this.getEffectiveUserId() : this.getEphemeralSessionId();
+  }
+
+  /**
    * Track an analytics event
    */
   async track(eventName: string, properties?: Record<string, unknown>, options?: SendEventOptions): Promise<void>;
@@ -735,9 +990,34 @@ export class GrainAnalytics {
         opts = propertiesOrOptions as SendEventOptions || {};
       }
 
-      const formattedEvent = this.formatEvent(event);
-      this.eventQueue.push(formattedEvent);
+      // Filter properties if whitelist is enabled
+      if (this.config.allowedProperties && event.properties) {
+        const filtered: Record<string, unknown> = {};
+        for (const key of this.config.allowedProperties) {
+          if (key in event.properties) {
+            filtered[key] = event.properties[key];
+          }
+        }
+        event.properties = filtered;
+      }
 
+      const formattedEvent = this.formatEvent(event);
+
+      // Check consent before tracking
+      if (this.consentManager.shouldWaitForConsent() && this.config.waitForConsent) {
+        // Queue event until consent is granted
+        this.waitingForConsentQueue.push(formattedEvent);
+        this.log(`Event waiting for consent: ${event.eventName}`, event.properties);
+        return;
+      }
+
+      if (!this.consentManager.hasConsent('analytics')) {
+        this.log(`Event blocked by consent: ${event.eventName}`);
+        return;
+      }
+
+      this.eventQueue.push(formattedEvent);
+      this.eventCountSinceLastHeartbeat++;
       this.log(`Queued event: ${event.eventName}`, event.properties);
 
       // Check if we should flush immediately
@@ -748,6 +1028,25 @@ export class GrainAnalytics {
       const formattedError = this.formatError(error, 'track');
       this.logError(formattedError);
     }
+  }
+
+  /**
+   * Flush events that were waiting for consent
+   */
+  private flushWaitingForConsentQueue(): void {
+    if (this.waitingForConsentQueue.length === 0) return;
+
+    this.log(`Flushing ${this.waitingForConsentQueue.length} events waiting for consent`);
+    
+    // Move waiting events to main queue
+    this.eventQueue.push(...this.waitingForConsentQueue);
+    this.waitingForConsentQueue = [];
+
+    // Flush immediately
+    this.flush().catch((error) => {
+      const formattedError = this.formatError(error, 'flush waiting for consent queue');
+      this.logError(formattedError);
+    });
   }
 
   /**
@@ -799,7 +1098,7 @@ export class GrainAnalytics {
    * Get current effective user ID (global userId or persistent anonymous ID)
    */
   getEffectiveUserIdPublic(): string {
-    return this.getEffectiveUserId();
+    return this.getEffectiveUserIdInternal();
   }
 
   /**
@@ -855,7 +1154,7 @@ export class GrainAnalytics {
         this.config.authStrategy = options.authStrategy;
       }
 
-      this.log(`Login successful. Effective user ID: ${this.getEffectiveUserId()}`);
+      this.log(`Login successful. Effective user ID: ${this.getEffectiveUserIdInternal()}`);
     } catch (error) {
       const formattedError = this.formatError(error, 'login');
       this.logError(formattedError);
@@ -905,7 +1204,7 @@ export class GrainAnalytics {
         }
       }
       
-      this.log(`Logout successful. Effective user ID: ${this.getEffectiveUserId()}`);
+      this.log(`Logout successful. Effective user ID: ${this.getEffectiveUserIdInternal()}`);
     } catch (error) {
       const formattedError = this.formatError(error, 'logout');
       this.logError(formattedError);
@@ -924,7 +1223,7 @@ export class GrainAnalytics {
         return;
       }
 
-      const userId = options?.userId || this.getEffectiveUserId();
+      const userId = options?.userId || this.getEffectiveUserIdInternal();
       
       // Validate property count (max 4 properties)
       const propertyKeys = Object.keys(properties);
@@ -1227,7 +1526,7 @@ export class GrainAnalytics {
         return null;
       }
 
-      const userId = options.userId || this.getEffectiveUserId();
+      const userId = options.userId || this.getEffectiveUserIdInternal();
       const immediateKeys = options.immediateKeys || [];
       const properties = options.properties || {};
 
@@ -1455,7 +1754,7 @@ export class GrainAnalytics {
   async preloadConfig(immediateKeys: string[] = [], properties?: Record<string, string>): Promise<void> {
     try {
       // Use effective userId (will be generated if not set)
-      const effectiveUserId = this.getEffectiveUserId();
+      const effectiveUserId = this.getEffectiveUserIdInternal();
       this.log(`Preloading config for user: ${effectiveUserId}`);
 
       const response = await this.fetchConfig({ immediateKeys, properties });
@@ -1479,6 +1778,69 @@ export class GrainAnalytics {
     return chunks;
   }
 
+  // Privacy & Consent Methods
+
+  /**
+   * Grant consent for tracking
+   * @param categories - Optional array of consent categories (e.g., ['analytics', 'functional'])
+   */
+  grantConsent(categories?: string[]): void {
+    try {
+      this.consentManager.grantConsent(categories);
+      this.log('Consent granted', categories);
+    } catch (error) {
+      const formattedError = this.formatError(error, 'grantConsent');
+      this.logError(formattedError);
+    }
+  }
+
+  /**
+   * Revoke consent for tracking (opt-out)
+   * @param categories - Optional array of categories to revoke (if not provided, revokes all)
+   */
+  revokeConsent(categories?: string[]): void {
+    try {
+      this.consentManager.revokeConsent(categories);
+      this.log('Consent revoked', categories);
+      
+      // Clear queued events when consent is revoked
+      this.eventQueue = [];
+      this.waitingForConsentQueue = [];
+    } catch (error) {
+      const formattedError = this.formatError(error, 'revokeConsent');
+      this.logError(formattedError);
+    }
+  }
+
+  /**
+   * Get current consent state
+   */
+  getConsentState(): ConsentState | null {
+    return this.consentManager.getConsentState();
+  }
+
+  /**
+   * Check if user has granted consent
+   * @param category - Optional category to check (if not provided, checks general consent)
+   */
+  hasConsent(category?: string): boolean {
+    return this.consentManager.hasConsent(category);
+  }
+
+  /**
+   * Add listener for consent state changes
+   */
+  onConsentChange(listener: (state: ConsentState) => void): void {
+    this.consentManager.addListener(listener);
+  }
+
+  /**
+   * Remove consent change listener
+   */
+  offConsentChange(listener: (state: ConsentState) => void): void {
+    this.consentManager.removeListener(listener);
+  }
+
   /**
    * Destroy the client and clean up resources
    */
@@ -1495,6 +1857,22 @@ export class GrainAnalytics {
 
     // Clear config change listeners
     this.configChangeListeners = [];
+
+    // Destroy automatic tracking managers
+    if (this.heartbeatManager) {
+      this.heartbeatManager.destroy();
+      this.heartbeatManager = null;
+    }
+
+    if (this.pageTrackingManager) {
+      this.pageTrackingManager.destroy();
+      this.pageTrackingManager = null;
+    }
+
+    if (this.activityDetector) {
+      this.activityDetector.destroy();
+      this.activityDetector = null;
+    }
 
     // Send any remaining events (in chunks if necessary)
     if (this.eventQueue.length > 0) {

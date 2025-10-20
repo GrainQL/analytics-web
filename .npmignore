@@ -3,6 +3,9 @@ src/
 scripts/
 examples/
 
+# Mini app (development/testing only)
+mini-app/
+
 # Development files
 tsconfig.json
 .gitignore

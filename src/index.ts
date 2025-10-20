@@ -436,7 +436,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         const cookieOptions: CookieConfig = {
           maxAge: 365 * 24 * 60 * 60, // 365 days
           sameSite: 'lax',
-          secure: window.location.protocol === 'https:',
+          secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
           ...this.config.cookieOptions,
         };
         setCookie(cookieName, userId, cookieOptions);
@@ -768,6 +768,8 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   private startFlushTimer(): void {
+    if (typeof window === 'undefined') return;
+    
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }
@@ -1723,6 +1725,8 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
    * Start automatic configuration refresh timer
    */
   private startConfigRefreshTimer(): void {
+    if (typeof window === 'undefined') return;
+    
     if (this.configRefreshTimer) {
       clearInterval(this.configRefreshTimer);
     }

@@ -149,13 +149,13 @@ describe('HeartbeatManager', () => {
     });
 
     jest.advanceTimersByTime(1100);
-    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(1);
-
-    jest.advanceTimersByTime(1000);
-    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(2);
+    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(2); // page load + periodic
 
     jest.advanceTimersByTime(1000);
     expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(3);
+
+    jest.advanceTimersByTime(1000);
+    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(4);
   });
 
   it('should stop sending heartbeats after destroy', () => {
@@ -166,12 +166,12 @@ describe('HeartbeatManager', () => {
     });
 
     jest.advanceTimersByTime(1100);
-    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(1);
+    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(2); // page load + periodic
 
     heartbeatManager.destroy();
 
     jest.advanceTimersByTime(5000);
-    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(1);
+    expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(2); // no more calls after destroy
   });
 
   it('should handle page being null', () => {
@@ -206,5 +206,149 @@ describe('HeartbeatManager', () => {
     const secondCall = (mockTracker.trackSystemEvent as jest.Mock).mock.calls[1][1];
 
     expect(secondCall.duration).toBeGreaterThanOrEqual(1000);
+  });
+
+  describe('Page Load Heartbeat', () => {
+    let originalDocument: Document;
+    let originalWindow: Window;
+    let mockDocument: any;
+    let mockWindow: any;
+
+    beforeEach(() => {
+      // Mock document and window
+      originalDocument = global.document;
+      originalWindow = global.window;
+      
+      mockDocument = {
+        get readyState() { return this._readyState; },
+        set readyState(value) { this._readyState = value; },
+        _readyState: 'loading',
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      };
+      
+      mockWindow = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      };
+      
+      // Set up the global mocks
+      (global as any).document = mockDocument;
+      (global as any).window = mockWindow;
+    });
+
+    afterEach(() => {
+      (global as any).document = originalDocument;
+      (global as any).window = originalWindow;
+    });
+
+    it('should send page load heartbeat when document is already complete', () => {
+      mockDocument._readyState = 'complete';
+
+      heartbeatManager = new HeartbeatManager(mockTracker, activityDetector, {
+        activeInterval: 1000,
+        inactiveInterval: 5000,
+        debug: false,
+      });
+
+      // Should send page load heartbeat immediately
+      expect(mockTracker.trackSystemEvent).toHaveBeenCalledWith(
+        '_grain_heartbeat',
+        expect.objectContaining({
+          type: 'heartbeat',
+          heartbeat_type: 'page_load',
+          status: 'active',
+          timestamp: expect.any(Number),
+        })
+      );
+    });
+
+    it('should send page load heartbeat immediately when document is complete', () => {
+      // Reset the mock tracker to clear any previous calls
+      (mockTracker.trackSystemEvent as jest.Mock).mockClear();
+
+      // Create a new HeartbeatManager instance
+      heartbeatManager = new HeartbeatManager(mockTracker, activityDetector, {
+        activeInterval: 1000,
+        inactiveInterval: 5000,
+        debug: false,
+      });
+
+      // In the test environment, document is already complete, so page load heartbeat is sent immediately
+      expect(mockTracker.trackSystemEvent).toHaveBeenCalledWith(
+        '_grain_heartbeat',
+        expect.objectContaining({
+          type: 'heartbeat',
+          heartbeat_type: 'page_load',
+          status: 'active',
+          timestamp: expect.any(Number),
+        })
+      );
+    });
+
+    it('should not include duration and event_count in page load heartbeat', () => {
+      (mockTracker.hasConsent as jest.Mock).mockReturnValue(true);
+      mockDocument._readyState = 'complete';
+
+      heartbeatManager = new HeartbeatManager(mockTracker, activityDetector, {
+        activeInterval: 1000,
+        inactiveInterval: 5000,
+        debug: false,
+      });
+
+      const call = (mockTracker.trackSystemEvent as jest.Mock).mock.calls[0][1];
+      expect(call.heartbeat_type).toBe('page_load');
+      expect(call.duration).toBeUndefined();
+      expect(call.event_count).toBeUndefined();
+      expect(call.page).toBe('/test-page'); // Should still include page with consent
+    });
+
+    it('should only send page load heartbeat once', () => {
+      mockDocument._readyState = 'complete';
+
+      heartbeatManager = new HeartbeatManager(mockTracker, activityDetector, {
+        activeInterval: 1000,
+        inactiveInterval: 5000,
+        debug: false,
+      });
+
+      // Should send page load heartbeat immediately
+      expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(1);
+      
+      // Advance time to trigger periodic heartbeat
+      jest.advanceTimersByTime(1100);
+      
+      // Should have sent periodic heartbeat (total of 2 calls)
+      expect(mockTracker.trackSystemEvent).toHaveBeenCalledTimes(2);
+      
+      const firstCall = (mockTracker.trackSystemEvent as jest.Mock).mock.calls[0][1];
+      const secondCall = (mockTracker.trackSystemEvent as jest.Mock).mock.calls[1][1];
+      
+      expect(firstCall.heartbeat_type).toBe('page_load');
+      expect(secondCall.heartbeat_type).toBe('periodic');
+    });
+
+    it('should handle non-browser environment gracefully', () => {
+      // Remove window and document
+      delete (global as any).window;
+      delete (global as any).document;
+
+      heartbeatManager = new HeartbeatManager(mockTracker, activityDetector, {
+        activeInterval: 1000,
+        inactiveInterval: 5000,
+        debug: false,
+      });
+
+      // Should send page load heartbeat immediately in non-browser environment
+      expect(mockTracker.trackSystemEvent).toHaveBeenCalledWith(
+        '_grain_heartbeat',
+        expect.objectContaining({
+          type: 'heartbeat',
+          heartbeat_type: 'page_load',
+          status: 'active',
+          timestamp: expect.any(Number),
+        })
+      );
+    });
   });
 });

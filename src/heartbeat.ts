@@ -29,6 +29,7 @@ export class HeartbeatManager {
   private isDestroyed = false;
   private lastHeartbeatTime: number;
   private currentInterval: number;
+  private hasSentPageLoadHeartbeat = false;
 
   constructor(
     tracker: HeartbeatTracker,
@@ -41,8 +42,32 @@ export class HeartbeatManager {
     this.lastHeartbeatTime = Date.now();
     this.currentInterval = config.activeInterval;
 
-    // Start heartbeat tracking
+    // Send initial heartbeat when page loads (if allowed by consent)
+    this.sendPageLoadHeartbeat();
+    
+    // Start periodic heartbeat tracking
     this.scheduleNextHeartbeat();
+  }
+
+  /**
+   * Send initial heartbeat when page loads
+   */
+  private sendPageLoadHeartbeat(): void {
+    if (this.isDestroyed || this.hasSentPageLoadHeartbeat) return;
+
+    // Wait for page to be fully loaded
+    if (typeof window !== 'undefined' && document.readyState !== 'complete') {
+      const handleLoad = () => {
+        this.sendHeartbeat('page_load');
+        this.hasSentPageLoadHeartbeat = true;
+        window.removeEventListener('load', handleLoad);
+      };
+      window.addEventListener('load', handleLoad);
+    } else {
+      // Page is already loaded or we're in a non-browser environment
+      this.sendHeartbeat('page_load');
+      this.hasSentPageLoadHeartbeat = true;
+    }
   }
 
   /**
@@ -62,7 +87,7 @@ export class HeartbeatManager {
 
     // Schedule next heartbeat
     this.heartbeatTimer = window.setTimeout(() => {
-      this.sendHeartbeat();
+      this.sendHeartbeat('periodic');
       this.scheduleNextHeartbeat();
     }, this.currentInterval);
 
@@ -76,7 +101,7 @@ export class HeartbeatManager {
   /**
    * Send heartbeat event
    */
-  private sendHeartbeat(): void {
+  private sendHeartbeat(heartbeatType: 'periodic' | 'page_load' = 'periodic'): void {
     if (this.isDestroyed) return;
 
     const now = Date.now();
@@ -86,6 +111,7 @@ export class HeartbeatManager {
     // Base properties (always included)
     const properties: Record<string, unknown> = {
       type: 'heartbeat',
+      heartbeat_type: heartbeatType,
       status: isActive ? 'active' : 'inactive',
       timestamp: now,
     };
@@ -96,11 +122,15 @@ export class HeartbeatManager {
       if (page) {
         properties.page = page;
       }
-      properties.duration = now - this.lastHeartbeatTime;
-      properties.event_count = this.tracker.getEventCountSinceLastHeartbeat();
       
-      // Reset event count
-      this.tracker.resetEventCountSinceLastHeartbeat();
+      // Only include duration and event count for periodic heartbeats
+      if (heartbeatType === 'periodic') {
+        properties.duration = now - this.lastHeartbeatTime;
+        properties.event_count = this.tracker.getEventCountSinceLastHeartbeat();
+        
+        // Reset event count
+        this.tracker.resetEventCountSinceLastHeartbeat();
+      }
     }
 
     // Track the heartbeat event

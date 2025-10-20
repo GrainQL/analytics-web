@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2025-10-20
+
+### Fixed
+- Next.js SSR compatibility: Guarded all browser-only APIs with `typeof window !== 'undefined'`
+  - `startFlushTimer()` uses browser check to avoid `window is not defined`
+  - `startConfigRefreshTimer()` guarded for server environments
+  - Cookie `secure` flag now checks `window.location` safely
+- Mini-app hydration: corrected provider usage and client-only state initialization with `useEffect`
+
+### Changed
+- Onboarding snippets updated to correct APIs and use proper Shiki-based code highlighting
+
+## [2.1.2] - 2025-10-18
+
+### Added
+
+#### Heartbeat Tracking Enhancement
+- **Page Load Heartbeat**: Heartbeat events are now automatically sent when the page finishes loading, in addition to periodic heartbeats
+- **Heartbeat Type Differentiation**: Added `heartbeat_type` property to distinguish between `'page_load'` and `'periodic'` heartbeats
+- **Consent-Aware Page Load Tracking**: Page load heartbeats respect consent settings and use appropriate user IDs (ephemeral vs persistent)
+
+### Changed
+- **Heartbeat Behavior**: HeartbeatManager now sends an initial heartbeat on page load completion, providing immediate session tracking
+- **Event Properties**: Page load heartbeats exclude duration and event count metrics (since they're the first heartbeat)
+
+### Technical Details
+- **Automatic Detection**: Uses `document.readyState` and `load` event to detect page completion
+- **Non-Browser Support**: Gracefully handles non-browser environments by sending heartbeat immediately
+- **Backward Compatible**: Existing periodic heartbeat functionality remains unchanged
+
 ## [2.1.0] - 2025-10-18
 
 ### Added
@@ -131,7 +161,8 @@ function YourComponent() {
 
 ---
 
+[2.1.3]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.3
+[2.1.2]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.2
 [2.1.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.0
 [2.0.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.0.0
 [1.7.4]: https://github.com/GrainQL/analytics-web/releases/tag/v1.7.4
-

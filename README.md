@@ -17,8 +17,26 @@ A lightweight, dependency-free TypeScript SDK for analytics and remote configura
 
 ## Installation
 
+### NPM
+
 ```bash
 npm install @grainql/analytics-web
+```
+
+### CDN (IIFE)
+
+```html
+<!-- Load from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@grainql/analytics-web@latest/dist/index.global.js"></script>
+
+<script>
+  // Available as window.Grain
+  const grain = window.Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id'
+  });
+  
+  grain.track('page_view', { page: window.location.pathname });
+</script>
 ```
 
 ## Quick Start
@@ -107,6 +125,35 @@ Track users across sessions:
 grain.setUserId('user_123');
 await grain.setProperty({ plan: 'premium' });
 ```
+
+### Tracks: Journey Visualization
+
+Track user journeys from start to goal to unlock path visualization:
+
+```typescript
+// 1. Define meaningful event names for your journey
+grain.track('signup_started', { source: 'homepage' });
+grain.track('email_entered', { valid: true });
+grain.track('password_created', { strength: 'strong' });
+grain.track('signup_completed', { method: 'email' });
+
+// 2. In the dashboard, create a Track:
+//    - Start event: 'signup_started'
+//    - Goal event: 'signup_completed'
+//    - The system will automatically visualize all paths between them
+
+// 3. Best practices for Tracks:
+//    - Use consistent event naming (snake_case recommended)
+//    - Track intermediate steps (not just start/end)
+//    - Add properties to segment paths (e.g., source, device_type)
+//    - Exclude noise: heartbeat events are filtered automatically
+```
+
+**What you'll see in Tracks:**
+- **Conversion paths**: Most common routes users take to reach the goal
+- **Drop-off paths**: Where users abandon the journey
+- **Hub nodes**: Critical events many paths flow through
+- **Metrics**: Conversion rate, time-to-goal, abandonment points
 
 ## More Examples
 

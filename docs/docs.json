@@ -146,5 +146,10 @@
       "github": "https://github.com/GrainQL/analytics-web",
       "website": "https://grainql.com"
     }
-  }
+  },
+  "integrations": {
+      "intercom": {
+            "appId": "hrkm438y"
+      }
+}
 }

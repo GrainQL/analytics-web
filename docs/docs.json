@@ -122,14 +122,6 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@grainql.com"
-      }
-    ]
-  },
   "contextual": {
     "options": [
      "copy",

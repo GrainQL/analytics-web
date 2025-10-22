@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-10-21
+
+### Added
+
+#### Strict GDPR Compliance for Opt-in Mode
+- **Ephemeral-Only Tracking**: Opt-in mode now uses ONLY ephemeral session IDs (memory-only JavaScript variables) until consent is granted
+- **No Persistent Storage Without Consent**: Eliminates all cookies and localStorage identifiers in opt-in mode before consent
+- **Consent Upgrade Flow**: Seamless transition from ephemeral to persistent IDs when consent is granted
+- **Consent Mapping Event**: `_grain_consent_granted` event automatically tracks the mapping between ephemeral and persistent user IDs
+
+#### Functional/Essential Purpose Exceptions
+- **Explicit User Identification**: When users are identified via `identify()` or `login()`, persistent IDs are allowed (functional purpose)
+- **JWT Authentication Support**: JWT auth strategy allows persistent IDs as they're essential for authentication
+- **Remote Config Caching**: Config cache continues to use localStorage (functional purpose for sticky configurations)
+- **Consent Preferences Storage**: Consent choices stored in localStorage (necessary for compliance)
+
+#### Helper Methods & Utilities
+- **`shouldAllowPersistentStorage()`**: Centralized GDPR compliance logic checking consent, mode, user identification, and auth strategy
+- **Enhanced `handleConsentGranted()`**: Automatically initializes persistent IDs after consent is granted
+- **GDPR Compliance Comments**: Comprehensive code documentation explaining compliance decisions
+
+### Changed
+
+#### Core Behavior Updates
+- **`initializePersistentAnonymousUserId()`**: Now checks GDPR compliance before loading/creating persistent IDs
+- **`savePersistentAnonymousUserId()`**: Respects opt-in mode and skips saving without proper authorization
+- **`setUserId()`**: Uses GDPR-compliant save method instead of direct localStorage access
+- **System Event Tracking**: Uses ephemeral session IDs in opt-in mode without consent
+
+### Technical Details
+
+#### Opt-in Mode Without Consent
+- ✅ Ephemeral session ID (JavaScript memory variable only)
+- ✅ Basic page views and heartbeat events  
+- ✅ Remote config cache (functional)
+- ✅ Consent preferences (necessary)
+- ❌ No cookies
+- ❌ No localStorage for user identifiers
+- ❌ No persistent cross-session tracking
+- ❌ No personal information
+
+#### Opt-in Mode With Consent
+- ✅ Persistent user ID (localStorage/cookie)
+- ✅ Full tracking with all features
+- ✅ Cross-session tracking enabled
+- ✅ Enhanced event properties
+
+#### Compliance
+- **GDPR Article 6**: Legitimate interest for functional storage
+- **GDPR Article 7**: Clear consent mechanism
+- **ePrivacy Directive**: No cookies without consent
+- **Data Minimization**: Minimal data collection by default
+
+### Migration Notes
+
+This is a **backward compatible** update. Existing opt-out and disabled modes continue to work exactly as before. The changes only affect opt-in mode behavior to ensure strict GDPR compliance.
+
 ## [2.1.3] - 2025-10-20
 
 ### Fixed

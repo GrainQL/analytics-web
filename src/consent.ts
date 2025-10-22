@@ -32,6 +32,10 @@ export class ConsentManager {
 
   /**
    * Load consent state from localStorage
+   * 
+   * GDPR Compliance: In opt-in mode, we can use localStorage for consent preferences
+   * since storing consent choices is a legitimate interest and necessary for compliance.
+   * The consent preference itself is not tracking data.
    */
   private loadConsentState(): void {
     if (typeof window === 'undefined') return;
@@ -54,6 +58,7 @@ export class ConsentManager {
         };
         this.saveConsentState();
       }
+      // Note: In opt-in mode without stored consent, consentState remains null (no consent)
     } catch (error) {
       console.error('[Grain Consent] Failed to load consent state:', error);
     }

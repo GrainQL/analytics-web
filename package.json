@@ -1,6 +1,6 @@
 {
   "name": "@grainql/analytics-web",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "description": "Lightweight TypeScript SDK for sending analytics events and managing remote configurations via Grain's REST API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

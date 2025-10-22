@@ -235,10 +235,16 @@ export interface FormattedError {
  * Features:
  * - Automatic UUIDv4 generation for anonymous users
  * - Login/logout functionality for dynamic auth token injection
- * - Persistent anonymous user ID across sessions
+ * - Persistent anonymous user ID across sessions (when consent is granted)
  * - Support for multiple auth strategies (NONE, SERVER_SIDE, JWT)
- * - GDPR-compliant consent management
+ * - GDPR-compliant consent management with strict opt-in mode
  * - Optional cookie support for cross-session tracking
+ * 
+ * GDPR Compliance (Opt-in Mode):
+ * - Without consent: Only ephemeral session IDs (memory-only) are used
+ * - No cookies or localStorage identifiers until consent is granted
+ * - Exceptions: User explicitly identified via identify()/login() or JWT auth
+ * - Remote config cache and consent preferences use localStorage (functional/necessary)
  */
 type RequiredConfig = Required<Omit<GrainConfig, 'secretKey' | 'authProvider' | 'userId' | 'cookieOptions' | 'allowedProperties'>> & {
   secretKey?: string;
@@ -371,6 +377,25 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   /**
+   * Check if we should allow persistent storage (GDPR compliance)
+   * 
+   * Returns true if:
+   * - Consent has been granted, OR
+   * - Not in opt-in mode, OR
+   * - User has been explicitly identified by the site (login/identify), OR
+   * - Using JWT auth strategy (functional/essential purpose)
+   */
+  private shouldAllowPersistentStorage(): boolean {
+    const hasConsent = this.consentManager.hasConsent('analytics');
+    const isOptInMode = this.config.consentMode === 'opt-in';
+    const userExplicitlyIdentified = !!this.globalUserId;
+    const isJWTAuth = this.config.authStrategy === 'JWT';
+    
+    // Allow persistent storage if any of these conditions are met
+    return hasConsent || !isOptInMode || userExplicitlyIdentified || isJWTAuth;
+  }
+
+  /**
    * Generate a proper UUIDv4 identifier for anonymous user ID
    */
   private generateAnonymousUserId(): string {
@@ -380,9 +405,19 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   /**
    * Initialize persistent anonymous user ID from cookies or localStorage
    * Priority: Cookie → localStorage → generate new
+   * 
+   * GDPR Compliance: In opt-in mode without consent, we skip loading/saving
+   * persistent IDs unless the user has been explicitly identified by the site
+   * or when using JWT auth (functional/essential purpose)
    */
   private initializePersistentAnonymousUserId(): void {
     if (typeof window === 'undefined') return;
+
+    // Check if we should avoid persistent storage (GDPR compliance)
+    if (!this.shouldAllowPersistentStorage()) {
+      this.log('Opt-in mode without consent: skipping persistent ID initialization (GDPR compliance)');
+      return; // Don't load or create persistent ID
+    }
 
     const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
     const cookieName = '_grain_uid';
@@ -423,9 +458,18 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
   /**
    * Save persistent anonymous user ID to cookie and/or localStorage
+   * 
+   * GDPR Compliance: In opt-in mode without consent, we don't persist IDs
+   * unless the user has been explicitly identified or using JWT auth
    */
   private savePersistentAnonymousUserId(userId: string): void {
     if (typeof window === 'undefined') return;
+
+    // Check if we should avoid persistent storage (GDPR compliance)
+    if (!this.shouldAllowPersistentStorage()) {
+      this.log('Opt-in mode without consent: skipping persistent ID save (GDPR compliance)');
+      return; // Don't save persistent ID
+    }
 
     const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
     const cookieName = '_grain_uid';
@@ -451,6 +495,9 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
   /**
    * Get the effective user ID (global userId or persistent anonymous ID)
+   * 
+   * GDPR Compliance: In opt-in mode without consent and no explicit user identification,
+   * this should not be called. Use getEphemeralSessionId() instead.
    */
   private getEffectiveUserIdInternal(): string {
     if (this.globalUserId) {
@@ -464,15 +511,8 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     // Generate a new UUIDv4 identifier as fallback
     this.persistentAnonymousUserId = this.generateAnonymousUserId();
     
-    // Try to persist it
-    if (typeof window !== 'undefined') {
-      try {
-        const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
-        localStorage.setItem(storageKey, this.persistentAnonymousUserId);
-      } catch (error) {
-        this.log('Failed to persist generated anonymous user ID:', error);
-      }
-    }
+    // Try to persist it (will be skipped in opt-in mode without consent)
+    this.savePersistentAnonymousUserId(this.persistentAnonymousUserId);
     
     return this.persistentAnonymousUserId;
   }
@@ -870,7 +910,13 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   private handleConsentGranted(): void {
     this.flushWaitingForConsentQueue();
 
-    // Track consent granted event with mapping
+    // Initialize persistent ID now that consent is granted (if not already initialized)
+    if (!this.persistentAnonymousUserId) {
+      this.initializePersistentAnonymousUserId();
+      this.log('Initialized persistent ID after consent grant');
+    }
+
+    // Track consent granted event with mapping from ephemeral to persistent ID
     if (this.ephemeralSessionId) {
       this.trackSystemEvent('_grain_consent_granted', {
         previous_session_id: this.ephemeralSessionId,
@@ -1072,19 +1118,12 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       // Clear persistent anonymous user ID if setting a real user ID
       this.persistentAnonymousUserId = null;
     } else {
-      // If clearing user ID, ensure we have a UUIDv4 identifier
+      // If clearing user ID, ensure we have an identifier
       if (!this.persistentAnonymousUserId) {
         this.persistentAnonymousUserId = this.generateAnonymousUserId();
         
-        // Try to persist the new anonymous ID
-        if (typeof window !== 'undefined') {
-          try {
-            const storageKey = `grain_anonymous_user_id_${this.config.tenantId}`;
-            localStorage.setItem(storageKey, this.persistentAnonymousUserId);
-          } catch (error) {
-            this.log('Failed to persist new anonymous user ID:', error);
-          }
-        }
+        // Try to persist the new anonymous ID (respects GDPR opt-in mode)
+        this.savePersistentAnonymousUserId(this.persistentAnonymousUserId);
       }
     }
   }

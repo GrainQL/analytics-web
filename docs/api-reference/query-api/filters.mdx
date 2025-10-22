@@ -1,0 +1,730 @@
+---
+title: "Filter Reference"
+description: "Complete guide to all filter operators and property paths in the Query API"
+---
+
+## Overview
+
+Filters allow you to narrow down your query results by specifying conditions that events must meet. You can filter on event properties, metadata, and use various comparison operators to match your exact needs.
+
+## Filter Structure
+
+All filters follow this structure:
+
+```json
+{
+  "property": "string",
+  "comparison": "string", 
+  "value": "any"
+}
+```
+
+### Filter Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `property` | string | Yes | Property path to filter on |
+| `comparison` | string | Yes | Comparison operator |
+| `value` | any | Yes | Value to compare against |
+
+## Property Paths
+
+### Event Properties
+
+Access custom properties you included when tracking events:
+
+```json
+{
+  "property": "properties.price",
+  "comparison": "GREATER_THAN",
+  "value": 100
+}
+```
+
+```json
+{
+  "property": "properties.category",
+  "comparison": "EQUALS",
+  "value": "electronics"
+}
+```
+
+### Event Metadata
+
+Filter on built-in event fields:
+
+```json
+{
+  "property": "eventName",
+  "comparison": "EQUALS",
+  "value": "purchase_completed"
+}
+```
+
+```json
+{
+  "property": "userId",
+  "comparison": "EQUALS",
+  "value": "user_123"
+}
+```
+
+```json
+{
+  "property": "eventTs",
+  "comparison": "GREATER_THAN",
+  "value": "2024-01-01T00:00:00Z"
+}
+```
+
+### Nested Properties
+
+Access nested object properties:
+
+```json
+{
+  "property": "properties.user.plan",
+  "comparison": "EQUALS",
+  "value": "premium"
+}
+```
+
+```json
+{
+  "property": "properties.product.details.color",
+  "comparison": "EQUALS",
+  "value": "blue"
+}
+```
+
+## Comparison Operators
+
+### Equality Operators
+
+#### EQUALS
+
+Exact match:
+
+```json
+{
+  "property": "properties.status",
+  "comparison": "EQUALS",
+  "value": "completed"
+}
+```
+
+#### NOT_EQUALS
+
+Not equal to:
+
+```json
+{
+  "property": "properties.device",
+  "comparison": "NOT_EQUALS",
+  "value": "mobile"
+}
+```
+
+### Numeric Operators
+
+#### GREATER_THAN
+
+Greater than (for numbers):
+
+```json
+{
+  "property": "properties.price",
+  "comparison": "GREATER_THAN",
+  "value": 100
+}
+```
+
+#### LESS_THAN
+
+Less than (for numbers):
+
+```json
+{
+  "property": "properties.duration",
+  "comparison": "LESS_THAN",
+  "value": 300
+}
+```
+
+#### GREATER_THAN_OR_EQUALS
+
+Greater than or equal to:
+
+```json
+{
+  "property": "properties.score",
+  "comparison": "GREATER_THAN_OR_EQUALS",
+  "value": 80
+}
+```
+
+#### LESS_THAN_OR_EQUALS
+
+Less than or equal to:
+
+```json
+{
+  "property": "properties.age",
+  "comparison": "LESS_THAN_OR_EQUALS",
+  "value": 65
+}
+```
+
+### String Operators
+
+#### CONTAINS
+
+String contains substring:
+
+```json
+{
+  "property": "properties.page",
+  "comparison": "CONTAINS",
+  "value": "/product"
+}
+```
+
+#### NOT_CONTAINS
+
+String does not contain substring:
+
+```json
+{
+  "property": "properties.referrer",
+  "comparison": "NOT_CONTAINS",
+  "value": "spam-site.com"
+}
+```
+
+### List Operators
+
+#### IN
+
+Value is in a list:
+
+```json
+{
+  "property": "properties.category",
+  "comparison": "IN",
+  "value": ["electronics", "books", "clothing"]
+}
+```
+
+```json
+{
+  "property": "userId",
+  "comparison": "IN",
+  "value": ["user_123", "user_456", "user_789"]
+}
+```
+
+#### NOT_IN
+
+Value is not in a list:
+
+```json
+{
+  "property": "properties.country",
+  "comparison": "NOT_IN",
+  "value": ["US", "CA", "GB"]
+}
+```
+
+## Complex Filter Examples
+
+### Multiple Filters
+
+Combine multiple filters with AND logic:
+
+```json
+{
+  "event": "purchase_completed",
+  "filterSet": [
+    {
+      "property": "properties.price",
+      "comparison": "GREATER_THAN",
+      "value": 100
+    },
+    {
+      "property": "properties.category",
+      "comparison": "EQUALS",
+      "value": "electronics"
+    },
+    {
+      "property": "properties.device",
+      "comparison": "EQUALS",
+      "value": "mobile"
+    }
+  ]
+}
+```
+
+### User Segmentation
+
+Filter by user properties:
+
+```json
+{
+  "filterSet": [
+    {
+      "property": "properties.user.plan",
+      "comparison": "EQUALS",
+      "value": "premium"
+    },
+    {
+      "property": "properties.user.signup_date",
+      "comparison": "GREATER_THAN",
+      "value": "2024-01-01"
+    }
+  ]
+}
+```
+
+### Geographic Filtering
+
+Filter by location:
+
+```json
+{
+  "filterSet": [
+    {
+      "property": "properties.country",
+      "comparison": "EQUALS",
+      "value": "US"
+    },
+    {
+      "property": "properties.state",
+      "comparison": "IN",
+      "value": ["CA", "NY", "TX"]
+    }
+  ]
+}
+```
+
+### Time-based Filtering
+
+Filter by time ranges:
+
+```json
+{
+  "filterSet": [
+    {
+      "property": "eventTs",
+      "comparison": "GREATER_THAN",
+      "value": "2024-01-01T00:00:00Z"
+    },
+    {
+      "property": "eventTs",
+      "comparison": "LESS_THAN",
+      "value": "2024-01-31T23:59:59Z"
+    }
+  ]
+}
+```
+
+### A/B Testing
+
+Filter by experiment variants:
+
+```json
+{
+  "event": "conversion_completed",
+  "filterSet": [
+    {
+      "property": "properties.experiment",
+      "comparison": "EQUALS",
+      "value": "homepage_hero"
+    },
+    {
+      "property": "properties.variant",
+      "comparison": "EQUALS",
+      "value": "A"
+    }
+  ]
+}
+```
+
+## Data Type Handling
+
+### String Values
+
+```json
+{
+  "property": "properties.name",
+  "comparison": "EQUALS",
+  "value": "John Doe"
+}
+```
+
+```json
+{
+  "property": "properties.email",
+  "comparison": "CONTAINS",
+  "value": "@gmail.com"
+}
+```
+
+### Numeric Values
+
+```json
+{
+  "property": "properties.price",
+  "comparison": "GREATER_THAN",
+  "value": 99.99
+}
+```
+
+```json
+{
+  "property": "properties.quantity",
+  "comparison": "EQUALS",
+  "value": 5
+}
+```
+
+### Boolean Values
+
+```json
+{
+  "property": "properties.is_premium",
+  "comparison": "EQUALS",
+  "value": true
+}
+```
+
+### Array Values
+
+```json
+{
+  "property": "properties.tags",
+  "comparison": "IN",
+  "value": ["featured", "sale", "new"]
+}
+```
+
+### Null Values
+
+```json
+{
+  "property": "properties.optional_field",
+  "comparison": "EQUALS",
+  "value": null
+}
+```
+
+## Common Filter Patterns
+
+### E-commerce Filters
+
+```json
+{
+  "event": "purchase_completed",
+  "filterSet": [
+    {
+      "property": "properties.price",
+      "comparison": "GREATER_THAN",
+      "value": 50
+    },
+    {
+      "property": "properties.payment_method",
+      "comparison": "EQUALS",
+      "value": "credit_card"
+    },
+    {
+      "property": "properties.shipping_country",
+      "comparison": "NOT_IN",
+      "value": ["XX", "YY"]
+    }
+  ]
+}
+```
+
+### User Engagement Filters
+
+```json
+{
+  "filterSet": [
+    {
+      "property": "properties.session_duration",
+      "comparison": "GREATER_THAN",
+      "value": 300
+    },
+    {
+      "property": "properties.pages_viewed",
+      "comparison": "GREATER_THAN_OR_EQUALS",
+      "value": 5
+    },
+    {
+      "property": "properties.bounce_rate",
+      "comparison": "LESS_THAN",
+      "value": 0.3
+    }
+  ]
+}
+```
+
+### Error Tracking Filters
+
+```json
+{
+  "event": "error_occurred",
+  "filterSet": [
+    {
+      "property": "properties.error_type",
+      "comparison": "EQUALS",
+      "value": "javascript_error"
+    },
+    {
+      "property": "properties.severity",
+      "comparison": "IN",
+      "value": ["high", "critical"]
+    },
+    {
+      "property": "properties.page",
+      "comparison": "NOT_CONTAINS",
+      "value": "/admin"
+    }
+  ]
+}
+```
+
+### Feature Usage Filters
+
+```json
+{
+  "event": "feature_used",
+  "filterSet": [
+    {
+      "property": "properties.feature_name",
+      "comparison": "EQUALS",
+      "value": "advanced_search"
+    },
+    {
+      "property": "properties.user.plan",
+      "comparison": "EQUALS",
+      "value": "premium"
+    },
+    {
+      "property": "properties.usage_count",
+      "comparison": "GREATER_THAN",
+      "value": 10
+    }
+  ]
+}
+```
+
+## Performance Tips
+
+### 1. Use Specific Property Paths
+
+Be specific with your property paths to avoid ambiguity:
+
+```json
+// ✅ Good: Specific property path
+{
+  "property": "properties.user.plan",
+  "comparison": "EQUALS",
+  "value": "premium"
+}
+
+// ❌ Avoid: Ambiguous property path
+{
+  "property": "plan",
+  "comparison": "EQUALS",
+  "value": "premium"
+}
+```
+
+### 2. Use Date Ranges
+
+Always include date ranges to limit the data scanned:
+
+```json
+{
+  "after": "2024-01-01",
+  "before": "2024-01-31",
+  "filterSet": [
+    {
+      "property": "properties.price",
+      "comparison": "GREATER_THAN",
+      "value": 100
+    }
+  ]
+}
+```
+
+### 3. Order Filters by Selectivity
+
+Put the most selective filters first:
+
+```json
+{
+  "filterSet": [
+    {
+      "property": "userId",
+      "comparison": "EQUALS",
+      "value": "user_123"
+    },
+    {
+      "property": "properties.category",
+      "comparison": "EQUALS",
+      "value": "electronics"
+    },
+    {
+      "property": "properties.price",
+      "comparison": "GREATER_THAN",
+      "value": 100
+    }
+  ]
+}
+```
+
+### 4. Use IN Instead of Multiple EQUALS
+
+When filtering for multiple values, use IN instead of multiple EQUALS filters:
+
+```json
+// ✅ Good: Single IN filter
+{
+  "property": "properties.category",
+  "comparison": "IN",
+  "value": ["electronics", "books", "clothing"]
+}
+
+// ❌ Avoid: Multiple EQUALS filters
+{
+  "filterSet": [
+    { "property": "properties.category", "comparison": "EQUALS", "value": "electronics" },
+    { "property": "properties.category", "comparison": "EQUALS", "value": "books" },
+    { "property": "properties.category", "comparison": "EQUALS", "value": "clothing" }
+  ]
+}
+```
+
+## Error Handling
+
+### Invalid Property Paths
+
+```json
+{
+  "error": "Invalid property path: 'invalid.property'"
+}
+```
+
+### Invalid Comparison Operators
+
+```json
+{
+  "error": "Invalid comparison operator: 'INVALID_OP'"
+}
+```
+
+### Type Mismatches
+
+```json
+{
+  "error": "Type mismatch: expected number, got string for property 'price'"
+}
+```
+
+### Handle Filter Errors
+
+```typescript
+async function queryWithFilters(tenantId: string, apiKey: string, filters: any) {
+  try {
+    const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify(filters)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Filter error: ${error.error}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Filter query failed:', error);
+    throw error;
+  }
+}
+```
+
+## Testing Filters
+
+### Validate Filter Syntax
+
+```typescript
+function validateFilter(filter: any): boolean {
+  if (!filter.property || !filter.comparison || filter.value === undefined) {
+    return false;
+  }
+
+  const validComparisons = [
+    'EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'LESS_THAN',
+    'GREATER_THAN_OR_EQUALS', 'LESS_THAN_OR_EQUALS',
+    'CONTAINS', 'NOT_CONTAINS', 'IN', 'NOT_IN'
+  ];
+
+  return validComparisons.includes(filter.comparison);
+}
+
+function validateFilters(filters: any[]): boolean {
+  return filters.every(validateFilter);
+}
+```
+
+### Test Filter Results
+
+```typescript
+async function testFilter(tenantId: string, apiKey: string, filter: any) {
+  // Test with filter
+  const filteredResponse = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+    method: 'POST',
+    headers: { 'X-API-Key': apiKey },
+    body: JSON.stringify({ filterSet: [filter] })
+  });
+  
+  const filteredCount = (await filteredResponse.json()).count;
+  
+  // Test without filter
+  const totalResponse = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+    method: 'POST',
+    headers: { 'X-API-Key': apiKey },
+    body: JSON.stringify({})
+  });
+  
+  const totalCount = (await totalResponse.json()).count;
+  
+  console.log(`Filter: ${filter.property} ${filter.comparison} ${filter.value}`);
+  console.log(`Filtered count: ${filteredCount}`);
+  console.log(`Total count: ${totalCount}`);
+  console.log(`Filter effectiveness: ${(filteredCount / totalCount * 100).toFixed(1)}%`);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Query Events" icon="search" href="/api-reference/query-api/query-events">
+    Learn how to query events with filters
+  </Card>
+  <Card title="Count Events" icon="hash" href="/api-reference/query-api/count-events">
+    Get event counts for aggregations
+  </Card>
+  <Card title="List Events" icon="list" href="/api-reference/query-api/list-events">
+    Discover available event types
+  </Card>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+</CardGroup>

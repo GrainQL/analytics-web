@@ -1,0 +1,498 @@
+---
+title: "Count Events"
+description: "Get count of events matching your filters using the Query API"
+---
+
+## Endpoint
+
+```http
+POST /v1/api/query/count/{tenantId}
+```
+
+Get the count of events matching your filters. This endpoint is optimized for aggregations and is much faster than fetching all events just to count them.
+
+## Parameters
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | Your tenant identifier (UUID or alias) |
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `event` | string | No | Filter by specific event name |
+| `after` | string | No | Start date (YYYY-MM-DD format) |
+| `before` | string | No | End date (YYYY-MM-DD format) |
+| `filterSet` | array | No | Array of filter objects |
+
+### Filter Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `property` | string | Yes | Property path to filter on |
+| `comparison` | string | Yes | Comparison operator |
+| `value` | any | Yes | Value to compare against |
+
+## Response
+
+Returns a simple count object:
+
+```json
+{
+  "count": 15247
+}
+```
+
+## When to Use Count vs Query
+
+### ✅ Use Count Endpoint For:
+
+- **Aggregations**: Getting totals, averages, or other metrics
+- **Dashboard widgets**: Displaying numbers without needing event details
+- **Performance monitoring**: Checking if thresholds are exceeded
+- **Quick checks**: Verifying if events exist without fetching them
+
+### ❌ Use Query Endpoint For:
+
+- **Event details**: When you need the actual event data
+- **User journeys**: Analyzing sequences of events
+- **Data export**: When you need to process individual events
+- **Debugging**: Investigating specific event properties
+
+## Examples
+
+### Basic Count
+
+Count all page views in a date range:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "page_viewed",
+    "after": "2024-01-01",
+    "before": "2024-01-31"
+  }'
+```
+
+Response:
+```json
+{
+  "count": 12543
+}
+```
+
+### Filtered Count
+
+Count high-value purchases:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "purchase_completed",
+    "filterSet": [
+      {
+        "property": "properties.price",
+        "comparison": "GREATER_THAN",
+        "value": 100
+      }
+    ]
+  }'
+```
+
+### Multiple Filters
+
+Count events from specific users on mobile devices:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "filterSet": [
+      {
+        "property": "userId",
+        "comparison": "IN",
+        "value": ["user_123", "user_456", "user_789"]
+      },
+      {
+        "property": "properties.device",
+        "comparison": "EQUALS",
+        "value": "mobile"
+      }
+    ]
+  }'
+```
+
+### Conversion Rate Calculation
+
+Calculate conversion rates by comparing counts:
+
+```bash
+# Count signup page views
+curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "page_viewed",
+    "filterSet": [
+      {
+        "property": "properties.page",
+        "comparison": "EQUALS",
+        "value": "/signup"
+      }
+    ]
+  }'
+
+# Count account creations
+curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "account_created"
+  }'
+```
+
+## Code Examples
+
+### JavaScript/TypeScript
+
+```typescript
+async function countEvents(tenantId: string, apiKey: string, filters: any): Promise<number> {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify(filters)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Count query failed: ${response.status} ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.count;
+}
+
+// Usage
+const pageViews = await countEvents('your-tenant-id', 'your-api-key', {
+  event: 'page_viewed',
+  after: '2024-01-01',
+  before: '2024-01-31'
+});
+
+console.log(`Total page views in January: ${pageViews}`);
+```
+
+### Python
+
+```python
+import requests
+from typing import Dict, Any
+
+def count_events(tenant_id: str, api_key: str, filters: Dict[str, Any]) -> int:
+    """Count events matching the given filters"""
+    
+    response = requests.post(
+        f'https://api.grainql.com/v1/api/query/count/{tenant_id}',
+        headers={
+            'Content-Type': 'application/json',
+            'X-API-Key': api_key
+        },
+        json=filters
+    )
+    
+    response.raise_for_status()
+    result = response.json()
+    return result['count']
+
+# Usage
+purchase_count = count_events('your-tenant-id', 'your-api-key', {
+    'event': 'purchase_completed',
+    'filterSet': [
+        {
+            'property': 'properties.price',
+            'comparison': 'GREATER_THAN',
+            'value': 50
+        }
+    ]
+})
+
+print(f'High-value purchases: {purchase_count}')
+```
+
+### Node.js
+
+```javascript
+const fetch = require('node-fetch');
+
+async function countEvents(tenantId, apiKey, filters) {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify(filters)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Count query failed: ${response.status} ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.count;
+}
+
+// Usage
+const errorCount = await countEvents('your-tenant-id', process.env.GRAIN_API_KEY, {
+  event: 'error_occurred',
+  after: '2024-01-01',
+  before: '2024-01-31'
+});
+
+console.log(`Errors in January: ${errorCount}`);
+```
+
+## Dashboard Metrics
+
+Use the count endpoint to build dashboard metrics:
+
+```typescript
+async function getDashboardMetrics(tenantId: string, apiKey: string) {
+  const [totalUsers, totalEvents, errors, purchases] = await Promise.all([
+    // Count unique users
+    countEvents(tenantId, apiKey, {
+      filterSet: [{ property: 'userId', comparison: 'IS_NOT_NULL', value: null }]
+    }),
+    
+    // Count all events
+    countEvents(tenantId, apiKey, {}),
+    
+    // Count errors
+    countEvents(tenantId, apiKey, { event: 'error_occurred' }),
+    
+    // Count purchases
+    countEvents(tenantId, apiKey, { event: 'purchase_completed' })
+  ]);
+
+  return {
+    totalUsers,
+    totalEvents,
+    errorRate: errors / totalEvents,
+    conversionRate: purchases / totalUsers
+  };
+}
+```
+
+## Performance Monitoring
+
+Monitor system health with count queries:
+
+```python
+import time
+from datetime import datetime, timedelta
+
+def monitor_system_health(tenant_id: str, api_key: str):
+    """Monitor system health using count queries"""
+    
+    now = datetime.now()
+    last_hour = now - timedelta(hours=1)
+    
+    # Count events in last hour
+    total_events = count_events(tenant_id, api_key, {
+        'after': last_hour.strftime('%Y-%m-%d'),
+        'before': now.strftime('%Y-%m-%d')
+    })
+    
+    # Count errors in last hour
+    error_events = count_events(tenant_id, api_key, {
+        'event': 'error_occurred',
+        'after': last_hour.strftime('%Y-%m-%d'),
+        'before': now.strftime('%Y-%m-%d')
+    })
+    
+    error_rate = error_events / total_events if total_events > 0 else 0
+    
+    if error_rate > 0.05:  # 5% threshold
+        print(f"🚨 High error rate: {error_rate:.2%}")
+        # Send alert
+    else:
+        print(f"✅ System healthy: {error_rate:.2%} error rate")
+
+# Run every 5 minutes
+while True:
+    monitor_system_health('your-tenant-id', 'your-api-key')
+    time.sleep(300)
+```
+
+## A/B Testing
+
+Use count queries to analyze A/B test results:
+
+```typescript
+async function analyzeABTest(tenantId: string, apiKey: string, testName: string) {
+  const [variantA, variantB, conversionsA, conversionsB] = await Promise.all([
+    // Count users who saw variant A
+    countEvents(tenantId, apiKey, {
+      event: 'experiment_viewed',
+      filterSet: [
+        { property: 'properties.experiment', comparison: 'EQUALS', value: testName },
+        { property: 'properties.variant', comparison: 'EQUALS', value: 'A' }
+      ]
+    }),
+    
+    // Count users who saw variant B
+    countEvents(tenantId, apiKey, {
+      event: 'experiment_viewed',
+      filterSet: [
+        { property: 'properties.experiment', comparison: 'EQUALS', value: testName },
+        { property: 'properties.variant', comparison: 'EQUALS', value: 'B' }
+      ]
+    }),
+    
+    // Count conversions for variant A
+    countEvents(tenantId, apiKey, {
+      event: 'conversion_completed',
+      filterSet: [
+        { property: 'properties.experiment', comparison: 'EQUALS', value: testName },
+        { property: 'properties.variant', comparison: 'EQUALS', value: 'A' }
+      ]
+    }),
+    
+    // Count conversions for variant B
+    countEvents(tenantId, apiKey, {
+      event: 'conversion_completed',
+      filterSet: [
+        { property: 'properties.experiment', comparison: 'EQUALS', value: testName },
+        { property: 'properties.variant', comparison: 'EQUALS', value: 'B' }
+      ]
+    })
+  ]);
+
+  const conversionRateA = conversionsA / variantA;
+  const conversionRateB = conversionsB / variantB;
+  
+  return {
+    variantA: { views: variantA, conversions: conversionsA, rate: conversionRateA },
+    variantB: { views: variantB, conversions: conversionsB, rate: conversionRateB },
+    winner: conversionRateA > conversionRateB ? 'A' : 'B'
+  };
+}
+```
+
+## Error Handling
+
+Handle count query errors gracefully:
+
+```typescript
+async function countEventsWithRetry(tenantId: string, apiKey: string, filters: any, maxRetries = 3): Promise<number> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        },
+        body: JSON.stringify(filters)
+      });
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000;
+        
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Count query failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result.count;
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+```
+
+## Performance Tips
+
+### 1. Use Date Ranges
+
+Always include date ranges to limit the data scanned:
+
+```json
+{
+  "after": "2024-01-01",
+  "before": "2024-01-31"
+}
+```
+
+### 2. Be Specific with Filters
+
+Use specific filters to reduce the dataset:
+
+```json
+{
+  "event": "purchase_completed",
+  "filterSet": [
+    { "property": "properties.price", "comparison": "GREATER_THAN", "value": 100 }
+  ]
+}
+```
+
+### 3. Cache Results
+
+Cache count results for frequently accessed metrics:
+
+```typescript
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getCachedCount(tenantId: string, apiKey: string, filters: any): Promise<number> {
+  const key = JSON.stringify(filters);
+  const cached = cache.get(key);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.count;
+  }
+  
+  const count = await countEvents(tenantId, apiKey, filters);
+  cache.set(key, { count, timestamp: Date.now() });
+  
+  return count;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Query Events" icon="search" href="/api-reference/query-api/query-events">
+    Learn how to query events with filters
+  </Card>
+  <Card title="List Events" icon="list" href="/api-reference/query-api/list-events">
+    Discover available event types
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    Complete guide to all filter operators
+  </Card>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+</CardGroup>

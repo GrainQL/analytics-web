@@ -231,9 +231,36 @@ const grain = createGrainAnalytics({
 });
 ```
 
+## Query API Authentication
+
+When using the [Query API](/guides/query-api) to programmatically access your analytics data, you'll need to create a separate API key with Query API permissions:
+
+1. Go to [Dashboard → Settings → Authentication](https://grainql.com/dashboard/settings)
+2. Set authentication strategy to **SERVER_SIDE**
+3. Click **Generate New Secret**
+4. Enter a descriptive name (e.g., "Query API Key")
+5. **Check the "Query API" permission**
+6. Copy the generated secret
+
+Use this API key in the `X-API-Key` header when making Query API requests:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_QUERY_API_KEY" \
+  -d '{"event": "page_viewed"}'
+```
+
+<Warning>
+  Query API keys are different from SDK authentication. Use Query API keys only for server-side applications that need to access analytics data programmatically.
+</Warning>
+
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Query API" icon="database" href="/guides/query-api">
+    Learn how to access analytics data programmatically
+  </Card>
   <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
     Learn how to track events securely
   </Card>

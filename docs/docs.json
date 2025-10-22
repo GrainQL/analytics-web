@@ -51,7 +51,8 @@
               "guides/ab-testing",
               "guides/feature-flags",
               "guides/personalization",
-              "guides/analytics-dashboard"
+              "guides/analytics-dashboard",
+              "guides/query-api"
             ]
           },
           {
@@ -79,6 +80,16 @@
               "api-reference/react-hooks",
               "api-reference/types"
             ]
+          },
+          {
+            "group": "Query API",
+            "pages": [
+              "api-reference/query-api/overview",
+              "api-reference/query-api/query-events",
+              "api-reference/query-api/count-events",
+              "api-reference/query-api/list-events",
+              "api-reference/query-api/filters"
+            ]
           }
         ]
       },
@@ -93,6 +104,13 @@
               "examples/nextjs",
               "examples/ecommerce-store",
               "examples/auth-flow"
+            ]
+          },
+          {
+            "group": "Query API Examples",
+            "pages": [
+              "examples/query-api-custom-dashboard",
+              "examples/query-api-data-export"
             ]
           }
         ]

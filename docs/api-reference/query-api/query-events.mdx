@@ -1,0 +1,469 @@
+---
+title: "Query Events"
+description: "Query events with filters and pagination using the Query API"
+---
+
+## Endpoint
+
+```http
+POST /v1/api/query/{tenantId}
+```
+
+Query events with optional filters and pagination. Returns an array of event objects matching your criteria.
+
+## Parameters
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | Your tenant identifier (UUID or alias) |
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `event` | string | No | Filter by specific event name |
+| `after` | string | No | Start date (YYYY-MM-DD format) |
+| `before` | string | No | End date (YYYY-MM-DD format) |
+| `filterSet` | array | No | Array of filter objects |
+| `pagination` | object | No | Pagination settings |
+
+### Filter Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `property` | string | Yes | Property path to filter on |
+| `comparison` | string | Yes | Comparison operator |
+| `value` | any | Yes | Value to compare against |
+
+### Pagination Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `offset` | number | No | Number of records to skip (default: 0) |
+| `size` | number | No | Maximum records to return (default: 100, max: 1000) |
+
+## Response
+
+Returns an array of event objects:
+
+```json
+[
+  {
+    "eventName": "page_viewed",
+    "userId": "user_123",
+    "eventTs": "2024-01-15T10:30:00Z",
+    "properties": {
+      "page": "/home",
+      "referrer": "https://google.com",
+      "device": "desktop"
+    },
+    "eventDate": "2024-01-15",
+    "insertId": "unique-event-id"
+  }
+]
+```
+
+### Event Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `eventName` | string | The type of event |
+| `userId` | string | User who performed the action |
+| `eventTs` | string | ISO 8601 timestamp |
+| `properties` | object | Custom event properties |
+| `eventDate` | string | Date portion (YYYY-MM-DD) |
+| `insertId` | string | Unique event identifier |
+
+## Examples
+
+### Basic Query
+
+Get recent page view events:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "page_viewed",
+    "after": "2024-01-01",
+    "before": "2024-01-31",
+    "pagination": { "offset": 0, "size": 100 }
+  }'
+```
+
+### Filtered Query
+
+Get high-value purchases:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "event": "purchase_completed",
+    "filterSet": [
+      {
+        "property": "properties.price",
+        "comparison": "GREATER_THAN",
+        "value": 100
+      }
+    ],
+    "pagination": { "offset": 0, "size": 50 }
+  }'
+```
+
+### Complex Filters
+
+Get events from specific users on mobile devices:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "filterSet": [
+      {
+        "property": "userId",
+        "comparison": "IN",
+        "value": ["user_123", "user_456", "user_789"]
+      },
+      {
+        "property": "properties.device",
+        "comparison": "EQUALS",
+        "value": "mobile"
+      }
+    ],
+    "pagination": { "offset": 0, "size": 200 }
+  }'
+```
+
+### Date Range Query
+
+Get all events from last week:
+
+```bash
+curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_SECRET_KEY" \
+  -d '{
+    "after": "2024-01-08",
+    "before": "2024-01-15",
+    "pagination": { "offset": 0, "size": 1000 }
+  }'
+```
+
+## Code Examples
+
+### JavaScript/TypeScript
+
+```typescript
+async function queryEvents(tenantId: string, apiKey: string, filters: any) {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify(filters)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Query failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const events = await queryEvents('your-tenant-id', 'your-api-key', {
+  event: 'button_clicked',
+  filterSet: [
+    { property: 'properties.button_name', comparison: 'EQUALS', value: 'signup' }
+  ],
+  pagination: { offset: 0, size: 100 }
+});
+
+console.log(`Found ${events.length} signup button clicks`);
+```
+
+### Python
+
+```python
+import requests
+from typing import List, Dict, Any
+
+def query_events(tenant_id: str, api_key: str, filters: Dict[str, Any]) -> List[Dict]:
+    """Query events with filters and pagination"""
+    
+    response = requests.post(
+        f'https://api.grainql.com/v1/api/query/{tenant_id}',
+        headers={
+            'Content-Type': 'application/json',
+            'X-API-Key': api_key
+        },
+        json=filters
+    )
+    
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+events = query_events('your-tenant-id', 'your-api-key', {
+    'event': 'purchase_completed',
+    'filterSet': [
+        {
+            'property': 'properties.price',
+            'comparison': 'GREATER_THAN',
+            'value': 50
+        }
+    ],
+    'pagination': {'offset': 0, 'size': 100}
+})
+
+print(f'Found {len(events)} high-value purchases')
+```
+
+### Node.js
+
+```javascript
+const fetch = require('node-fetch');
+
+async function queryEvents(tenantId, apiKey, filters) {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify(filters)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Query failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const events = await queryEvents('your-tenant-id', process.env.GRAIN_API_KEY, {
+  event: 'page_viewed',
+  after: '2024-01-01',
+  before: '2024-01-31',
+  pagination: { offset: 0, size: 100 }
+});
+
+console.log(`Found ${events.length} page views in January`);
+```
+
+## Pagination
+
+For large datasets, use pagination to fetch data in chunks:
+
+```typescript
+async function fetchAllEvents(tenantId: string, apiKey: string, filters: any) {
+  const allEvents = [];
+  let offset = 0;
+  const pageSize = 1000;
+  
+  while (true) {
+    const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({
+        ...filters,
+        pagination: { offset, size: pageSize }
+      })
+    });
+    
+    const events = await response.json();
+    allEvents.push(...events);
+    
+    // If we got fewer events than requested, we've reached the end
+    if (events.length < pageSize) {
+      break;
+    }
+    
+    offset += pageSize;
+  }
+  
+  return allEvents;
+}
+```
+
+## Property Paths
+
+You can filter on various event properties:
+
+### Event Properties
+
+Access custom properties you included when tracking events:
+
+```json
+{
+  "property": "properties.price",
+  "comparison": "GREATER_THAN",
+  "value": 100
+}
+```
+
+```json
+{
+  "property": "properties.category",
+  "comparison": "EQUALS",
+  "value": "electronics"
+}
+```
+
+### Event Metadata
+
+Filter on built-in event fields:
+
+```json
+{
+  "property": "eventName",
+  "comparison": "EQUALS",
+  "value": "purchase_completed"
+}
+```
+
+```json
+{
+  "property": "userId",
+  "comparison": "EQUALS",
+  "value": "user_123"
+}
+```
+
+### Nested Properties
+
+Access nested object properties:
+
+```json
+{
+  "property": "properties.user.plan",
+  "comparison": "EQUALS",
+  "value": "premium"
+}
+```
+
+## Performance Tips
+
+### 1. Use Date Ranges
+
+Always include date ranges to limit the data scanned:
+
+```json
+{
+  "after": "2024-01-01",
+  "before": "2024-01-31"
+}
+```
+
+### 2. Limit Result Size
+
+Use pagination to avoid fetching too much data at once:
+
+```json
+{
+  "pagination": { "offset": 0, "size": 100 }
+}
+```
+
+### 3. Use Specific Filters
+
+Be specific with your filters to reduce the dataset:
+
+```json
+{
+  "event": "purchase_completed",
+  "filterSet": [
+    { "property": "properties.price", "comparison": "GREATER_THAN", "value": 100 }
+  ]
+}
+```
+
+### 4. Consider Using Count Endpoint
+
+For aggregations, use the [count endpoint](/api-reference/query-api/count-events) instead:
+
+```typescript
+// ✅ Good: Use count for totals
+const response = await fetch('/v1/api/query/count/tenant', {
+  method: 'POST',
+  body: JSON.stringify({ event: 'purchase_completed' })
+});
+const { count } = await response.json();
+
+// ❌ Avoid: Fetching all events just to count them
+const events = await fetch('/v1/api/query/tenant', {
+  method: 'POST',
+  body: JSON.stringify({ event: 'purchase_completed', pagination: { size: 10000 } })
+});
+const count = (await events.json()).length;
+```
+
+## Error Handling
+
+Handle common error scenarios:
+
+```typescript
+async function queryEventsWithErrorHandling(tenantId: string, apiKey: string, filters: any) {
+  try {
+    const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify(filters)
+    });
+
+    if (response.status === 401) {
+      throw new Error('Invalid API key. Check your authentication settings.');
+    }
+
+    if (response.status === 403) {
+      throw new Error('Insufficient plan tier. Upgrade to Builder plan or higher.');
+    }
+
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      throw new Error(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Query failed: ${error.error || response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Query API error:', error);
+    throw error;
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Count Events" icon="hash" href="/api-reference/query-api/count-events">
+    Get event counts for aggregations
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    Complete guide to all filter operators
+  </Card>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+  <Card title="Data Export" icon="download" href="/examples/query-api-data-export">
+    Export data for analysis
+  </Card>
+</CardGroup>

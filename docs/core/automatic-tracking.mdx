@@ -228,13 +228,18 @@ const hasConsent = grain.hasConsent('analytics');
 
 ### Data Minimization
 
-**Before Consent**:
-- ✅ Ephemeral session ID (memory-only, not persisted)
+**Before Consent (Opt-in Mode - GDPR Compliant)**:
+- ✅ Ephemeral session ID (memory-only JavaScript variable, not persisted anywhere)
 - ✅ Page path (no query params)
 - ✅ Timestamp
+- ✅ Basic heartbeat events (user activity detection)
 - ❌ No cookies
-- ❌ No persistent identifiers
+- ❌ No localStorage for user identifiers
+- ❌ No persistent cross-session identifiers
 - ❌ No personal information
+- ❌ No referrer or page title
+
+**Exceptions**: If user is explicitly identified via `identify()`/`login()` or using JWT auth, persistent identifiers are used for functional/essential purposes.
 
 **After Consent**:
 - ✅ Persistent user ID (stored in localStorage/cookie)

@@ -1,0 +1,738 @@
+---
+title: "Custom Analytics Dashboard"
+description: "Build a custom analytics dashboard using the Query API with React and Next.js"
+---
+
+## Overview
+
+This example shows how to build a custom analytics dashboard that fetches data from the Grain Query API and displays it in a beautiful, interactive interface. We'll use React, Next.js, and Chart.js to create a dashboard that rivals the built-in Grain dashboard.
+
+<Note>
+  This example assumes you have a **Builder plan or higher** and have created an API key with Query API permissions.
+</Note>
+
+## Project Setup
+
+### 1. Create Next.js Project
+
+```bash
+npx create-next-app@latest grain-dashboard --typescript --tailwind --eslint
+cd grain-dashboard
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install chart.js react-chartjs-2 date-fns
+npm install -D @types/chart.js
+```
+
+### 3. Environment Variables
+
+Create `.env.local`:
+
+```bash
+GRAIN_TENANT_ID=your-tenant-id
+GRAIN_API_KEY=your-secret-key
+NEXT_PUBLIC_GRAIN_TENANT_ID=your-tenant-id
+```
+
+## Core API Client
+
+First, let's create a client for interacting with the Query API:
+
+```typescript
+// lib/grain-api.ts
+interface QueryRequest {
+  event?: string;
+  after?: string;
+  before?: string;
+  filterSet?: Array<{
+    property: string;
+    comparison: string;
+    value: any;
+  }>;
+  pagination?: {
+    offset: number;
+    size: number;
+  };
+}
+
+interface Event {
+  eventName: string;
+  userId: string;
+  eventTs: string;
+  properties: Record<string, any>;
+  eventDate: string;
+  insertId: string;
+}
+
+interface CountResponse {
+  count: number;
+}
+
+class GrainAPI {
+  private baseUrl = 'https://api.grainql.com/v1/api/query';
+  private apiKey: string;
+  private tenantId: string;
+
+  constructor(apiKey: string, tenantId: string) {
+    this.apiKey = apiKey;
+    this.tenantId = tenantId;
+  }
+
+  async queryEvents(request: QueryRequest): Promise<Event[]> {
+    const response = await fetch(`${this.baseUrl}/${this.tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Query failed: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async countEvents(request: Omit<QueryRequest, 'pagination'>): Promise<number> {
+    const response = await fetch(`${this.baseUrl}/count/${this.tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Count query failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result: CountResponse = await response.json();
+    return result.count;
+  }
+
+  async getEventNames(): Promise<string[]> {
+    const response = await fetch(`${this.baseUrl}/events/${this.tenantId}`, {
+      headers: {
+        'X-API-Key': this.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get events: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+}
+
+export const grainAPI = new GrainAPI(
+  process.env.GRAIN_API_KEY!,
+  process.env.GRAIN_TENANT_ID!
+);
+```
+
+## Dashboard Components
+
+### 1. Metric Card Component
+
+```typescript
+// components/MetricCard.tsx
+interface MetricCardProps {
+  title: string;
+  value: number | string;
+  change?: number;
+  icon?: React.ReactNode;
+  loading?: boolean;
+}
+
+export function MetricCard({ title, value, change, icon, loading }: MetricCardProps) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+        <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-2xl font-bold text-gray-900">{value.toLocaleString()}</p>
+          {change !== undefined && (
+            <p className={`text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {change >= 0 ? '+' : ''}{change.toFixed(1)}% from last period
+            </p>
+          )}
+        </div>
+        {icon && <div className="text-gray-400">{icon}</div>}
+      </div>
+    </div>
+  );
+}
+```
+
+### 2. Event Timeline Chart
+
+```typescript
+// components/EventTimelineChart.tsx
+import { Line } from 'react-chartjs-2';
+import { format, subDays } from 'date-fns';
+
+interface EventTimelineChartProps {
+  events: Event[];
+  loading?: boolean;
+}
+
+export function EventTimelineChart({ events, loading }: EventTimelineChartProps) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div className="h-64 bg-gray-200 rounded"></div>
+      </div>
+    );
+  }
+
+  // Group events by date
+  const eventsByDate = events.reduce((acc, event) => {
+    const date = event.eventDate;
+    acc[date] = (acc[date] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Generate last 30 days
+  const last30Days = Array.from({ length: 30 }, (_, i) => {
+    const date = subDays(new Date(), 29 - i);
+    return format(date, 'yyyy-MM-dd');
+  });
+
+  const data = {
+    labels: last30Days.map(date => format(new Date(date), 'MMM dd')),
+    datasets: [
+      {
+        label: 'Events',
+        data: last30Days.map(date => eventsByDate[date] || 0),
+        borderColor: 'rgb(99, 102, 241)',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        tension: 0.1,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+      },
+    },
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-lg font-medium text-gray-900 mb-4">Event Timeline</h3>
+      <Line data={data} options={options} />
+    </div>
+  );
+}
+```
+
+### 3. Top Events Table
+
+```typescript
+// components/TopEventsTable.tsx
+interface TopEventsTableProps {
+  events: Event[];
+  loading?: boolean;
+}
+
+export function TopEventsTable({ events, loading }: TopEventsTableProps) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-4 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Count events by name
+  const eventCounts = events.reduce((acc, event) => {
+    acc[event.eventName] = (acc[event.eventName] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const topEvents = Object.entries(eventCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10);
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-lg font-medium text-gray-900 mb-4">Top Events</h3>
+      <div className="space-y-3">
+        {topEvents.map(([eventName, count]) => (
+          <div key={eventName} className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-900">{eventName}</span>
+            <span className="text-sm text-gray-600">{count.toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### 4. User Activity Chart
+
+```typescript
+// components/UserActivityChart.tsx
+import { Doughnut } from 'react-chartjs-2';
+
+interface UserActivityChartProps {
+  events: Event[];
+  loading?: boolean;
+}
+
+export function UserActivityChart({ events, loading }: UserActivityChartProps) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div className="h-64 bg-gray-200 rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Count unique users
+  const uniqueUsers = new Set(events.map(event => event.userId)).size;
+  const totalEvents = events.length;
+  const avgEventsPerUser = totalEvents / uniqueUsers;
+
+  const data = {
+    labels: ['Unique Users', 'Total Events'],
+    datasets: [
+      {
+        data: [uniqueUsers, totalEvents],
+        backgroundColor: ['rgb(99, 102, 241)', 'rgb(34, 197, 94)'],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+      },
+    },
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-lg font-medium text-gray-900 mb-4">User Activity</h3>
+      <div className="flex items-center justify-center mb-4">
+        <Doughnut data={data} options={options} />
+      </div>
+      <div className="text-center">
+        <p className="text-sm text-gray-600">
+          Average {avgEventsPerUser.toFixed(1)} events per user
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+## Main Dashboard Page
+
+```typescript
+// pages/dashboard.tsx
+import { useState, useEffect } from 'react';
+import { grainAPI } from '../lib/grain-api';
+import { MetricCard } from '../components/MetricCard';
+import { EventTimelineChart } from '../components/EventTimelineChart';
+import { TopEventsTable } from '../components/TopEventsTable';
+import { UserActivityChart } from '../components/UserActivityChart';
+import { format, subDays } from 'date-fns';
+
+interface DashboardData {
+  totalEvents: number;
+  uniqueUsers: number;
+  topEvents: string[];
+  recentEvents: Event[];
+}
+
+export default function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState({
+    after: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    before: format(new Date(), 'yyyy-MM-dd'),
+  });
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [totalEvents, uniqueUsers, recentEvents] = await Promise.all([
+        // Total events count
+        grainAPI.countEvents({
+          after: dateRange.after,
+          before: dateRange.before,
+        }),
+
+        // Unique users count
+        grainAPI.countEvents({
+          after: dateRange.after,
+          before: dateRange.before,
+          filterSet: [
+            { property: 'userId', comparison: 'IS_NOT_NULL', value: null }
+          ],
+        }),
+
+        // Recent events for charts
+        grainAPI.queryEvents({
+          after: dateRange.after,
+          before: dateRange.before,
+          pagination: { offset: 0, size: 1000 },
+        }),
+      ]);
+
+      setData({
+        totalEvents,
+        uniqueUsers,
+        topEvents: [],
+        recentEvents,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [dateRange]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadDashboardData}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+          <p className="text-gray-600 mt-2">
+            Custom dashboard powered by Grain Query API
+          </p>
+        </div>
+
+        {/* Date Range Selector */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-4">
+            <label className="text-sm font-medium text-gray-700">Date Range:</label>
+            <input
+              type="date"
+              value={dateRange.after}
+              onChange={(e) => setDateRange(prev => ({ ...prev, after: e.target.value }))}
+              className="border border-gray-300 rounded px-3 py-2"
+            />
+            <span className="text-gray-500">to</span>
+            <input
+              type="date"
+              value={dateRange.before}
+              onChange={(e) => setDateRange(prev => ({ ...prev, before: e.target.value }))}
+              className="border border-gray-300 rounded px-3 py-2"
+            />
+            <button
+              onClick={loadDashboardData}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Total Events"
+            value={data?.totalEvents || 0}
+            loading={loading}
+          />
+          <MetricCard
+            title="Unique Users"
+            value={data?.uniqueUsers || 0}
+            loading={loading}
+          />
+          <MetricCard
+            title="Avg Events/User"
+            value={data ? (data.totalEvents / data.uniqueUsers).toFixed(1) : '0'}
+            loading={loading}
+          />
+          <MetricCard
+            title="Date Range"
+            value={`${dateRange.after} to ${dateRange.before}`}
+            loading={loading}
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <EventTimelineChart
+            events={data?.recentEvents || []}
+            loading={loading}
+          />
+          <UserActivityChart
+            events={data?.recentEvents || []}
+            loading={loading}
+          />
+        </div>
+
+        {/* Tables */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TopEventsTable
+            events={data?.recentEvents || []}
+            loading={loading}
+          />
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Events</h3>
+            <div className="space-y-2">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                ))
+              ) : (
+                data?.recentEvents.slice(0, 10).map((event, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <span className="font-medium">{event.eventName}</span>
+                    <span className="text-gray-500">
+                      {new Date(event.eventTs).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## API Routes for Server-Side Data
+
+For better performance and security, create API routes to proxy requests:
+
+```typescript
+// pages/api/events.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import { grainAPI } from '../../lib/grain-api';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const events = await grainAPI.queryEvents(req.body);
+    res.json(events);
+  } catch (error) {
+    console.error('API Error:', error);
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+}
+
+// pages/api/count.ts
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const count = await grainAPI.countEvents(req.body);
+    res.json({ count });
+  } catch (error) {
+    console.error('API Error:', error);
+    res.status(500).json({ error: 'Failed to count events' });
+  }
+}
+```
+
+## Real-time Updates
+
+Add real-time updates using polling:
+
+```typescript
+// hooks/useRealtimeData.ts
+import { useState, useEffect, useRef } from 'react';
+
+export function useRealtimeData<T>(
+  fetchFn: () => Promise<T>,
+  intervalMs: number = 30000
+) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout>();
+
+  const fetchData = async () => {
+    try {
+      setError(null);
+      const result = await fetchFn();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    intervalRef.current = setInterval(fetchData, intervalMs);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [intervalMs]);
+
+  return { data, loading, error, refetch: fetchData };
+}
+
+// Usage in dashboard
+const { data: realtimeData, loading, error } = useRealtimeData(
+  () => grainAPI.countEvents({ after: dateRange.after, before: dateRange.before }),
+  30000 // Update every 30 seconds
+);
+```
+
+## Error Handling and Loading States
+
+```typescript
+// components/ErrorBoundary.tsx
+import { Component, ErrorInfo, ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Dashboard Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
+            <p className="text-gray-600 mb-4">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false, error: undefined })}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+## Deployment
+
+### 1. Build the Project
+
+```bash
+npm run build
+```
+
+### 2. Deploy to Vercel
+
+```bash
+npm install -g vercel
+vercel
+```
+
+### 3. Set Environment Variables
+
+In your Vercel dashboard, add:
+- `GRAIN_TENANT_ID`
+- `GRAIN_API_KEY`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Data Export" icon="download" href="/examples/query-api-data-export">
+    Learn how to export data for analysis
+  </Card>
+  <Card title="Query API Reference" icon="book" href="/api-reference/query-api/overview">
+    Complete API documentation
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    All filter operators and examples
+  </Card>
+  <Card title="Grain Dashboard" icon="chart-line" href="https://grainql.com/dashboard">
+    Built-in analytics dashboard
+  </Card>
+</CardGroup>

@@ -1,0 +1,527 @@
+---
+title: "Query API"
+description: "Programmatically access your analytics data with the Query API"
+---
+
+## What is the Query API?
+
+The Grain Query API allows you to programmatically access your analytics data using simple HTTP requests. While the [Grain Dashboard](https://grainql.com/dashboard) provides a powerful visual interface for exploring your data, the Query API enables you to:
+
+- **Build custom analytics dashboards** tailored to your specific needs
+- **Export data** for external analysis or reporting
+- **Integrate analytics** into your own applications and workflows
+- **Automate data processing** with scheduled scripts and pipelines
+
+<Note>
+  **Plan Requirement**: The Query API requires a **Builder plan or higher**. Free plan users can upgrade at [grainql.com/settings/billing](https://grainql.com/settings/billing).
+</Note>
+
+## Quick Start
+
+Get up and running with the Query API in 3 steps:
+
+<Steps>
+  <Step title="Create an API Key">
+    Navigate to your [Dashboard Settings](https://grainql.com/dashboard/settings) and create a secret with Query API permissions:
+
+    1. Go to **Dashboard → Settings → Authentication**
+    2. Set authentication strategy to **SERVER_SIDE**
+    3. Click **Generate New Secret**
+    4. Enter a name like "Query API Key"
+    5. **Check the "Query API" permission**
+    6. Copy the generated secret (you won't see it again!)
+
+    <Warning>
+      Store your API key securely in environment variables. Never commit it to version control.
+    </Warning>
+  </Step>
+
+  <Step title="Make Your First Request">
+    Query your events with a simple HTTP request:
+
+    ```bash
+    curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: YOUR_SECRET_KEY" \
+      -d '{
+        "event": "page_viewed",
+        "after": "2024-01-01",
+        "before": "2024-01-31",
+        "pagination": { "offset": 0, "size": 10 }
+      }'
+    ```
+
+    This returns the last 10 page view events from January 2024.
+  </Step>
+
+  <Step title="Explore Your Data">
+    Use the Query API to build custom analytics:
+
+    ```typescript
+    // Get all events for a specific user
+    const userEvents = await fetch('https://api.grainql.com/v1/api/query/your-tenant-id', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.GRAIN_API_KEY
+      },
+      body: JSON.stringify({
+        filterSet: [
+          { property: 'userId', comparison: 'EQUALS', value: 'user_123' }
+        ],
+        pagination: { offset: 0, size: 100 }
+      })
+    });
+
+    const events = await userEvents.json();
+    console.log(`Found ${events.length} events for user`);
+    ```
+  </Step>
+</Steps>
+
+## When to Use the Query API
+
+### ✅ Perfect for:
+
+- **Custom Dashboards**: Build analytics views that match your specific workflow
+- **Data Exports**: Extract data for external analysis, reporting, or compliance
+- **Integrations**: Connect Grain data to other tools (Slack, email, BI platforms)
+- **Automation**: Scheduled reports, alerts, and data processing pipelines
+- **Advanced Analysis**: Complex queries that go beyond the dashboard interface
+
+### ❌ Consider the Dashboard instead for:
+
+- **Exploratory Analysis**: The dashboard's visual interface is great for discovering insights
+- **One-off Queries**: Quick questions that don't need automation
+- **Real-time Monitoring**: The dashboard provides live event streams
+
+## Understanding Your Data
+
+Before using the Query API, it helps to understand how your analytics data is structured:
+
+### Event Structure
+
+Every event in Grain has this structure:
+
+```json
+{
+  "eventName": "button_clicked",
+  "userId": "user_123",
+  "eventTs": "2024-01-15T10:30:00Z",
+  "properties": {
+    "button_name": "signup",
+    "page": "/home",
+    "referrer": "https://google.com"
+  },
+  "eventDate": "2024-01-15",
+  "insertId": "unique-event-id"
+}
+```
+
+### Key Fields
+
+- **`eventName`**: The type of event (e.g., "page_viewed", "purchase_completed")
+- **`userId`**: The user who performed the action (set via `grain.identify()` or `grain.setUserId()`)
+- **`eventTs`**: When the event occurred (ISO 8601 timestamp)
+- **`properties`**: Custom data you included when tracking the event
+- **`eventDate`**: Date portion for efficient querying
+- **`insertId`**: Unique identifier for the event
+
+### Property Paths
+
+When filtering events, you can query:
+
+- **Event properties**: `properties.price`, `properties.category`
+- **Event metadata**: `eventName`, `eventTs`, `userId`
+- **Date fields**: Use `after` and `before` parameters for date ranges
+
+## Common Use Cases
+
+### 1. Custom Analytics Dashboard
+
+Build a dashboard that shows exactly what you need:
+
+```typescript
+// Get conversion funnel data
+const funnelData = await Promise.all([
+  // Step 1: Page views
+  queryEvents({
+    event: 'page_viewed',
+    filterSet: [{ property: 'properties.page', comparison: 'EQUALS', value: '/signup' }]
+  }),
+  
+  // Step 2: Form submissions
+  queryEvents({
+    event: 'form_submitted',
+    filterSet: [{ property: 'properties.form_type', comparison: 'EQUALS', value: 'signup' }]
+  }),
+  
+  // Step 3: Account creations
+  queryEvents({
+    event: 'account_created'
+  })
+]);
+
+// Calculate conversion rates
+const pageViews = funnelData[0].length;
+const formSubmissions = funnelData[1].length;
+const accounts = funnelData[2].length;
+
+console.log(`Conversion rate: ${(accounts / pageViews * 100).toFixed(1)}%`);
+```
+
+### 2. Data Export for Analysis
+
+Export data for external analysis:
+
+```python
+import requests
+import csv
+from datetime import datetime, timedelta
+
+def export_recent_events(tenant_id, api_key, days=30):
+    """Export events from the last N days to CSV"""
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    all_events = []
+    offset = 0
+    page_size = 1000
+    
+    while True:
+        response = requests.post(
+            f'https://api.grainql.com/v1/api/query/{tenant_id}',
+            headers={
+                'Content-Type': 'application/json',
+                'X-API-Key': api_key
+            },
+            json={
+                'after': start_date.strftime('%Y-%m-%d'),
+                'before': end_date.strftime('%Y-%m-%d'),
+                'pagination': {'offset': offset, 'size': page_size}
+            }
+        )
+        
+        events = response.json()
+        if not events:
+            break
+            
+        all_events.extend(events)
+        offset += page_size
+        
+        if len(events) < page_size:
+            break
+    
+    # Write to CSV
+    with open('analytics_export.csv', 'w', newline='') as csvfile:
+        if all_events:
+            writer = csv.DictWriter(csvfile, fieldnames=all_events[0].keys())
+            writer.writeheader()
+            writer.writerows(all_events)
+    
+    return len(all_events)
+
+# Export last 30 days
+event_count = export_recent_events('your-tenant-id', 'your-api-key')
+print(f'Exported {event_count} events to analytics_export.csv')
+```
+
+### 3. User Behavior Analysis
+
+Analyze user journeys and behavior patterns:
+
+```typescript
+// Get all events for a specific user to understand their journey
+async function analyzeUserJourney(tenantId: string, apiKey: string, userId: string) {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify({
+      filterSet: [
+        { property: 'userId', comparison: 'EQUALS', value: userId }
+      ],
+      pagination: { offset: 0, size: 1000 }
+    })
+  });
+
+  const events = await response.json();
+  
+  // Sort by timestamp
+  events.sort((a, b) => new Date(a.eventTs).getTime() - new Date(b.eventTs).getTime());
+  
+  // Analyze the journey
+  const journey = events.map(event => ({
+    timestamp: event.eventTs,
+    event: event.eventName,
+    page: event.properties?.page,
+    action: event.properties?.action
+  }));
+  
+  console.log(`User ${userId} journey:`, journey);
+  return journey;
+}
+```
+
+### 4. Real-time Monitoring
+
+Set up monitoring and alerts:
+
+```python
+import time
+import requests
+from datetime import datetime
+
+def monitor_error_rates(tenant_id, api_key, threshold=0.05):
+    """Monitor error rates and alert if they exceed threshold"""
+    
+    # Count total events in last hour
+    total_response = requests.post(
+        f'https://api.grainql.com/v1/api/query/count/{tenant_id}',
+        headers={'X-API-Key': api_key},
+        json={
+            'after': (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d'),
+            'before': datetime.now().strftime('%Y-%m-%d')
+        }
+    )
+    total_events = total_response.json()['count']
+    
+    # Count error events
+    error_response = requests.post(
+        f'https://api.grainql.com/v1/api/query/count/{tenant_id}',
+        headers={'X-API-Key': api_key},
+        json={
+            'event': 'error_occurred',
+            'after': (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d'),
+            'before': datetime.now().strftime('%Y-%m-%d')
+        }
+    )
+    error_events = error_response.json()['count']
+    
+    error_rate = error_events / total_events if total_events > 0 else 0
+    
+    if error_rate > threshold:
+        print(f"🚨 High error rate detected: {error_rate:.2%}")
+        # Send alert (Slack, email, etc.)
+    else:
+        print(f"✅ Error rate normal: {error_rate:.2%}")
+
+# Run every 5 minutes
+while True:
+    monitor_error_rates('your-tenant-id', 'your-api-key')
+    time.sleep(300)  # 5 minutes
+```
+
+## Integration with Dashboard Features
+
+The Query API works seamlessly with your existing Grain dashboard:
+
+### Matrices Integration
+
+Use the Query API to build custom matrices that complement the [Matrices page](/dashboard/matrices):
+
+```typescript
+// Build a custom conversion matrix
+async function buildConversionMatrix(tenantId: string, apiKey: string) {
+  const events = ['page_viewed', 'form_started', 'form_submitted', 'purchase_completed'];
+  const pages = ['/home', '/product', '/checkout', '/thank-you'];
+  
+  const matrix = {};
+  
+  for (const event of events) {
+    matrix[event] = {};
+    for (const page of pages) {
+      const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+        method: 'POST',
+        headers: { 'X-API-Key': apiKey },
+        body: JSON.stringify({
+          event,
+          filterSet: [{ property: 'properties.page', comparison: 'EQUALS', value: page }]
+        })
+      });
+      matrix[event][page] = (await response.json()).count;
+    }
+  }
+  
+  return matrix;
+}
+```
+
+### Tracks Integration
+
+Query data that powers your [Tracks funnels](/dashboard/tracks):
+
+```typescript
+// Get funnel data for a specific track
+async function getFunnelData(tenantId: string, apiKey: string, trackEvents: string[]) {
+  const funnelData = [];
+  
+  for (const event of trackEvents) {
+    const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey },
+      body: JSON.stringify({ event })
+    });
+    
+    funnelData.push({
+      event,
+      count: (await response.json()).count
+    });
+  }
+  
+  return funnelData;
+}
+```
+
+## Rate Limits and Performance
+
+### Plan Limits
+
+| Plan | Requests per Minute | Requests per Day |
+|------|-------------------|------------------|
+| Free | Not available | Not available |
+| Builder | 100 | 10,000 |
+| Growth | 500 | 100,000 |
+| Scale | 2,000 | Unlimited |
+
+### Best Practices
+
+**1. Use the Count Endpoint for Aggregations**
+```typescript
+// ✅ Good: Use count for totals
+const totalUsers = await fetch('/v1/api/query/count/tenant', {
+  method: 'POST',
+  body: JSON.stringify({ event: 'user_signed_up' })
+});
+
+// ❌ Avoid: Fetching all events just to count them
+const allEvents = await fetch('/v1/api/query/tenant', {
+  method: 'POST',
+  body: JSON.stringify({ event: 'user_signed_up', pagination: { size: 10000 } }
+});
+```
+
+**2. Implement Pagination for Large Datasets**
+```typescript
+async function fetchAllEvents(tenantId: string, apiKey: string) {
+  const allEvents = [];
+  let offset = 0;
+  const pageSize = 1000;
+  
+  while (true) {
+    const response = await fetch(`/v1/api/query/${tenantId}`, {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey },
+      body: JSON.stringify({
+        pagination: { offset, size: pageSize }
+      })
+    });
+    
+    const events = await response.json();
+    allEvents.push(...events);
+    
+    if (events.length < pageSize) break;
+    offset += pageSize;
+  }
+  
+  return allEvents;
+}
+```
+
+**3. Handle Rate Limits Gracefully**
+```typescript
+async function queryWithRetry(url: string, options: RequestInit, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000;
+        
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Never Expose API Keys in Client Code
+
+❌ **Don't do this:**
+```javascript
+// NEVER put API keys in frontend code!
+const apiKey = 'your-secret-key';
+fetch('/v1/api/query/tenant', { headers: { 'X-API-Key': apiKey } });
+```
+
+✅ **Do this instead:**
+```javascript
+// Backend API route
+app.post('/api/query', async (req, res) => {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/${req.body.tenantId}`, {
+    headers: { 'X-API-Key': process.env.GRAIN_API_KEY },
+    body: JSON.stringify(req.body.query)
+  });
+  res.json(await response.json());
+});
+
+// Frontend
+fetch('/api/query', {
+  method: 'POST',
+  body: JSON.stringify({ tenantId: 'your-tenant', query: { event: 'page_viewed' } })
+});
+```
+
+### 2. Use Environment Variables
+
+```bash
+# .env file (add to .gitignore!)
+GRAIN_API_KEY=your-secret-key
+GRAIN_TENANT_ID=your-tenant-id
+```
+
+### 3. Rotate Keys Regularly
+
+1. Generate a new API key in the dashboard
+2. Update your application with the new key
+3. Deploy the changes
+4. Revoke the old key after confirming the new one works
+
+## Next Steps
+
+Now that you understand the basics, explore the detailed API reference:
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api-reference/query-api/overview">
+    Complete endpoint documentation
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    All filter operators and examples
+  </Card>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+  <Card title="Data Export" icon="download" href="/examples/query-api-data-export">
+    Export data for analysis
+  </Card>
+</CardGroup>
+
+## Support
+
+- **Upgrade your plan**: [grainql.com/settings/billing](https://grainql.com/settings/billing)
+- **Dashboard**: [grainql.com/dashboard](https://grainql.com/dashboard)
+- **Documentation**: [docs.grainql.com](https://docs.grainql.com)
+- **Support**: support@grainql.com

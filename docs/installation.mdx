@@ -180,6 +180,8 @@ const grain = createGrainAnalytics({
 });
 ```
 
+**GDPR Compliance**: In opt-in mode without consent, only ephemeral session IDs (stored in JavaScript memory) are used. No cookies, localStorage identifiers, or persistent cross-session tracking occurs until consent is granted. Exceptions apply when users are explicitly identified by your site via `identify()`/`login()` or when using JWT auth (functional/essential purpose).
+
 ### Consent Banner (React)
 
 ```tsx

@@ -1,0 +1,810 @@
+---
+title: "Data Export"
+description: "Export analytics data for external analysis using the Query API"
+---
+
+## Overview
+
+This example shows how to export analytics data from Grain using the Query API. We'll build a Node.js application that can export data to CSV, JSON, and other formats, with support for large datasets, scheduled exports, and data transformation.
+
+<Note>
+  This example assumes you have a **Builder plan or higher** and have created an API key with Query API permissions.
+</Note>
+
+## Project Setup
+
+### 1. Create Node.js Project
+
+```bash
+mkdir grain-data-export
+cd grain-data-export
+npm init -y
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install axios csv-writer date-fns dotenv
+npm install -D @types/node typescript ts-node nodemon
+```
+
+### 3. TypeScript Configuration
+
+Create `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+### 4. Environment Variables
+
+Create `.env`:
+
+```bash
+GRAIN_TENANT_ID=your-tenant-id
+GRAIN_API_KEY=your-secret-key
+```
+
+## Core Export Client
+
+```typescript
+// src/grain-export.ts
+import axios, { AxiosInstance } from 'axios';
+import { format, subDays } from 'date-fns';
+
+interface QueryRequest {
+  event?: string;
+  after?: string;
+  before?: string;
+  filterSet?: Array<{
+    property: string;
+    comparison: string;
+    value: any;
+  }>;
+  pagination?: {
+    offset: number;
+    size: number;
+  };
+}
+
+interface Event {
+  eventName: string;
+  userId: string;
+  eventTs: string;
+  properties: Record<string, any>;
+  eventDate: string;
+  insertId: string;
+}
+
+interface CountResponse {
+  count: number;
+}
+
+export class GrainExportClient {
+  private client: AxiosInstance;
+  private tenantId: string;
+
+  constructor(apiKey: string, tenantId: string) {
+    this.tenantId = tenantId;
+    this.client = axios.create({
+      baseURL: 'https://api.grainql.com/v1/api/query',
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  async queryEvents(request: QueryRequest): Promise<Event[]> {
+    const response = await this.client.post(`/${this.tenantId}`, request);
+    return response.data;
+  }
+
+  async countEvents(request: Omit<QueryRequest, 'pagination'>): Promise<number> {
+    const response = await this.client.post(`/count/${this.tenantId}`, request);
+    return response.data.count;
+  }
+
+  async getEventNames(): Promise<string[]> {
+    const response = await this.client.get(`/events/${this.tenantId}`);
+    return response.data;
+  }
+
+  async exportAllEvents(
+    request: Omit<QueryRequest, 'pagination'>,
+    onProgress?: (current: number, total: number) => void
+  ): Promise<Event[]> {
+    const totalCount = await this.countEvents(request);
+    const allEvents: Event[] = [];
+    const pageSize = 1000;
+    let offset = 0;
+
+    console.log(`Exporting ${totalCount} events...`);
+
+    while (offset < totalCount) {
+      const events = await this.queryEvents({
+        ...request,
+        pagination: { offset, size: pageSize },
+      });
+
+      allEvents.push(...events);
+      offset += pageSize;
+
+      if (onProgress) {
+        onProgress(Math.min(offset, totalCount), totalCount);
+      }
+
+      // Rate limiting - wait 100ms between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return allEvents;
+  }
+}
+```
+
+## CSV Export
+
+```typescript
+// src/exporters/csv-exporter.ts
+import { createObjectCsvWriter } from 'csv-writer';
+import { Event } from '../grain-export';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+
+export class CSVExporter {
+  async exportEvents(events: Event[], filename: string): Promise<void> {
+    if (events.length === 0) {
+      console.log('No events to export');
+      return;
+    }
+
+    // Get all unique property keys
+    const allPropertyKeys = new Set<string>();
+    events.forEach(event => {
+      Object.keys(event.properties || {}).forEach(key => {
+        allPropertyKeys.add(key);
+      });
+    });
+
+    // Create CSV headers
+    const headers = [
+      { id: 'eventName', title: 'Event Name' },
+      { id: 'userId', title: 'User ID' },
+      { id: 'eventTs', title: 'Timestamp' },
+      { id: 'eventDate', title: 'Date' },
+      { id: 'insertId', title: 'Insert ID' },
+      ...Array.from(allPropertyKeys).map(key => ({
+        id: `properties.${key}`,
+        title: `Property: ${key}`,
+      })),
+    ];
+
+    // Flatten events for CSV
+    const flattenedEvents = events.map(event => {
+      const flattened: any = {
+        eventName: event.eventName,
+        userId: event.userId,
+        eventTs: event.eventTs,
+        eventDate: event.eventDate,
+        insertId: event.insertId,
+      };
+
+      // Add all properties
+      allPropertyKeys.forEach(key => {
+        flattened[`properties.${key}`] = event.properties?.[key] || '';
+      });
+
+      return flattened;
+    });
+
+    const csvWriter = createObjectCsvWriter({
+      path: filename,
+      header: headers,
+    });
+
+    await csvWriter.writeRecords(flattenedEvents);
+    console.log(`Exported ${events.length} events to ${filename}`);
+  }
+
+  async exportEventSummary(events: Event[], filename: string): Promise<void> {
+    // Count events by name
+    const eventCounts = events.reduce((acc, event) => {
+      acc[event.eventName] = (acc[event.eventName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Count unique users
+    const uniqueUsers = new Set(events.map(event => event.userId)).size;
+
+    // Get date range
+    const dates = events.map(event => event.eventDate).sort();
+    const dateRange = {
+      start: dates[0],
+      end: dates[dates.length - 1],
+    };
+
+    const summary = {
+      totalEvents: events.length,
+      uniqueUsers,
+      dateRange,
+      eventCounts,
+      exportDate: new Date().toISOString(),
+    };
+
+    writeFileSync(filename, JSON.stringify(summary, null, 2));
+    console.log(`Exported summary to ${filename}`);
+  }
+}
+```
+
+## JSON Export
+
+```typescript
+// src/exporters/json-exporter.ts
+import { writeFileSync } from 'fs';
+import { Event } from '../grain-export';
+
+export class JSONExporter {
+  async exportEvents(events: Event[], filename: string): Promise<void> {
+    const exportData = {
+      metadata: {
+        totalEvents: events.length,
+        exportDate: new Date().toISOString(),
+        version: '1.0',
+      },
+      events,
+    };
+
+    writeFileSync(filename, JSON.stringify(exportData, null, 2));
+    console.log(`Exported ${events.length} events to ${filename}`);
+  }
+
+  async exportTransformedEvents(
+    events: Event[],
+    filename: string,
+    transformer: (event: Event) => any
+  ): Promise<void> {
+    const transformedEvents = events.map(transformer);
+    
+    const exportData = {
+      metadata: {
+        totalEvents: events.length,
+        exportDate: new Date().toISOString(),
+        transformation: 'custom',
+      },
+      events: transformedEvents,
+    };
+
+    writeFileSync(filename, JSON.stringify(exportData, null, 2));
+    console.log(`Exported ${events.length} transformed events to ${filename}`);
+  }
+}
+```
+
+## Data Transformers
+
+```typescript
+// src/transformers/event-transformers.ts
+import { Event } from '../grain-export';
+
+export class EventTransformers {
+  static toAnalyticsFormat(event: Event) {
+    return {
+      timestamp: event.eventTs,
+      event: event.eventName,
+      user_id: event.userId,
+      session_id: event.properties?.session_id || null,
+      page: event.properties?.page || null,
+      referrer: event.properties?.referrer || null,
+      user_agent: event.properties?.user_agent || null,
+      custom_properties: event.properties,
+    };
+  }
+
+  static toEcommerceFormat(event: Event) {
+    if (event.eventName !== 'purchase_completed') {
+      return null; // Skip non-purchase events
+    }
+
+    return {
+      order_id: event.properties?.order_id || event.insertId,
+      user_id: event.userId,
+      timestamp: event.eventTs,
+      total: event.properties?.total || 0,
+      currency: event.properties?.currency || 'USD',
+      items: event.properties?.items || [],
+      payment_method: event.properties?.payment_method || null,
+      shipping_address: event.properties?.shipping_address || null,
+    };
+  }
+
+  static toUserJourneyFormat(event: Event) {
+    return {
+      user_id: event.userId,
+      timestamp: event.eventTs,
+      event_name: event.eventName,
+      page: event.properties?.page || null,
+      action: event.properties?.action || null,
+      value: event.properties?.value || null,
+      context: {
+        device: event.properties?.device || null,
+        browser: event.properties?.browser || null,
+        os: event.properties?.os || null,
+      },
+    };
+  }
+
+  static toErrorLogFormat(event: Event) {
+    if (event.eventName !== 'error_occurred') {
+      return null; // Skip non-error events
+    }
+
+    return {
+      timestamp: event.eventTs,
+      user_id: event.userId,
+      error_type: event.properties?.error_type || 'unknown',
+      error_message: event.properties?.error_message || '',
+      error_stack: event.properties?.error_stack || '',
+      page: event.properties?.page || null,
+      user_agent: event.properties?.user_agent || null,
+      severity: event.properties?.severity || 'medium',
+    };
+  }
+}
+```
+
+## Export Scripts
+
+### 1. Basic Export Script
+
+```typescript
+// src/scripts/basic-export.ts
+import dotenv from 'dotenv';
+import { GrainExportClient } from '../grain-export';
+import { CSVExporter } from '../exporters/csv-exporter';
+import { JSONExporter } from '../exporters/json-exporter';
+import { format, subDays } from 'date-fns';
+
+dotenv.config();
+
+async function basicExport() {
+  const client = new GrainExportClient(
+    process.env.GRAIN_API_KEY!,
+    process.env.GRAIN_TENANT_ID!
+  );
+
+  const csvExporter = new CSVExporter();
+  const jsonExporter = new JSONExporter();
+
+  // Export last 30 days
+  const endDate = new Date();
+  const startDate = subDays(endDate, 30);
+
+  console.log(`Exporting events from ${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}`);
+
+  const events = await client.exportAllEvents(
+    {
+      after: format(startDate, 'yyyy-MM-dd'),
+      before: format(endDate, 'yyyy-MM-dd'),
+    },
+    (current, total) => {
+      console.log(`Progress: ${current}/${total} (${((current / total) * 100).toFixed(1)}%)`);
+    }
+  );
+
+  // Export to CSV
+  await csvExporter.exportEvents(events, 'analytics-export.csv');
+  await csvExporter.exportEventSummary(events, 'analytics-summary.json');
+
+  // Export to JSON
+  await jsonExporter.exportEvents(events, 'analytics-export.json');
+
+  console.log('Export completed successfully!');
+}
+
+basicExport().catch(console.error);
+```
+
+### 2. Event-Specific Export
+
+```typescript
+// src/scripts/event-specific-export.ts
+import dotenv from 'dotenv';
+import { GrainExportClient } from '../grain-export';
+import { CSVExporter } from '../exporters/csv-exporter';
+import { EventTransformers } from '../transformers/event-transformers';
+import { format, subDays } from 'date-fns';
+
+dotenv.config();
+
+async function exportPurchaseEvents() {
+  const client = new GrainExportClient(
+    process.env.GRAIN_API_KEY!,
+    process.env.GRAIN_TENANT_ID!
+  );
+
+  const csvExporter = new CSVExporter();
+
+  // Export purchase events from last 90 days
+  const endDate = new Date();
+  const startDate = subDays(endDate, 90);
+
+  console.log('Exporting purchase events...');
+
+  const events = await client.exportAllEvents({
+    event: 'purchase_completed',
+    after: format(startDate, 'yyyy-MM-dd'),
+    before: format(endDate, 'yyyy-MM-dd'),
+  });
+
+  // Transform to ecommerce format
+  const ecommerceEvents = events
+    .map(EventTransformers.toEcommerceFormat)
+    .filter(event => event !== null);
+
+  // Export as CSV
+  await csvExporter.exportEvents(ecommerceEvents as any, 'purchases-export.csv');
+
+  console.log(`Exported ${ecommerceEvents.length} purchase events`);
+}
+
+exportPurchaseEvents().catch(console.error);
+```
+
+### 3. User Journey Export
+
+```typescript
+// src/scripts/user-journey-export.ts
+import dotenv from 'dotenv';
+import { GrainExportClient } from '../grain-export';
+import { JSONExporter } from '../exporters/json-exporter';
+import { EventTransformers } from '../transformers/event-transformers';
+import { format, subDays } from 'date-fns';
+
+dotenv.config();
+
+async function exportUserJourneys() {
+  const client = new GrainExportClient(
+    process.env.GRAIN_API_KEY!,
+    process.env.GRAIN_TENANT_ID!
+  );
+
+  const jsonExporter = new JSONExporter();
+
+  // Export events from last 7 days
+  const endDate = new Date();
+  const startDate = subDays(endDate, 7);
+
+  console.log('Exporting user journey data...');
+
+  const events = await client.exportAllEvents({
+    after: format(startDate, 'yyyy-MM-dd'),
+    before: format(endDate, 'yyyy-MM-dd'),
+  });
+
+  // Transform to user journey format
+  const journeyEvents = events.map(EventTransformers.toUserJourneyFormat);
+
+  // Group by user
+  const userJourneys = journeyEvents.reduce((acc, event) => {
+    if (!acc[event.user_id]) {
+      acc[event.user_id] = [];
+    }
+    acc[event.user_id].push(event);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Sort events by timestamp for each user
+  Object.keys(userJourneys).forEach(userId => {
+    userJourneys[userId].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  });
+
+  await jsonExporter.exportEvents(
+    Object.values(userJourneys).flat(),
+    'user-journeys.json'
+  );
+
+  console.log(`Exported journeys for ${Object.keys(userJourneys).length} users`);
+}
+
+exportUserJourneys().catch(console.error);
+```
+
+## Scheduled Exports
+
+```typescript
+// src/scheduler/export-scheduler.ts
+import cron from 'node-cron';
+import { GrainExportClient } from '../grain-export';
+import { CSVExporter } from '../exporters/csv-exporter';
+import { format, subDays } from 'date-fns';
+
+export class ExportScheduler {
+  private client: GrainExportClient;
+  private csvExporter: CSVExporter;
+
+  constructor(apiKey: string, tenantId: string) {
+    this.client = new GrainExportClient(apiKey, tenantId);
+    this.csvExporter = new CSVExporter();
+  }
+
+  startDailyExport() {
+    // Run every day at 2 AM
+    cron.schedule('0 2 * * *', async () => {
+      console.log('Starting daily export...');
+      await this.exportYesterday();
+    });
+  }
+
+  startWeeklyExport() {
+    // Run every Monday at 3 AM
+    cron.schedule('0 3 * * 1', async () => {
+      console.log('Starting weekly export...');
+      await this.exportLastWeek();
+    });
+  }
+
+  private async exportYesterday() {
+    const yesterday = subDays(new Date(), 1);
+    const filename = `daily-export-${format(yesterday, 'yyyy-MM-dd')}.csv`;
+
+    try {
+      const events = await this.client.exportAllEvents({
+        after: format(yesterday, 'yyyy-MM-dd'),
+        before: format(yesterday, 'yyyy-MM-dd'),
+      });
+
+      await this.csvExporter.exportEvents(events, filename);
+      console.log(`Daily export completed: ${filename}`);
+    } catch (error) {
+      console.error('Daily export failed:', error);
+    }
+  }
+
+  private async exportLastWeek() {
+    const endDate = subDays(new Date(), 1);
+    const startDate = subDays(endDate, 7);
+    const filename = `weekly-export-${format(startDate, 'yyyy-MM-dd')}-to-${format(endDate, 'yyyy-MM-dd')}.csv`;
+
+    try {
+      const events = await this.client.exportAllEvents({
+        after: format(startDate, 'yyyy-MM-dd'),
+        before: format(endDate, 'yyyy-MM-dd'),
+      });
+
+      await this.csvExporter.exportEvents(events, filename);
+      console.log(`Weekly export completed: ${filename}`);
+    } catch (error) {
+      console.error('Weekly export failed:', error);
+    }
+  }
+}
+```
+
+## CLI Tool
+
+```typescript
+// src/cli.ts
+import { Command } from 'commander';
+import dotenv from 'dotenv';
+import { GrainExportClient } from './grain-export';
+import { CSVExporter } from './exporters/csv-exporter';
+import { JSONExporter } from './exporters/json-exporter';
+import { format, subDays, parseISO } from 'date-fns';
+
+dotenv.config();
+
+const program = new Command();
+
+program
+  .name('grain-export')
+  .description('Export analytics data from Grain')
+  .version('1.0.0');
+
+program
+  .command('export')
+  .description('Export events to file')
+  .option('-f, --format <format>', 'Export format (csv, json)', 'csv')
+  .option('-e, --event <event>', 'Filter by event name')
+  .option('-a, --after <date>', 'Start date (YYYY-MM-DD)')
+  .option('-b, --before <date>', 'End date (YYYY-MM-DD)')
+  .option('-o, --output <file>', 'Output filename')
+  .action(async (options) => {
+    const client = new GrainExportClient(
+      process.env.GRAIN_API_KEY!,
+      process.env.GRAIN_TENANT_ID!
+    );
+
+    const endDate = options.before ? parseISO(options.before) : new Date();
+    const startDate = options.after ? parseISO(options.after) : subDays(endDate, 30);
+
+    const query: any = {
+      after: format(startDate, 'yyyy-MM-dd'),
+      before: format(endDate, 'yyyy-MM-dd'),
+    };
+
+    if (options.event) {
+      query.event = options.event;
+    }
+
+    console.log('Exporting events...');
+    const events = await client.exportAllEvents(query);
+
+    const filename = options.output || `export-${format(new Date(), 'yyyy-MM-dd-HH-mm-ss')}.${options.format}`;
+
+    if (options.format === 'csv') {
+      const csvExporter = new CSVExporter();
+      await csvExporter.exportEvents(events, filename);
+    } else if (options.format === 'json') {
+      const jsonExporter = new JSONExporter();
+      await jsonExporter.exportEvents(events, filename);
+    }
+
+    console.log(`Export completed: ${filename}`);
+  });
+
+program
+  .command('events')
+  .description('List available event names')
+  .action(async () => {
+    const client = new GrainExportClient(
+      process.env.GRAIN_API_KEY!,
+      process.env.GRAIN_TENANT_ID!
+    );
+
+    const events = await client.getEventNames();
+    console.log('Available events:');
+    events.forEach(event => console.log(`  - ${event}`));
+  });
+
+program
+  .command('count')
+  .description('Count events matching criteria')
+  .option('-e, --event <event>', 'Filter by event name')
+  .option('-a, --after <date>', 'Start date (YYYY-MM-DD)')
+  .option('-b, --before <date>', 'End date (YYYY-MM-DD)')
+  .action(async (options) => {
+    const client = new GrainExportClient(
+      process.env.GRAIN_API_KEY!,
+      process.env.GRAIN_TENANT_ID!
+    );
+
+    const endDate = options.before ? parseISO(options.before) : new Date();
+    const startDate = options.after ? parseISO(options.after) : subDays(endDate, 30);
+
+    const query: any = {
+      after: format(startDate, 'yyyy-MM-dd'),
+      before: format(endDate, 'yyyy-MM-dd'),
+    };
+
+    if (options.event) {
+      query.event = options.event;
+    }
+
+    const count = await client.countEvents(query);
+    console.log(`Total events: ${count.toLocaleString()}`);
+  });
+
+program.parse();
+```
+
+## Package.json Scripts
+
+```json
+{
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "ts-node src/cli.ts",
+    "export:daily": "ts-node src/scripts/basic-export.ts",
+    "export:purchases": "ts-node src/scripts/event-specific-export.ts",
+    "export:journeys": "ts-node src/scripts/user-journey-export.ts",
+    "scheduler": "ts-node src/scheduler/export-scheduler.ts"
+  }
+}
+```
+
+## Usage Examples
+
+### Command Line Usage
+
+```bash
+# Export all events from last 30 days to CSV
+npm run dev export --format csv --output analytics.csv
+
+# Export purchase events from specific date range
+npm run dev export --event purchase_completed --after 2024-01-01 --before 2024-01-31 --format json
+
+# List available events
+npm run dev events
+
+# Count events
+npm run dev count --event page_viewed --after 2024-01-01
+```
+
+### Programmatic Usage
+
+```typescript
+import { GrainExportClient } from './grain-export';
+import { CSVExporter } from './exporters/csv-exporter';
+
+const client = new GrainExportClient(apiKey, tenantId);
+const csvExporter = new CSVExporter();
+
+// Export high-value purchases
+const events = await client.exportAllEvents({
+  event: 'purchase_completed',
+  filterSet: [
+    { property: 'properties.price', comparison: 'GREATER_THAN', value: 100 }
+  ],
+  after: '2024-01-01',
+  before: '2024-01-31'
+});
+
+await csvExporter.exportEvents(events, 'high-value-purchases.csv');
+```
+
+## Error Handling and Retry Logic
+
+```typescript
+// src/utils/retry.ts
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
+// Usage
+const events = await withRetry(() => 
+  client.exportAllEvents(query)
+);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+  <Card title="Query API Reference" icon="book" href="/api-reference/query-api/overview">
+    Complete API documentation
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    All filter operators and examples
+  </Card>
+  <Card title="Grain Dashboard" icon="chart-line" href="https://grainql.com/dashboard">
+    Built-in analytics dashboard
+  </Card>
+</CardGroup>

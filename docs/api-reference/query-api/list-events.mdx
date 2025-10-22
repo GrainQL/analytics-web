@@ -1,0 +1,548 @@
+---
+title: "List Events"
+description: "Discover all available event types in your analytics data"
+---
+
+## Endpoint
+
+```http
+GET /v1/api/query/events/{tenantId}
+```
+
+Get a list of all distinct event names in your analytics data. This endpoint is useful for discovering what events you're tracking and building dynamic query interfaces.
+
+## Parameters
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | Your tenant identifier (UUID or alias) |
+
+### Query Parameters
+
+None required. This endpoint returns all available event names.
+
+## Response
+
+Returns an array of event name strings:
+
+```json
+[
+  "page_viewed",
+  "button_clicked",
+  "form_submitted",
+  "purchase_completed",
+  "user_signed_up",
+  "video_played",
+  "search_performed"
+]
+```
+
+## Examples
+
+### Basic Request
+
+Get all available event names:
+
+```bash
+curl https://api.grainql.com/v1/api/query/events/your-tenant-id \
+  -H "X-API-Key: YOUR_SECRET_KEY"
+```
+
+### With Authentication Header
+
+```bash
+curl -H "X-API-Key: YOUR_SECRET_KEY" \
+  https://api.grainql.com/v1/api/query/events/your-tenant-id
+```
+
+## Code Examples
+
+### JavaScript/TypeScript
+
+```typescript
+async function getEventNames(tenantId: string, apiKey: string): Promise<string[]> {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/events/${tenantId}`, {
+    headers: {
+      'X-API-Key': apiKey
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get events: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const eventNames = await getEventNames('your-tenant-id', 'your-api-key');
+console.log('Available events:', eventNames);
+
+// Build a dropdown for event selection
+const eventDropdown = eventNames.map(event => 
+  `<option value="${event}">${event}</option>`
+).join('');
+```
+
+### Python
+
+```python
+import requests
+from typing import List
+
+def get_event_names(tenant_id: str, api_key: str) -> List[str]:
+    """Get all available event names"""
+    
+    response = requests.get(
+        f'https://api.grainql.com/v1/api/query/events/{tenant_id}',
+        headers={'X-API-Key': api_key}
+    )
+    
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+event_names = get_event_names('your-tenant-id', 'your-api-key')
+print(f'Found {len(event_names)} event types:')
+for event in event_names:
+    print(f'  - {event}')
+```
+
+### Node.js
+
+```javascript
+const fetch = require('node-fetch');
+
+async function getEventNames(tenantId, apiKey) {
+  const response = await fetch(`https://api.grainql.com/v1/api/query/events/${tenantId}`, {
+    headers: {
+      'X-API-Key': apiKey
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get events: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const eventNames = await getEventNames('your-tenant-id', process.env.GRAIN_API_KEY);
+console.log('Available events:', eventNames);
+```
+
+## Use Cases
+
+### 1. Dynamic Query Builder
+
+Build a query interface that adapts to your available events:
+
+```typescript
+async function buildQueryInterface(tenantId: string, apiKey: string) {
+  const eventNames = await getEventNames(tenantId, apiKey);
+  
+  // Create event selector
+  const eventSelect = document.createElement('select');
+  eventSelect.innerHTML = `
+    <option value="">All Events</option>
+    ${eventNames.map(event => `<option value="${event}">${event}</option>`).join('')}
+  `;
+  
+  // Create filter builder
+  const filterBuilder = document.createElement('div');
+  filterBuilder.innerHTML = `
+    <h3>Filters</h3>
+    <button onclick="addFilter()">Add Filter</button>
+    <div id="filters"></div>
+  `;
+  
+  return { eventSelect, filterBuilder };
+}
+
+function addFilter() {
+  const filtersDiv = document.getElementById('filters');
+  const filterDiv = document.createElement('div');
+  filterDiv.innerHTML = `
+    <select name="property">
+      <option value="userId">User ID</option>
+      <option value="properties.page">Page</option>
+      <option value="properties.device">Device</option>
+    </select>
+    <select name="comparison">
+      <option value="EQUALS">Equals</option>
+      <option value="NOT_EQUALS">Not Equals</option>
+      <option value="CONTAINS">Contains</option>
+    </select>
+    <input type="text" name="value" placeholder="Value">
+    <button onclick="removeFilter(this)">Remove</button>
+  `;
+  filtersDiv.appendChild(filterDiv);
+}
+```
+
+### 2. Event Explorer
+
+Create an event explorer that shows available events and their properties:
+
+```typescript
+async function exploreEvents(tenantId: string, apiKey: string) {
+  const eventNames = await getEventNames(tenantId, apiKey);
+  
+  const explorer = document.createElement('div');
+  explorer.innerHTML = `
+    <h2>Event Explorer</h2>
+    <div class="event-list">
+      ${eventNames.map(event => `
+        <div class="event-item" onclick="exploreEvent('${event}')">
+          <h3>${event}</h3>
+          <p>Click to explore properties</p>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  
+  return explorer;
+}
+
+async function exploreEvent(eventName: string) {
+  // Get sample events to understand properties
+  const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey
+    },
+    body: JSON.stringify({
+      event: eventName,
+      pagination: { offset: 0, size: 5 }
+    })
+  });
+  
+  const events = await response.json();
+  const properties = new Set();
+  
+  events.forEach(event => {
+    Object.keys(event.properties || {}).forEach(prop => {
+      properties.add(prop);
+    });
+  });
+  
+  console.log(`Event: ${eventName}`);
+  console.log('Properties:', Array.from(properties));
+}
+```
+
+### 3. Analytics Dashboard Setup
+
+Use event names to set up dashboard widgets:
+
+```typescript
+async function setupDashboard(tenantId: string, apiKey: string) {
+  const eventNames = await getEventNames(tenantId, apiKey);
+  
+  // Create dashboard widgets for each event type
+  const dashboard = document.createElement('div');
+  dashboard.className = 'dashboard';
+  
+  for (const eventName of eventNames) {
+    const widget = document.createElement('div');
+    widget.className = 'widget';
+    widget.innerHTML = `
+      <h3>${eventName}</h3>
+      <div class="metric" id="count-${eventName}">Loading...</div>
+      <div class="chart" id="chart-${eventName}"></div>
+    `;
+    
+    dashboard.appendChild(widget);
+    
+    // Load data for this event
+    loadEventData(tenantId, apiKey, eventName);
+  }
+  
+  return dashboard;
+}
+
+async function loadEventData(tenantId: string, apiKey: string, eventName: string) {
+  try {
+    // Get count
+    const countResponse = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ event: eventName })
+    });
+    
+    const { count } = await countResponse.json();
+    document.getElementById(`count-${eventName}`).textContent = count.toLocaleString();
+    
+    // Get recent events for chart
+    const eventsResponse = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({
+        event: eventName,
+        after: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        pagination: { offset: 0, size: 1000 }
+      })
+    });
+    
+    const events = await eventsResponse.json();
+    // Create chart with events data
+    createEventChart(`chart-${eventName}`, events);
+    
+  } catch (error) {
+    console.error(`Failed to load data for ${eventName}:`, error);
+  }
+}
+```
+
+### 4. Data Validation
+
+Validate that you're tracking the events you expect:
+
+```typescript
+async function validateEventTracking(tenantId: string, apiKey: string) {
+  const expectedEvents = [
+    'page_viewed',
+    'button_clicked',
+    'form_submitted',
+    'purchase_completed',
+    'user_signed_up'
+  ];
+  
+  const actualEvents = await getEventNames(tenantId, apiKey);
+  
+  const missing = expectedEvents.filter(event => !actualEvents.includes(event));
+  const unexpected = actualEvents.filter(event => !expectedEvents.includes(event));
+  
+  console.log('Event Tracking Validation:');
+  console.log(`✅ Expected events found: ${expectedEvents.length - missing.length}/${expectedEvents.length}`);
+  
+  if (missing.length > 0) {
+    console.log(`❌ Missing events: ${missing.join(', ')}`);
+  }
+  
+  if (unexpected.length > 0) {
+    console.log(`⚠️  Unexpected events: ${unexpected.join(', ')}`);
+  }
+  
+  return {
+    valid: missing.length === 0,
+    missing,
+    unexpected
+  };
+}
+```
+
+### 5. Event Documentation Generator
+
+Generate documentation for your tracked events:
+
+```typescript
+async function generateEventDocumentation(tenantId: string, apiKey: string) {
+  const eventNames = await getEventNames(tenantId, apiKey);
+  
+  let documentation = '# Event Documentation\n\n';
+  
+  for (const eventName of eventNames) {
+    documentation += `## ${eventName}\n\n`;
+    
+    // Get sample events to understand properties
+    try {
+      const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        },
+        body: JSON.stringify({
+          event: eventName,
+          pagination: { offset: 0, size: 10 }
+        })
+      });
+      
+      const events = await response.json();
+      const properties = new Set();
+      
+      events.forEach(event => {
+        Object.keys(event.properties || {}).forEach(prop => {
+          properties.add(prop);
+        });
+      });
+      
+      if (properties.size > 0) {
+        documentation += '### Properties\n\n';
+        Array.from(properties).forEach(prop => {
+          documentation += `- \`${prop}\`: Description needed\n`;
+        });
+        documentation += '\n';
+      }
+      
+    } catch (error) {
+      documentation += `*Error loading event details: ${error.message}*\n\n`;
+    }
+  }
+  
+  return documentation;
+}
+```
+
+## Error Handling
+
+Handle common error scenarios:
+
+```typescript
+async function getEventNamesWithErrorHandling(tenantId: string, apiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch(`https://api.grainql.com/v1/api/query/events/${tenantId}`, {
+      headers: {
+        'X-API-Key': apiKey
+      }
+    });
+
+    if (response.status === 401) {
+      throw new Error('Invalid API key. Check your authentication settings.');
+    }
+
+    if (response.status === 403) {
+      throw new Error('Insufficient plan tier. Upgrade to Builder plan or higher.');
+    }
+
+    if (response.status === 404) {
+      throw new Error('Tenant not found. Check your tenant ID.');
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to get events: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error getting event names:', error);
+    throw error;
+  }
+}
+```
+
+## Caching
+
+Cache event names since they don't change frequently:
+
+```typescript
+class EventNameCache {
+  private cache = new Map<string, { events: string[], timestamp: number }>();
+  private readonly TTL = 5 * 60 * 1000; // 5 minutes
+
+  async getEventNames(tenantId: string, apiKey: string): Promise<string[]> {
+    const cached = this.cache.get(tenantId);
+    
+    if (cached && Date.now() - cached.timestamp < this.TTL) {
+      return cached.events;
+    }
+    
+    const events = await getEventNames(tenantId, apiKey);
+    this.cache.set(tenantId, { events, timestamp: Date.now() });
+    
+    return events;
+  }
+  
+  clearCache(tenantId?: string) {
+    if (tenantId) {
+      this.cache.delete(tenantId);
+    } else {
+      this.cache.clear();
+    }
+  }
+}
+
+const eventCache = new EventNameCache();
+
+// Usage
+const eventNames = await eventCache.getEventNames('your-tenant-id', 'your-api-key');
+```
+
+## Performance Tips
+
+### 1. Cache Results
+
+Event names don't change frequently, so cache them:
+
+```typescript
+const eventNamesCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getCachedEventNames(tenantId: string, apiKey: string): Promise<string[]> {
+  const cached = eventNamesCache.get(tenantId);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.events;
+  }
+  
+  const events = await getEventNames(tenantId, apiKey);
+  eventNamesCache.set(tenantId, { events, timestamp: Date.now() });
+  
+  return events;
+}
+```
+
+### 2. Use in Background
+
+Load event names in the background when your app starts:
+
+```typescript
+class AnalyticsApp {
+  private eventNames: string[] = [];
+  
+  async initialize(tenantId: string, apiKey: string) {
+    // Load event names in background
+    this.loadEventNames(tenantId, apiKey);
+    
+    // Continue with other initialization
+    this.setupUI();
+  }
+  
+  private async loadEventNames(tenantId: string, apiKey: string) {
+    try {
+      this.eventNames = await getEventNames(tenantId, apiKey);
+      this.updateEventSelectors();
+    } catch (error) {
+      console.error('Failed to load event names:', error);
+    }
+  }
+  
+  private updateEventSelectors() {
+    // Update any UI elements that depend on event names
+    const selectors = document.querySelectorAll('.event-selector');
+    selectors.forEach(selector => {
+      selector.innerHTML = this.eventNames.map(event => 
+        `<option value="${event}">${event}</option>`
+      ).join('');
+    });
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Query Events" icon="search" href="/api-reference/query-api/query-events">
+    Learn how to query events with filters
+  </Card>
+  <Card title="Count Events" icon="hash" href="/api-reference/query-api/count-events">
+    Get event counts for aggregations
+  </Card>
+  <Card title="Filter Reference" icon="filter" href="/api-reference/query-api/filters">
+    Complete guide to all filter operators
+  </Card>
+  <Card title="Custom Dashboard" icon="chart-line" href="/examples/query-api-custom-dashboard">
+    Build a custom analytics dashboard
+  </Card>
+</CardGroup>

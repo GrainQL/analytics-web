@@ -22,11 +22,14 @@ X-API-Key: YOUR_SECRET_KEY
 ### Creating an API Key
 
 1. Navigate to [Dashboard → Settings → Authentication](https://grainql.com/dashboard/settings)
-2. Set authentication strategy to **SERVER_SIDE**
-3. Click **Generate New Secret**
-4. Enter a descriptive name
-5. **Check the "Query API" permission**
-6. Copy the generated secret (it's only shown once!)
+2. Click **Generate New Secret**
+3. Enter a descriptive name
+4. **Check the "Query API" permission**
+5. Copy the generated secret (it's only shown once!)
+
+<Note>
+  **Authentication Strategy**: The Query API authentication is independent of your SDK authentication strategy. You can use Query API keys regardless of whether your SDK is set to NONE, SERVER_SIDE, or JWT authentication.
+</Note>
 
 <Warning>
   Store your API key securely in environment variables. Never commit it to version control or expose it in client-side code.

@@ -25,11 +25,14 @@ Get up and running with the Query API in 3 steps:
     Navigate to your [Dashboard Settings](https://grainql.com/dashboard/settings) and create a secret with Query API permissions:
 
     1. Go to **Dashboard → Settings → Authentication**
-    2. Set authentication strategy to **SERVER_SIDE**
-    3. Click **Generate New Secret**
-    4. Enter a name like "Query API Key"
-    5. **Check the "Query API" permission**
-    6. Copy the generated secret (you won't see it again!)
+    2. Click **Generate New Secret**
+    3. Enter a name like "Query API Key"
+    4. **Check the "Query API" permission**
+    5. Copy the generated secret (you won't see it again!)
+
+    <Note>
+      **Authentication Strategy**: The Query API authentication is independent of your SDK authentication strategy. You can use Query API keys regardless of whether your SDK is set to NONE, SERVER_SIDE, or JWT authentication.
+    </Note>
 
     <Warning>
       Store your API key securely in environment variables. Never commit it to version control.

@@ -383,9 +383,13 @@ async function getFunnelData(tenantId: string, apiKey: string, trackEvents: stri
 | Plan | Requests per Minute | Requests per Day |
 |------|-------------------|------------------|
 | Free | Not available | Not available |
-| Builder | 100 | 10,000 |
-| Growth | 500 | 100,000 |
-| Scale | 2,000 | Unlimited |
+| Builder | 2 | 20 |
+| Growth | 10 | 200 |
+| Scale | 100 | 2,000 |
+
+<Note>
+  **Rate Limit Planning**: These limits are designed for typical analytics use cases. For high-frequency applications, real-time dashboards, or bulk data exports, consider our custom plans with higher limits.
+</Note>
 
 ### Best Practices
 
@@ -456,6 +460,10 @@ async function queryWithRetry(url: string, options: RequestInit, maxRetries = 3)
 }
 ```
 
+<Note>
+  **Rate Limit Considerations**: With the current rate limits (2-100 requests per minute), consider implementing request queuing or batching for high-frequency applications. For production applications with higher throughput needs, contact us about custom plans.
+</Note>
+
 ## Security Best Practices
 
 ### 1. Never Expose API Keys in Client Code
@@ -518,6 +526,17 @@ Now that you understand the basics, explore the detailed API reference:
     Export data for analysis
   </Card>
 </CardGroup>
+
+## Custom Plans
+
+Need higher rate limits or have specific usage requirements? We offer custom plans tailored to your needs:
+
+- **Higher rate limits**: Custom requests per minute/day limits
+- **Dedicated support**: Priority support and SLA guarantees
+- **Custom features**: Tailored analytics features and integrations
+- **Volume discounts**: Competitive pricing for high-volume usage
+
+Contact us at [support@grainql.com](mailto:support@grainql.com) to discuss your requirements and get a custom quote.
 
 ## Support
 

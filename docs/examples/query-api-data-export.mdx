@@ -147,8 +147,8 @@ export class GrainExportClient {
         onProgress(Math.min(offset, totalCount), totalCount);
       }
 
-      // Rate limiting - wait 100ms between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Rate limiting - wait 1 second between requests for Builder plan (2 rpm)
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     return allEvents;
@@ -791,6 +791,17 @@ const events = await withRetry(() =>
   client.exportAllEvents(query)
 );
 ```
+
+## Custom Plans
+
+Need higher rate limits for large data exports? We offer custom plans with:
+
+- **Higher rate limits**: Custom requests per minute/day limits for bulk exports
+- **Dedicated support**: Priority support and SLA guarantees
+- **Volume discounts**: Competitive pricing for high-volume usage
+- **Custom features**: Tailored export features and integrations
+
+Contact us at [support@grainql.com](mailto:support@grainql.com) to discuss your export requirements.
 
 ## Next Steps
 

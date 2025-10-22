@@ -43,6 +43,10 @@ X-API-Key: YOUR_SECRET_KEY
 | `POST` | `/count/{tenantId}` | Get count of events matching filters |
 | `GET` | `/events/{tenantId}` | List all distinct event names |
 
+<Note>
+  **Important**: Use your tenant alias (shown on the dashboard) as the `{tenantId}` parameter, not the UUID. The alias is the human-readable identifier you see in your dashboard.
+</Note>
+
 ## Rate Limits
 
 Rate limits are enforced per API key and vary by plan:

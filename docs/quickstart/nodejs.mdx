@@ -1,0 +1,352 @@
+---
+title: "Node.js / Backend Quick Start"
+description: "Track server-side events and use remote config in Node.js"
+---
+
+Use Grain Analytics on your backend to track API calls, background jobs, and server-side events.
+
+## Install the Package
+
+```bash npm
+npm install @grainql/analytics-web
+```
+
+```bash yarn
+yarn add @grainql/analytics-web
+```
+
+```bash pnpm
+pnpm add @grainql/analytics-web
+```
+
+<Note>
+  The package name includes "web" but it works perfectly in Node.js. We'll release a dedicated server package soon, but this one works great for now.
+</Note>
+
+## Initialize the SDK
+
+```typescript
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY // Get this from your dashboard
+});
+```
+
+<Warning>
+  **Keep your secret key safe!** Never commit it to version control or expose it in client-side code. Use environment variables.
+</Warning>
+
+## Track Server-Side Events
+
+```typescript
+// Track an API request
+app.post('/api/users', async (req, res) => {
+  // Your logic...
+  
+  await grain.track('api_request', {
+    endpoint: '/api/users',
+    method: 'POST',
+    user_id: req.user?.id,
+    status: 200
+  }, { flush: true }); // Flush immediately for serverless
+  
+  res.json({ success: true });
+});
+```
+
+<Info>
+  **Serverless environments**: Use `{ flush: true }` to send events immediately before the function terminates. Otherwise, events might not get sent.
+</Info>
+
+## Track Background Jobs
+
+```typescript
+// Track a cron job or background task
+async function processOrders() {
+  const orders = await getOrders();
+  
+  for (const order of orders) {
+    await processOrder(order);
+    
+    await grain.track('order_processed', {
+      order_id: order.id,
+      total: order.total,
+      items_count: order.items.length
+    });
+  }
+  
+  // Flush at the end of the batch
+  await grain.flush();
+}
+```
+
+## Use Remote Configuration
+
+Control server-side behavior without redeploying:
+
+```typescript
+// Check if a feature is enabled
+const isNewAlgorithmEnabled = grain.getConfig('use_new_algorithm');
+
+if (isNewAlgorithmEnabled === 'true') {
+  result = await newAlgorithm(data);
+} else {
+  result = await oldAlgorithm(data);
+}
+
+// Get configuration values
+const maxRetries = parseInt(grain.getConfig('max_retries') || '3');
+const timeout = parseInt(grain.getConfig('api_timeout') || '5000');
+```
+
+## Express.js Middleware
+
+Track all requests automatically:
+
+```typescript
+import express from 'express';
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const app = express();
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+// Middleware to track all requests
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    
+    grain.track('api_request', {
+      path: req.path,
+      method: req.method,
+      status: res.statusCode,
+      duration,
+      user_id: req.user?.id
+    });
+  });
+  
+  next();
+});
+
+// Your routes...
+app.get('/api/users', (req, res) => {
+  res.json({ users: [] });
+});
+
+// Flush events before shutdown
+process.on('SIGTERM', async () => {
+  await grain.flush();
+  process.exit(0);
+});
+
+app.listen(3000);
+```
+
+## Fastify Plugin
+
+```typescript
+import Fastify from 'fastify';
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const fastify = Fastify();
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+// Track requests
+fastify.addHook('onResponse', async (request, reply) => {
+  await grain.track('api_request', {
+    path: request.url,
+    method: request.method,
+    status: reply.statusCode,
+    duration: reply.getResponseTime()
+  });
+});
+
+// Flush on shutdown
+fastify.addHook('onClose', async () => {
+  await grain.flush();
+});
+
+fastify.listen({ port: 3000 });
+```
+
+## AWS Lambda Example
+
+```typescript
+import { Handler } from 'aws-lambda';
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+// Initialize outside handler for connection reuse
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+export const handler: Handler = async (event, context) => {
+  try {
+    // Your logic...
+    const result = await processEvent(event);
+    
+    // Track with immediate flush for Lambda
+    await grain.track('lambda_invoked', {
+      function_name: context.functionName,
+      event_type: event.type,
+      success: true
+    }, { flush: true });
+    
+    return { statusCode: 200, body: JSON.stringify(result) };
+  } catch (error) {
+    await grain.track('lambda_error', {
+      function_name: context.functionName,
+      error: error.message
+    }, { flush: true });
+    
+    throw error;
+  }
+};
+```
+
+<Tip>
+  **Lambda optimization**: Initialize the Grain client outside your handler function so it's reused across invocations. This improves performance and reduces cold starts.
+</Tip>
+
+## Vercel Serverless Functions
+
+```typescript
+// api/users.ts
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Your logic...
+  
+  await grain.track('api_request', {
+    path: req.url,
+    method: req.method
+  }, { flush: true });
+  
+  res.json({ success: true });
+}
+```
+
+## Track User Events Server-Side
+
+Associate events with specific users:
+
+```typescript
+// When a user signs up
+app.post('/api/signup', async (req, res) => {
+  const user = await createUser(req.body);
+  
+  // Identify the user
+  grain.identify(user.id, {
+    email: user.email,
+    name: user.name,
+    plan: 'free',
+    signup_date: new Date().toISOString()
+  });
+  
+  // Track signup event
+  await grain.track('user_signed_up', {
+    method: 'email',
+    source: req.query.utm_source
+  }, { flush: true });
+  
+  res.json({ user });
+});
+```
+
+## Error Tracking
+
+Track backend errors to understand failure patterns:
+
+```typescript
+app.use((err, req, res, next) => {
+  // Log to Grain
+  grain.track('server_error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    user_id: req.user?.id
+  });
+  
+  res.status(500).json({ error: 'Internal server error' });
+});
+```
+
+## Testing Your Integration
+
+```typescript
+// test.ts
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!,
+  debug: true // Enable debug logging
+});
+
+async function test() {
+  await grain.track('test_event', {
+    timestamp: new Date().toISOString()
+  }, { flush: true });
+  
+  console.log('Event sent! Check your dashboard.');
+}
+
+test();
+```
+
+Run it:
+
+```bash
+node test.ts
+```
+
+Check your [dashboard](https://grainql.com/dashboard) to see the event come in.
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Core API Reference" icon="book" href="/api-reference/core-methods">
+    See all available methods and options
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn about server-side authentication
+  </Card>
+  <Card title="Query API" icon="database" href="/api-reference/query-api/overview">
+    Query your analytics data programmatically
+  </Card>
+  <Card title="Configuration Guide" icon="gear" href="/advanced/configuration">
+    Advanced configuration options
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Production checklist**:
+  - Store secret key in environment variables
+  - Use `{ flush: true }` for serverless functions
+  - Set up error handling and retry logic
+  - Monitor batch queue size in long-running processes
+</Warning>
+

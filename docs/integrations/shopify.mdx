@@ -1,0 +1,242 @@
+---
+title: "Shopify"
+description: "Track your entire customer journey from landing to purchase"
+---
+
+Understand how customers navigate your Shopify store. See what paths lead to purchases and where people drop off.
+
+<Warning>
+  **Back up your theme first!** Go to **Themes → Actions → Duplicate** before editing code. This gives you an easy rollback.
+</Warning>
+
+## What You'll Need
+
+- Admin access to your Shopify store
+- Your Grain tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
+- 10 minutes
+
+## Step 1: Open Theme Code
+
+1. Log into [Shopify admin](https://admin.shopify.com)
+2. Click **Online Store** → **Themes**
+3. Find your active theme (has "Current theme" badge)
+4. Click **Actions** → **Edit code**
+
+## Step 2: Edit theme.liquid
+
+1. In the file list, find **Layout** folder
+2. Click **theme.liquid**
+3. Find the `</head>` tag (use Ctrl+F / Cmd+F to search)
+4. Add this code **right before** `</head>`:
+
+```html
+<!-- Grain Analytics -->
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  // Track page views with Shopify context
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    page_type: '{{ template }}',
+    shop: '{{ shop.name }}',
+    currency: '{{ shop.currency }}'
+  });
+</script>
+```
+
+**Replace `'your-tenant-id'`** with your actual tenant ID!
+
+<Tip>
+  Those `{{ template }}` and `{{ shop.name }}` things are Liquid variables—Shopify automatically fills them in with real values.
+</Tip>
+
+## Step 3: Save
+
+Click **Save** (top right). You'll see a confirmation message.
+
+That's it! Grain is now tracking your store. 🎉
+
+---
+
+## Track E-commerce Events
+
+Let's track the important stuff: cart additions, checkouts, and purchases.
+
+### Track "Add to Cart"
+
+Still in **theme.liquid**, add this just before `</body>`:
+
+```html
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Track add to cart clicks
+    const cartForms = document.querySelectorAll('form[action*="/cart/add"]');
+    
+    cartForms.forEach(function(form) {
+      form.addEventListener('submit', function() {
+        const variantId = form.querySelector('[name="id"]')?.value;
+        const quantity = form.querySelector('[name="quantity"]')?.value || 1;
+        
+        if (window.grain) {
+          grain.track('product_added_to_cart', {
+            variant_id: variantId,
+            quantity: parseInt(quantity)
+          });
+        }
+      });
+    });
+  });
+</script>
+```
+
+### Track Checkout Started
+
+```html
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const checkoutButtons = document.querySelectorAll('button[name="checkout"], a[href*="/checkout"]');
+    
+    checkoutButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        if (window.grain) {
+          grain.track('checkout_started', {
+            page: window.location.pathname
+          });
+        }
+      });
+    });
+  });
+</script>
+```
+
+### Track Purchases
+
+For completed orders, add this to **Settings → Checkout → Order status page → Additional scripts**:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id'
+  });
+  
+  grain.track('purchase_completed', {
+    order_id: '{{ checkout.order_id }}',
+    total: {{ checkout.total_price | money_without_currency }},
+    currency: '{{ checkout.currency }}',
+    discount: {{ checkout.total_discounts | money_without_currency }},
+    shipping: {{ checkout.shipping_price | money_without_currency }}
+  });
+</script>
+```
+
+<Info>
+  **Order status scripts**: Available in **Settings → Checkout** on Shopify Plus or certain themes.
+</Info>
+
+---
+
+## Track Product Views
+
+Add this in **theme.liquid** to track product page visits:
+
+```html
+{% if template == 'product' %}
+<script>
+  if (window.grain) {
+    grain.track('product_viewed', {
+      product_id: '{{ product.id }}',
+      product_title: '{{ product.title }}',
+      price: {{ product.price | money_without_currency }},
+      vendor: '{{ product.vendor }}',
+      available: {{ product.available }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+## Track Search
+
+```html
+{% if template == 'search' %}
+<script>
+  if (window.grain) {
+    grain.track('search_performed', {
+      query: '{{ search.terms }}',
+      results_count: {{ search.results.size }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+---
+
+## Test Your Integration
+
+1. Open your store in an **incognito/private window**
+2. Browse a product, add to cart, go to checkout
+3. Open browser console (F12 → Console)
+4. Type `window.grain` — you should see the Grain object
+5. Check your [Grain dashboard](https://grainql.com/dashboard) for events
+
+<Tip>
+  **Debug mode**: Temporarily add `debug: true` to see console logs:
+  ```javascript
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    debug: true // Remove before going live!
+  });
+  ```
+</Tip>
+
+---
+
+## Troubleshooting
+
+### Code Not Working
+
+- Check for typos in your tenant ID
+- Clear cache (Ctrl+Shift+R / Cmd+Shift+R)
+- Check browser console for errors (F12)
+- Verify code is before `</head>` or `</body>` tags
+
+### Events Not in Dashboard
+
+- Wait 1-2 minutes (slight delay is normal)
+- Check that `window.grain` exists in console
+- Verify tenant ID matches your dashboard
+- Make sure you saved the theme file
+
+### Theme Broke
+
+- Revert to backup: **Themes → Actions → Unpublish**, then publish your backup
+- Double-check you didn't delete any Liquid tags (`{{ }}` or `{% %}`)
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
+    Analyze customer journeys from landing to purchase
+  </Card>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    Best practices for e-commerce analytics
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    A/B test pricing, messaging, and layouts
+  </Card>
+  <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
+    Build custom reports
+  </Card>
+</CardGroup>
+
+<Tip>
+  **Need help?** Chat with us at [grainql.com](https://grainql.com) or email [support@grainql.com](mailto:support@grainql.com).
+</Tip>
+

@@ -1,167 +1,121 @@
 ---
 title: "Quick Start"
-description: "Get up and running with Grain Analytics in 5 minutes"
+description: "Choose your platform and get started in 5 minutes"
 ---
 
-## Get Your Tenant ID
+<Note>
+  **Looking for a specific platform?** We've created dedicated quick start guides for each platform to make your setup easier.
+</Note>
 
-Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com). This is the alias shown on your dashboard (not the UUID) and identifies your application in the Grain platform.
+## Choose Your Platform
 
-<Steps>
-  <Step title="Install the SDK">
-    Install Grain Analytics using npm, yarn, or pnpm:
+Pick the guide that matches what you're building:
 
-    ```bash
-    npm install @grainql/analytics-web
-    ```
-  </Step>
-
-  <Step title="Initialize the SDK">
-    Create a Grain client with your tenant ID:
-
-    ```typescript
-    import { createGrainAnalytics } from '@grainql/analytics-web';
-
-    const grain = createGrainAnalytics({
-      tenantId: 'your-tenant-id'
-    });
-    ```
-
-    <Note>
-      This is the simplest setup with no authentication. For production apps, check out [authentication options](/authentication).
-    </Note>
-  </Step>
-
-  <Step title="Track Your First Event">
-    Track user actions to understand behavior:
-
-    ```typescript
-    // Track a page view
-    grain.track('page_viewed', {
-      page: '/home'
-    });
-
-    // Track a button click
-    grain.track('button_clicked', {
-      button_name: 'signup',
-      location: 'header'
-    });
-    ```
-
-    **What's happening here?** The `track` method sends an event with a name and optional properties. Events are batched automatically and sent every 5 seconds for efficiency.
-  </Step>
-
-  <Step title="Use Remote Configuration">
-    Get configuration values to control your app:
-
-    ```typescript
-    // Set defaults for instant access
-    const grain = createGrainAnalytics({
-      tenantId: 'your-tenant-id',
-      defaultConfigurations: {
-        hero_text: 'Welcome!'
-      }
-    });
-
-    // Get config value (instant, from cache or defaults)
-    const heroText = grain.getConfig('hero_text');
-    console.log(heroText); // "Welcome!"
-    ```
-
-    **Cache-first strategy**: `getConfig` returns cached values instantly. In the background, fresh values are fetched from the API and your app updates automatically.
-  </Step>
-</Steps>
-
-## React Quick Start
-
-Using React? The SDK includes hooks for a better experience:
-
-```typescript
-import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
-
-function App() {
-  return (
-    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
-      <HomePage />
-    </GrainProvider>
-  );
-}
-
-function HomePage() {
-  const { value: heroText } = useConfig('hero_text');
-  const track = useTrack();
-
-  return (
-    <div>
-      <h1>{heroText || 'Welcome!'}</h1>
-      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
-        Get Started
-      </button>
-    </div>
-  );
-}
-```
-
-**Why hooks?** They eliminate boilerplate, handle re-renders automatically, and provide a React-friendly API. Learn more in the [React Integration](/react/overview) guide.
-
-## Understanding Events
-
-Events represent actions users take in your app. Each event has:
-
-- **Event name**: What happened (e.g., 'button_clicked', 'purchase_completed')
-- **Properties**: Additional context (e.g., button_name, price, product_id)
-- **User ID**: Who performed the action (optional, but recommended)
-
-```typescript
-// Set a user ID for all events
-grain.setUserId('user_123');
-
-// Now all events include this user ID
-grain.track('feature_used', {
-  feature_name: 'export_data'
-});
-```
-
-## Understanding Remote Config
-
-Remote configuration lets you change your app's behavior without deploying code. Common uses:
-
-- **Feature flags**: Turn features on/off remotely
-- **A/B testing**: Show different content to different users
-- **Personalization**: Display user-specific messages
-
-Set up configurations in the [Grain dashboard](https://grainql.com/dashboard), then access them in your app:
-
-```typescript
-// Check if a feature is enabled
-const isNewUIEnabled = grain.getConfig('new_ui_enabled');
-
-if (isNewUIEnabled === 'true') {
-  // Show new UI
-} else {
-  // Show old UI
-}
-```
-
-## Next Steps
-
-Now that you have the basics, explore these topics:
+### For Developers
 
 <CardGroup cols={2}>
-  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
-    Learn about batching, flushing, and best practices
+  <Card
+    title="React"
+    icon="react"
+    href="/quickstart/react"
+  >
+    Hooks-based integration for React apps
   </Card>
-  <Card title="User Identification" icon="user" href="/core/user-identification">
-    Track users across sessions
+  <Card
+    title="Next.js"
+    icon="N"
+    href="/quickstart/nextjs"
+  >
+    App Router and Pages Router examples
   </Card>
-  <Card title="Remote Configuration" icon="sliders" href="/core/remote-config">
-    Master cache-first configuration
+  <Card
+    title="Vanilla JavaScript"
+    icon="js"
+    href="/quickstart/vanilla-js"
+  >
+    Works with Vue, Svelte, Angular, or no framework
   </Card>
-  <Card title="React Hooks" icon="react" href="/react/overview">
-    Integrate with React apps
+  <Card
+    title="CDN / Script Tag"
+    icon="globe"
+    href="/quickstart/cdn"
+  >
+    No build step required—just add a script tag
+  </Card>
+  <Card
+    title="Node.js / Backend"
+    icon="server"
+    href="/quickstart/nodejs"
+  >
+    Track server-side events and API calls
   </Card>
 </CardGroup>
 
-<Warning>
-  **Important**: For production apps, use proper [authentication](/authentication) to secure your analytics and configurations.
-</Warning>
+### No-Code Integrations
+
+<CardGroup cols={3}>
+  <Card
+    title="Google Tag Manager"
+    icon="tags"
+    href="/integrations/gtm"
+  >
+    Add via GTM—no coding required
+  </Card>
+  <Card
+    title="Shopify"
+    icon="shopping-bag"
+    href="/integrations/shopify"
+  >
+    Track your entire customer journey
+  </Card>
+  <Card
+    title="WordPress"
+    icon="wordpress"
+    href="/integrations/wordpress"
+  >
+    Simple plugin or theme setup
+  </Card>
+</CardGroup>
+
+---
+
+## Not Sure Which Guide to Use?
+
+Here's a quick decision tree:
+
+**Are you writing code?**
+- **Yes** → Continue below
+- **No** → Check out [Google Tag Manager](/integrations/gtm), [Shopify](/integrations/shopify), or [WordPress](/integrations/wordpress)
+
+**What framework are you using?**
+- **React** → [React Quick Start](/quickstart/react)
+- **Next.js** → [Next.js Quick Start](/quickstart/nextjs)
+- **Vue, Svelte, Angular** → [Vanilla JS Quick Start](/quickstart/vanilla-js)
+- **None / Plain HTML** → [CDN Quick Start](/quickstart/cdn)
+- **Backend / Server** → [Node.js Quick Start](/quickstart/nodejs)
+
+---
+
+## What's in Each Guide?
+
+Each platform guide includes:
+
+- **Installation steps** specific to that platform
+- **Code examples** you can copy and paste
+- **Best practices** for that environment
+- **Common patterns** and pitfalls to avoid
+
+All guides take about 5 minutes to complete.
+
+---
+
+## Need Help Choosing?
+
+<CardGroup cols={2}>
+  <Card title="Live Chat" icon="message" href="https://grainql.com">
+    Chat with us (bottom right corner)
+  </Card>
+  <Card title="Email Support" icon="envelope" href="mailto:support@grainql.com">
+    Reach out to support@grainql.com
+  </Card>
+</CardGroup>

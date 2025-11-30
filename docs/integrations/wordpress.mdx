@@ -1,0 +1,273 @@
+---
+title: "WordPress"
+description: "Add Grain Analytics to WordPress—no plugins, no bloat"
+---
+
+Most WordPress analytics plugins are slow and bloated. Grain is different: 6 KB, fast, and privacy-first.
+
+<Warning>
+  **Use a child theme!** If you edit your theme directly, updates will overwrite your changes. Either use a child theme or the header/footer plugin method below.
+</Warning>
+
+## What You'll Need
+
+- Admin access to WordPress
+- Your Grain tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
+- 10 minutes
+
+---
+
+## Method 1: Header/Footer Plugin (Recommended)
+
+The safest method—no theme editing required.
+
+### Install the Plugin
+
+1. Go to **Plugins → Add New**
+2. Search for "Insert Headers and Footers"
+3. Click **Install Now** → **Activate**
+
+### Add Grain Analytics
+
+1. Go to **Settings → Insert Headers and Footers**
+2. In **Scripts in Header**, paste:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  // Track page views
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    title: document.title
+  });
+</script>
+```
+
+3. Click **Save**
+
+Done! Grain is now tracking your site. 🎉
+
+<Note>
+  **Alternative plugins**: "WP Code" or "Simple Custom CSS and JS" work great too!
+</Note>
+
+---
+
+## Method 2: Functions.php (Advanced)
+
+If you're using a child theme, add this to `functions.php`:
+
+```php
+<?php
+function grain_analytics_header() {
+  $tenant_id = 'your-tenant-id'; // Replace with your actual tenant ID
+  ?>
+  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script>
+    window.grain = Grain.createGrainAnalytics({
+      tenantId: '<?php echo esc_js($tenant_id); ?>'
+    });
+    
+    grain.track('page_viewed', {
+      page: window.location.pathname,
+      title: document.title,
+      post_type: '<?php echo get_post_type(); ?>',
+      post_id: <?php echo get_the_ID(); ?>
+    });
+  </script>
+  <?php
+}
+add_action('wp_head', 'grain_analytics_header');
+?>
+```
+
+<Tip>
+  **Using a child theme?** Perfect! Add this to your child theme's `functions.php` to keep it safe from updates.
+</Tip>
+
+---
+
+## Track Blog Posts
+
+Track which posts people read:
+
+```php
+<?php if (is_single()) : ?>
+<script>
+  if (window.grain) {
+    grain.track('blog_post_viewed', {
+      post_id: <?php echo get_the_ID(); ?>,
+      post_title: '<?php echo esc_js(get_the_title()); ?>',
+      author: '<?php echo esc_js(get_the_author()); ?>',
+      categories: <?php echo json_encode(wp_get_post_categories(get_the_ID(), array('fields' => 'names'))); ?>
+    });
+  }
+</script>
+<?php endif; ?>
+```
+
+## Track Form Submissions
+
+For Contact Form 7:
+
+```javascript
+document.addEventListener('wpcf7mailsent', function(event) {
+  if (window.grain) {
+    grain.track('contact_form_submitted', {
+      form_id: event.detail.contactFormId
+    });
+  }
+});
+```
+
+## Track Search Queries
+
+```php
+<?php if (is_search()) : ?>
+<script>
+  if (window.grain) {
+    grain.track('search_performed', {
+      query: '<?php echo esc_js(get_search_query()); ?>',
+      results_count: <?php echo $wp_query->found_posts; ?>
+    });
+  }
+</script>
+<?php endif; ?>
+```
+
+## Track Comments
+
+```php
+function grain_track_comment() {
+  ?>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const commentForm = document.getElementById('commentform');
+      if (commentForm && window.grain) {
+        commentForm.addEventListener('submit', function() {
+          grain.track('comment_submitted', {
+            post_id: <?php echo get_the_ID(); ?>
+          });
+        });
+      }
+    });
+  </script>
+  <?php
+}
+add_action('comment_form_after', 'grain_track_comment');
+```
+
+---
+
+## WooCommerce Integration
+
+If you run a WooCommerce store:
+
+### Track Product Views
+
+```php
+function grain_track_product_view() {
+  if (!is_product()) return;
+  global $product;
+  ?>
+  <script>
+    if (window.grain) {
+      grain.track('product_viewed', {
+        product_id: <?php echo $product->get_id(); ?>,
+        product_name: '<?php echo esc_js($product->get_name()); ?>',
+        price: <?php echo $product->get_price(); ?>
+      });
+    }
+  </script>
+  <?php
+}
+add_action('wp_footer', 'grain_track_product_view');
+```
+
+### Track Add to Cart
+
+```php
+add_action('woocommerce_add_to_cart', function($cart_item_key, $product_id) {
+  ?>
+  <script>
+    if (window.grain) {
+      grain.track('product_added_to_cart', {
+        product_id: <?php echo $product_id; ?>
+      });
+    }
+  </script>
+  <?php
+}, 10, 2);
+```
+
+---
+
+## Test Your Integration
+
+1. Open your site in **incognito/private window**
+2. Open browser console (F12 → Console)
+3. Type `window.grain` — you should see the Grain object
+4. Navigate a few pages
+5. Check your [Grain dashboard](https://grainql.com/dashboard)
+
+<Tip>
+  **Debug mode**: Add `debug: true` temporarily to see logs:
+  ```javascript
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    debug: true // Remove before going live!
+  });
+  ```
+</Tip>
+
+---
+
+## Troubleshooting
+
+### Script Not Loading
+
+- Check PHP syntax (missing semicolons or quotes)
+- Clear cache (if using a cache plugin)
+- Check browser console for errors (F12)
+- Verify code is in `<head>` section
+
+### Events Not in Dashboard
+
+- Wait 1-2 minutes (slight delay is normal)
+- Check that `window.grain` exists in console
+- Verify tenant ID is correct
+- Make sure you're not blocking analytics with browser extensions
+
+### Theme Broke
+
+- **Revert immediately**: Go to **Appearance → Themes**, activate a default theme
+- Fix PHP syntax errors (check for missing `?>` or unclosed strings)
+- Use FTP to restore original file from backup
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
+    Analyze user journeys through your content
+  </Card>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn event tracking best practices
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    A/B test layouts and CTAs
+  </Card>
+  <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
+    Build custom dashboards
+  </Card>
+</CardGroup>
+
+<Tip>
+  **Need help?** Chat with us at [grainql.com](https://grainql.com) or email [support@grainql.com](mailto:support@grainql.com).
+</Tip>
+

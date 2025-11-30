@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.4] - 2025-11-30
+
+### Fixed
+- **UTM Parameter Enrichment**: Fixed critical issue where custom events (signup, purchase, etc.) were not automatically enriched with UTM parameters and attribution data
+- **Matrix Analysis Attribution**: Matrices analyzing custom events by utm_source/utm_campaign now properly show attribution data instead of "Unknown"
+- **Automatic Property Propagation**: All custom events now automatically include session-level UTM parameters, first-touch attribution, and session_id when consent is granted
+- **Event Tracking Consistency**: System events continue to manage their own properties while custom events benefit from automatic enrichment
+
+### Technical Details
+- Enhanced `formatEvent()` method to automatically enrich all non-system events with session attribution properties
+- UTM parameters (utm_source, utm_medium, utm_campaign, utm_term, utm_content) now propagate from page_view to all subsequent events
+- First-touch attribution properties (first_touch_source, first_touch_medium, first_touch_campaign, first_touch_referrer_category) automatically added
+- Session ID automatically included for event correlation
+- Backend matrix dimension extractors already properly configured to read these properties from ClickHouse
+
 ## [2.5.3] - 2025-11-25
 
 ### Fixed

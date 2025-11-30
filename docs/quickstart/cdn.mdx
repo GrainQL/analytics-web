@@ -1,0 +1,269 @@
+---
+title: "CDN / Script Tag Quick Start"
+description: "Add Grain Analytics without npm or a build step"
+---
+
+Perfect for landing pages, static sites, or quick prototypes. No build tools required—just add a script tag.
+
+<Note>
+  **Building an app with a bundler?** Try [Vanilla JS Quick Start](/quickstart/vanilla-js) or [React Quick Start](/quickstart/react) for better tree-shaking and bundle optimization.
+</Note>
+
+## Add the Script Tag
+
+Add this to your HTML `<head>`:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id'
+  });
+  
+  // Track page view
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    title: document.title
+  });
+</script>
+```
+
+Replace `'your-tenant-id'` with the alias from your [dashboard](https://grainql.com/dashboard).
+
+That's it! Grain is now loaded and tracking.
+
+## Complete HTML Example
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Landing Page</title>
+  
+  <!-- Grain Analytics -->
+  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script>
+    window.grain = Grain.createGrainAnalytics({
+      tenantId: 'your-tenant-id',
+      defaultConfigurations: {
+        hero_text: 'Welcome!',
+        show_banner: 'false'
+      }
+    });
+    
+    // Track page view
+    grain.track('page_viewed', {
+      page: window.location.pathname
+    });
+  </script>
+</head>
+<body>
+  <h1 id="hero-text">Welcome!</h1>
+  
+  <button id="signup-btn">Get Started</button>
+  
+  <script>
+    // Use remote config to update content
+    document.addEventListener('DOMContentLoaded', function() {
+      const heroText = grain.getConfig('hero_text');
+      document.getElementById('hero-text').textContent = heroText;
+      
+      // Track button clicks
+      document.getElementById('signup-btn').addEventListener('click', function() {
+        grain.track('signup_clicked', {
+          location: 'hero'
+        });
+        
+        // Your signup logic...
+        window.location.href = '/signup';
+      });
+    });
+    
+    // Update UI when fresh config loads
+    grain.onConfigsUpdated(function() {
+      const newHeroText = grain.getConfig('hero_text');
+      document.getElementById('hero-text').textContent = newHeroText;
+    });
+  </script>
+</body>
+</html>
+```
+
+## Track Form Submissions
+
+```html
+<form id="contact-form">
+  <input type="text" name="name" required>
+  <input type="email" name="email" required>
+  <button type="submit">Submit</button>
+</form>
+
+<script>
+  document.getElementById('contact-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Track the submission
+    grain.track('form_submitted', {
+      form_name: 'contact',
+      page: window.location.pathname
+    });
+    
+    // Your form submission logic...
+  });
+</script>
+```
+
+## Track Link Clicks
+
+```html
+<a href="/pricing" id="pricing-link">View Pricing</a>
+
+<script>
+  document.getElementById('pricing-link').addEventListener('click', function() {
+    grain.track('link_clicked', {
+      link_text: 'View Pricing',
+      destination: '/pricing'
+    });
+  });
+</script>
+```
+
+## Use Remote Configuration
+
+Control your page content without redeploying:
+
+```html
+<div id="promo-banner" style="display: none;">
+  <p id="promo-text">Special offer!</p>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Check if banner should show
+    const showBanner = grain.getConfig('show_promo_banner');
+    const bannerText = grain.getConfig('promo_banner_text');
+    
+    if (showBanner === 'true') {
+      document.getElementById('promo-banner').style.display = 'block';
+      document.getElementById('promo-text').textContent = bannerText || 'Special offer!';
+    }
+  });
+</script>
+```
+
+Now you can toggle the banner on/off from your [dashboard](https://grainql.com/dashboard) without touching your code!
+
+## Identify Users
+
+Track logged-in users:
+
+```html
+<script>
+  // When user logs in
+  function handleLogin(userId, email, name) {
+    grain.identify(userId, {
+      email: email,
+      name: name,
+      signup_date: new Date().toISOString()
+    });
+    
+    // Track login event
+    grain.track('user_logged_in', {
+      method: 'email'
+    });
+  }
+</script>
+```
+
+## Track Page Views on Navigation
+
+For multi-page sites, the script automatically tracks each page load. For single-page apps:
+
+```html
+<script>
+  // Track browser back/forward
+  window.addEventListener('popstate', function() {
+    grain.track('page_viewed', {
+      page: window.location.pathname
+    });
+  });
+  
+  // Track custom navigation
+  function navigateTo(url) {
+    history.pushState(null, '', url);
+    
+    grain.track('page_viewed', {
+      page: url
+    });
+    
+    // Your navigation logic...
+  }
+</script>
+```
+
+## Version Pinning
+
+By default, `unpkg.com` serves the latest version. For production, pin to a specific version:
+
+```html
+<!-- Pin to a specific version -->
+<script src="https://unpkg.com/@grainql/analytics-web@1.0.0/dist/index.global.js"></script>
+```
+
+Check the [npm package](https://www.npmjs.com/package/@grainql/analytics-web) for available versions.
+
+## Alternative CDNs
+
+You can also use these CDNs:
+
+```html
+<!-- jsDelivr -->
+<script src="https://cdn.jsdelivr.net/npm/@grainql/analytics-web/dist/index.global.js"></script>
+
+<!-- unpkg (default) -->
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+```
+
+## Performance Tips
+
+<Check>
+  **Do**: Place Grain in the `<head>` for early initialization
+</Check>
+
+<Check>
+  **Do**: Use `defer` or `async` if you need to delay loading:
+  ```html
+  <script defer src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  ```
+</Check>
+
+<Check>
+  **Do**: Pin to a specific version in production
+</Check>
+
+<Warning>
+  **Don't**: Load Grain multiple times—once per page is enough
+</Warning>
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Core API Reference" icon="book" href="/api-reference/core-methods">
+    See all available methods and options
+  </Card>
+  <Card title="Event Tracking Guide" icon="chart-line" href="/core/event-tracking">
+    Learn what to track and best practices
+  </Card>
+  <Card title="Remote Config Guide" icon="sliders" href="/core/remote-config">
+    Master configuration and feature flags
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Secure your analytics with Auth0 or JWT
+  </Card>
+</CardGroup>
+
+<Tip>
+  **Using Google Tag Manager instead?** Check out the [GTM Integration Guide](/integrations/gtm) for a no-code setup.
+</Tip>
+

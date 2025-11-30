@@ -13,6 +13,7 @@ import {
   parseUTMParameters,
   getOrCreateFirstTouchAttribution,
   getSessionUTMParameters,
+  getFirstTouchAttribution,
   type ReferrerCategory,
   type UTMParameters,
   type FirstTouchAttribution,
@@ -705,10 +706,47 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   private formatEvent(event: GrainEvent): EventPayload {
+    const properties = event.properties || {};
+    
+    // Auto-enrich events with session-level attribution properties
+    // This ensures UTM parameters and attribution data are available on ALL events, not just page_view
+    if (!this.config.disableAutoProperties && typeof window !== 'undefined') {
+      const hasConsent = this.consentManager.hasConsent('analytics');
+      
+      // Only enrich if not a system event (they handle their own properties)
+      const isSystemEvent = event.eventName.startsWith('_grain_');
+      
+      if (!isSystemEvent && hasConsent) {
+        // Get session UTM parameters
+        const sessionUTMs = getSessionUTMParameters();
+        if (sessionUTMs) {
+          if (sessionUTMs.utm_source) properties.utm_source = sessionUTMs.utm_source;
+          if (sessionUTMs.utm_medium) properties.utm_medium = sessionUTMs.utm_medium;
+          if (sessionUTMs.utm_campaign) properties.utm_campaign = sessionUTMs.utm_campaign;
+          if (sessionUTMs.utm_term) properties.utm_term = sessionUTMs.utm_term;
+          if (sessionUTMs.utm_content) properties.utm_content = sessionUTMs.utm_content;
+        }
+        
+        // Get first-touch attribution
+        const firstTouch = getFirstTouchAttribution(this.config.tenantId);
+        if (firstTouch) {
+          properties.first_touch_source = firstTouch.source;
+          properties.first_touch_medium = firstTouch.medium;
+          properties.first_touch_campaign = firstTouch.campaign;
+          properties.first_touch_referrer_category = firstTouch.referrer_category;
+        }
+        
+        // Add session ID if not already present
+        if (!properties.session_id) {
+          properties.session_id = this.getSessionId();
+        }
+      }
+    }
+    
     return {
       eventName: event.eventName,
       userId: event.userId || this.getEffectiveUserIdInternal(),
-      properties: event.properties || {},
+      properties,
     };
   }
 

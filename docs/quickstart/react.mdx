@@ -1,0 +1,239 @@
+---
+title: "React Quick Start"
+description: "Get Grain Analytics running in your React app in 5 minutes"
+---
+
+<Note>
+  **Using Next.js?** Check out the [Next.js Quick Start](/quickstart/nextjs) for App Router and Pages Router examples.
+</Note>
+
+## Install the Package
+
+```bash npm
+npm install @grainql/analytics-web
+```
+
+```bash yarn
+yarn add @grainql/analytics-web
+```
+
+```bash pnpm
+pnpm add @grainql/analytics-web
+```
+
+## Wrap Your App
+
+Add the `GrainProvider` at the top of your component tree:
+
+```tsx
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <YourApp />
+    </GrainProvider>
+  );
+}
+```
+
+Replace `'your-tenant-id'` with the alias from your [dashboard](https://grainql.com/dashboard) (not the UUID).
+
+<Tip>
+  **Pro tip**: Store your tenant ID in an environment variable like `VITE_GRAIN_TENANT_ID` or `REACT_APP_GRAIN_TENANT_ID`.
+</Tip>
+
+## Track Events
+
+Use the `useTrack` hook anywhere in your app:
+
+```tsx
+import { useTrack } from '@grainql/analytics-web/react';
+
+function SignupButton() {
+  const track = useTrack();
+  
+  const handleClick = () => {
+    track('signup_clicked', {
+      location: 'hero',
+      button_text: 'Get Started'
+    });
+    
+    // Your signup logic here
+  };
+  
+  return <button onClick={handleClick}>Get Started</button>;
+}
+```
+
+Events are automatically batched and sent every few seconds. No manual flushing needed.
+
+## Use Remote Config
+
+Access configuration values with `useConfig`:
+
+```tsx
+import { useConfig } from '@grainql/analytics-web/react';
+
+function Hero() {
+  const { value: heroText, loading } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      {loading && <span>Loading fresh content...</span>}
+    </div>
+  );
+}
+```
+
+The component automatically re-renders when config updates. Default values load instantly from cache or the `defaultConfigurations` you provided.
+
+<Info>
+  **How it works**: Config uses a cache-first strategy. Your UI loads instantly with cached values, while fresh data loads in the background.
+</Info>
+
+## Set User Identity
+
+Identify users to track them across sessions:
+
+```tsx
+import { useGrainAnalytics } from '@grainql/analytics-web/react';
+
+function LoginForm() {
+  const { identify } = useGrainAnalytics();
+  
+  const handleLogin = async (email, password) => {
+    const user = await yourLoginFunction(email, password);
+    
+    // Associate all future events with this user
+    identify(user.id, {
+      email: user.email,
+      name: user.name,
+      plan: user.plan
+    });
+  };
+  
+  return <form onSubmit={handleLogin}>...</form>;
+}
+```
+
+## Complete Example
+
+Here's a small app that puts it all together:
+
+```tsx
+import { 
+  GrainProvider, 
+  useTrack, 
+  useConfig,
+  useGrainAnalytics 
+} from '@grainql/analytics-web/react';
+
+// 1. Wrap your app
+function App() {
+  return (
+    <GrainProvider 
+      config={{ 
+        tenantId: 'your-tenant-id',
+        defaultConfigurations: {
+          hero_text: 'Welcome to Our App',
+          feature_enabled: 'false'
+        }
+      }}
+    >
+      <HomePage />
+    </GrainProvider>
+  );
+}
+
+// 2. Use hooks in components
+function HomePage() {
+  const track = useTrack();
+  const { value: heroText } = useConfig('hero_text');
+  const { value: featureEnabled } = useConfig('feature_enabled');
+  const { identify } = useGrainAnalytics();
+  
+  const handleSignup = (userId: string) => {
+    // Identify the user
+    identify(userId, { signup_date: new Date().toISOString() });
+    
+    // Track the event
+    track('signup_completed', {
+      method: 'email'
+    });
+  };
+  
+  return (
+    <div>
+      <h1>{heroText}</h1>
+      
+      {featureEnabled === 'true' && (
+        <NewFeature />
+      )}
+      
+      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+## Track Page Views
+
+For single-page apps, track route changes manually:
+
+```tsx
+import { useEffect } from 'react';
+import { useTrack } from '@grainql/analytics-web/react';
+import { useLocation } from 'react-router-dom'; // or your router
+
+function PageViewTracker() {
+  const track = useTrack();
+  const location = useLocation();
+  
+  useEffect(() => {
+    track('page_viewed', {
+      page: location.pathname,
+      title: document.title
+    });
+  }, [location.pathname, track]);
+  
+  return null; // This component just tracks
+}
+
+// Add to your app
+function App() {
+  return (
+    <GrainProvider config={{ tenantId: 'your-tenant-id' }}>
+      <Router>
+        <PageViewTracker />
+        <Routes>...</Routes>
+      </Router>
+    </GrainProvider>
+  );
+}
+```
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="React Hooks Reference" icon="react" href="/api-reference/react-hooks">
+    See all available hooks and their options
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Learn about tracking users across sessions
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Secure your analytics with Auth0 or JWT
+  </Card>
+  <Card title="Event Best Practices" icon="chart-line" href="/core/event-tracking">
+    Learn what to track and how to structure events
+  </Card>
+</CardGroup>
+
+<Tip>
+  **TypeScript users**: All hooks are fully typed. You'll get autocomplete and type checking out of the box.
+</Tip>
+

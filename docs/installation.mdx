@@ -1,11 +1,30 @@
 ---
 title: "Installation"
-description: "Install Grain Analytics SDK in your project"
+description: "Install Grain Analytics in your project"
+---
+
+<Note>
+  **Looking for a quick start guide?** Check out our [platform-specific quick starts](/quickstart) for step-by-step setup instructions.
+</Note>
+
+## Choose Your Installation Method
+
+Pick the method that fits your setup:
+
+<CardGroup cols={2}>
+  <Card title="npm / yarn / pnpm" icon="box" href="#package-manager">
+    For apps with a build step
+  </Card>
+  <Card title="CDN" icon="globe" href="#cdn-browser">
+    For static sites or quick prototyping
+  </Card>
+</CardGroup>
+
 ---
 
 ## Package Manager
 
-Install Grain Analytics using your preferred package manager:
+Install via npm, yarn, or pnpm:
 
 <CodeGroup>
 
@@ -23,15 +42,31 @@ pnpm add @grainql/analytics-web
 
 </CodeGroup>
 
-The package includes everything you need:
+The package includes:
 - Core analytics SDK
 - Remote configuration
 - React hooks (optional)
-- TypeScript definitions
+- Full TypeScript support
+
+### Import and Use
+
+```typescript
+// Vanilla JS or any framework
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+// React hooks
+import { GrainProvider, useTrack, useConfig } from '@grainql/analytics-web/react';
+```
+
+<Tip>
+  **Next steps**: Check out the [React Quick Start](/quickstart/react) or [Vanilla JS Quick Start](/quickstart/vanilla-js) for complete examples.
+</Tip>
+
+---
 
 ## CDN (Browser)
 
-For quick prototyping or simple websites, use the CDN version:
+For sites without a build step, use the CDN version:
 
 ```html
 <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
@@ -44,47 +79,74 @@ For quick prototyping or simple websites, use the CDN version:
 </script>
 ```
 
-**When to use CDN**: Perfect for landing pages, static sites, or quick demos. For production apps, use the npm package for better tree-shaking and bundle optimization.
+### Version Pinning
 
-## Package Structure
+For production, pin to a specific version:
 
-The SDK provides multiple entry points for different use cases:
-
-### Core SDK
-
-```typescript
-import { createGrainAnalytics, GrainAnalytics } from '@grainql/analytics-web';
+```html
+<script src="https://unpkg.com/@grainql/analytics-web@1.0.0/dist/index.global.js"></script>
 ```
 
-This is the main SDK for vanilla JavaScript, TypeScript, or any framework.
+Check the [npm package](https://www.npmjs.com/package/@grainql/analytics-web) for available versions.
 
-### React Hooks
+### Alternative CDNs
 
-```typescript
-import { GrainProvider, useConfig, useTrack } from '@grainql/analytics-web/react';
+```html
+<!-- jsDelivr -->
+<script src="https://cdn.jsdelivr.net/npm/@grainql/analytics-web/dist/index.global.js"></script>
+
+<!-- unpkg -->
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
 ```
 
-React-specific hooks and components. React 16.8+ is required (peer dependency).
+<Tip>
+  **Next steps**: See the [CDN Quick Start](/quickstart/cdn) for complete examples.
+</Tip>
+
+---
+
+## Platform Support
+
+Grain Analytics works across multiple environments:
+
+### Browser
+- ✅ Chrome, Firefox, Safari, Edge
+- ✅ Modern ES6+ and legacy ES5
+- ✅ Module bundlers (Vite, Webpack, esbuild)
+
+### Frameworks
+- ✅ React (hooks included)
+- ✅ Next.js (App Router & Pages Router)
+- ✅ Vue, Svelte, Angular
+- ✅ Vanilla JavaScript
+
+### Server
+- ✅ Node.js 14+
+- ✅ Serverless (AWS Lambda, Vercel, Netlify)
+- ✅ React Native
+
+---
 
 ## Build Formats
 
-The package includes multiple build formats to support different environments:
+The package includes multiple formats:
 
-- **ESM** (`dist/index.mjs`) - For modern bundlers like Vite, Webpack 5, esbuild
-- **CommonJS** (`dist/index.js`) - For Node.js and older bundlers
-- **IIFE** (`dist/index.global.js`) - For browsers via CDN
-- **TypeScript** (`dist/index.d.ts`) - Type definitions
+- **ESM** (`dist/index.mjs`) — Modern bundlers
+- **CommonJS** (`dist/index.js`) — Node.js
+- **IIFE** (`dist/index.global.js`) — Browsers via CDN
+- **TypeScript** (`dist/index.d.ts`) — Type definitions
 
-Your bundler automatically picks the right format based on your environment.
+Your bundler automatically picks the right format.
+
+---
 
 ## TypeScript Support
 
-The SDK is written in TypeScript and includes full type definitions:
+Full TypeScript support out of the box—no additional packages needed:
 
 ```typescript
 import { createGrainAnalytics, GrainConfig, GrainEvent } from '@grainql/analytics-web';
 
-// Full type safety and autocomplete
 const config: GrainConfig = {
   tenantId: 'your-tenant-id',
   authStrategy: 'NONE',
@@ -94,49 +156,23 @@ const config: GrainConfig = {
 const grain = createGrainAnalytics(config);
 ```
 
-No additional `@types` packages needed!
+---
 
-## React Native
+## Bundle Size
 
-The SDK works in React Native with some considerations:
+Grain is designed to be lightweight:
 
-```typescript
-import { GrainAnalytics } from '@grainql/analytics-web';
+- **Core SDK**: ~6 KB (gzipped)
+- **With React Hooks**: ~8 KB (gzipped)
+- **Zero dependencies**: No bloat
 
-const grain = new GrainAnalytics({
-  tenantId: 'your-tenant-id',
-  // Beacon API not available in React Native
-  // Events are sent via standard fetch
-});
-```
+The SDK is tree-shakeable—you only bundle what you use.
 
-**Note**: The Beacon API (used for page exit events) is not available in React Native, but all other features work normally.
-
-## Node.js
-
-Use Grain Analytics on the server side for backend tracking:
-
-```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
-
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  authStrategy: 'SERVER_SIDE',
-  secretKey: process.env.GRAIN_SECRET_KEY
-});
-
-// Track server-side events
-await grain.track('api_request', {
-  endpoint: '/api/users',
-  method: 'POST'
-}, { flush: true }); // Flush immediately in serverless
-```
-
-**Server-side tip**: Use `flush: true` for serverless functions to ensure events are sent before the function terminates.
+---
 
 ## Verify Installation
 
-Test that everything is working:
+Test that everything works:
 
 ```typescript
 import { createGrainAnalytics } from '@grainql/analytics-web';
@@ -150,39 +186,43 @@ grain.track('installation_test', {
   timestamp: new Date().toISOString()
 });
 
-console.log('Grain Analytics initialized successfully!');
+console.log('Grain Analytics initialized!');
 ```
 
-Check your browser console (if debug is enabled) to see batching and sending activity.
+Check your browser console to see batching and sending activity.
 
-## Privacy & GDPR Compliance Setup
+---
 
-Grain Analytics includes built-in GDPR compliance features. Configure privacy settings based on your requirements:
+## Privacy & GDPR
 
-### Consent Management
+Grain includes built-in privacy features:
+
+### Basic Setup
 
 ```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
-
 const grain = createGrainAnalytics({
   tenantId: 'your-tenant-id',
-  // Privacy settings
-  consentMode: 'opt-in',        // 'opt-in' | 'opt-out' | 'disabled'
-  waitForConsent: true,          // Queue events until consent granted
-  enableCookies: true,           // Use cookies for cross-session tracking
-  anonymizeIP: true,             // Anonymize IP addresses
-  cookieOptions: {
-    domain: '.example.com',
-    sameSite: 'lax',
-    secure: true,
-    maxAge: 365 * 24 * 60 * 60, // 365 days
-  },
+  consentMode: 'opt-in',        // Require consent
+  waitForConsent: true,          // Queue events until consent
+  enableCookies: true,           // Use cookies after consent
+  anonymizeIP: true              // Anonymize IP addresses
 });
 ```
 
-**GDPR Compliance**: In opt-in mode without consent, only ephemeral session IDs (stored in JavaScript memory) are used. No cookies, localStorage identifiers, or persistent cross-session tracking occurs until consent is granted. Exceptions apply when users are explicitly identified by your site via `identify()`/`login()` or when using JWT auth (functional/essential purpose).
+### Manage Consent
 
-### Consent Banner (React)
+```typescript
+// Grant consent
+grain.grantConsent(['necessary', 'analytics']);
+
+// Revoke consent
+grain.revokeConsent();
+
+// Check consent
+const hasConsent = grain.hasConsent('analytics');
+```
+
+### React Consent Banner
 
 ```tsx
 import { GrainProvider, ConsentBanner } from '@grainql/analytics-web/react';
@@ -191,13 +231,12 @@ function App() {
   return (
     <GrainProvider config={{ 
       tenantId: 'your-tenant-id',
-      consentMode: 'opt-in',
-      enableCookies: true
+      consentMode: 'opt-in'
     }}>
       <ConsentBanner 
         position="bottom"
         theme="glass"
-        privacyPolicyUrl="https://example.com/privacy"
+        privacyPolicyUrl="/privacy"
       />
       {/* Your app */}
     </GrainProvider>
@@ -205,57 +244,25 @@ function App() {
 }
 ```
 
-### Managing Consent
+<Info>
+  **GDPR Compliance**: In opt-in mode without consent, only ephemeral session IDs are used. No cookies or persistent tracking until consent is granted.
+</Info>
 
-```typescript
-// Grant consent
-grain.grantConsent(['necessary', 'analytics', 'functional']);
+---
 
-// Revoke consent
-grain.revokeConsent();
-
-// Check consent status
-const hasConsent = grain.hasConsent('analytics');
-const consentState = grain.getConsentState();
-```
-
-### React Hooks
-
-```tsx
-import { useConsent, usePrivacyPreferences } from '@grainql/analytics-web/react';
-
-function PrivacySettings() {
-  const { consentState, grantConsent, revokeConsent, hasConsent } = useConsent();
-  const { preferences, updatePreferences, acceptAll, rejectAll } = usePrivacyPreferences();
-
-  return (
-    <div>
-      <button onClick={acceptAll}>Accept All</button>
-      <button onClick={rejectAll}>Reject All</button>
-      <p>Analytics enabled: {hasConsent('analytics') ? 'Yes' : 'No'}</p>
-    </div>
-  );
-}
-```
-
-## Next Steps
+## What's Next?
 
 <CardGroup cols={2}>
-  <Card title="Authentication" icon="key" href="/authentication">
-    Set up authentication for your app
+  <Card title="Quick Start Guides" icon="rocket" href="/quickstart">
+    Platform-specific setup instructions
   </Card>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
-    Start tracking events and using remote config
+  <Card title="Authentication" icon="key" href="/authentication">
+    Set up Auth0 or custom JWT authentication
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/core/event-tracking">
+    Learn about event tracking and remote config
+  </Card>
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Use Grain with React
   </Card>
 </CardGroup>
-
-## Bundle Size
-
-Grain Analytics is designed to be lightweight:
-
-- **Core SDK (gzipped)**: ~6 KB
-- **With React Hooks (gzipped)**: ~8 KB
-- **Zero dependencies**: No bloat from external libraries
-
-The SDK is tree-shakeable, so you only bundle what you use.
-

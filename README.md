@@ -93,7 +93,9 @@ For comprehensive guides, API reference, and examples, visit our documentation:
 
 ### Key Topics
 
-- **[Quick Start Guide](https://docs.grainql.com/quickstart)** - Get started in 5 minutes
+- **[Quick Start Guides](https://docs.grainql.com/quickstart)** - Choose your platform and get started in 5 minutes
+  - [React](https://docs.grainql.com/quickstart/react) | [Next.js](https://docs.grainql.com/quickstart/nextjs) | [Vanilla JS](https://docs.grainql.com/quickstart/vanilla-js) | [CDN](https://docs.grainql.com/quickstart/cdn) | [Node.js](https://docs.grainql.com/quickstart/nodejs)
+- **[No-Code Integrations](https://docs.grainql.com/integrations/gtm)** - GTM, Shopify, WordPress
 - **[Event Tracking](https://docs.grainql.com/core/event-tracking)** - Track user actions
 - **[Remote Configuration](https://docs.grainql.com/core/remote-config)** - Dynamic app control
 - **[React Hooks](https://docs.grainql.com/react/overview)** - React integration

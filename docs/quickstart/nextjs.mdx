@@ -1,0 +1,405 @@
+---
+title: "Next.js Quick Start"
+description: "Integrate Grain Analytics with Next.js App Router or Pages Router"
+---
+
+This guide covers both the App Router (Next.js 13+) and Pages Router (Next.js 12 and earlier).
+
+## Install the Package
+
+```bash npm
+npm install @grainql/analytics-web
+```
+
+```bash yarn
+yarn add @grainql/analytics-web
+```
+
+```bash pnpm
+pnpm add @grainql/analytics-web
+```
+
+## App Router (Next.js 13+)
+
+### Create a Provider Component
+
+The Grain provider uses React Context, so it needs to be a Client Component:
+
+```tsx
+// app/providers.tsx
+'use client';
+
+import { GrainProvider } from '@grainql/analytics-web/react';
+import { ReactNode } from 'react';
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <GrainProvider 
+      config={{ 
+        tenantId: process.env.NEXT_PUBLIC_GRAIN_TENANT_ID!,
+        defaultConfigurations: {
+          hero_text: 'Welcome!'
+        }
+      }}
+    >
+      {children}
+    </GrainProvider>
+  );
+}
+```
+
+### Wrap Your Root Layout
+
+```tsx
+// app/layout.tsx
+import { Providers } from './providers';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+### Add Environment Variable
+
+Create a `.env.local` file:
+
+```bash
+NEXT_PUBLIC_GRAIN_TENANT_ID=your-tenant-id
+```
+
+Replace `your-tenant-id` with the alias from your [dashboard](https://grainql.com/dashboard).
+
+### Use in Components
+
+Now you can use Grain hooks in any Client Component:
+
+```tsx
+// app/page.tsx
+'use client';
+
+import { useTrack, useConfig } from '@grainql/analytics-web/react';
+
+export default function HomePage() {
+  const track = useTrack();
+  const { value: heroText } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+<Note>
+  **Server vs Client Components**: Grain hooks must be used in Client Components (with `'use client'` directive). For Server Components, see the server-side tracking section below.
+</Note>
+
+### Track Page Views
+
+Create a client component to track route changes:
+
+```tsx
+// app/analytics-tracker.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useTrack } from '@grainql/analytics-web/react';
+
+export function AnalyticsTracker() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const track = useTrack();
+  
+  useEffect(() => {
+    track('page_viewed', {
+      page: pathname,
+      search: searchParams.toString(),
+      title: document.title
+    });
+  }, [pathname, searchParams, track]);
+  
+  return null;
+}
+```
+
+Add it to your layout:
+
+```tsx
+// app/layout.tsx
+import { Providers } from './providers';
+import { AnalyticsTracker } from './analytics-tracker';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>
+          <AnalyticsTracker />
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+## Pages Router (Next.js 12)
+
+### Wrap Your App
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from 'next/app';
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <GrainProvider 
+      config={{ 
+        tenantId: process.env.NEXT_PUBLIC_GRAIN_TENANT_ID!,
+        defaultConfigurations: {
+          hero_text: 'Welcome!'
+        }
+      }}
+    >
+      <Component {...pageProps} />
+    </GrainProvider>
+  );
+}
+```
+
+### Add Environment Variable
+
+Create a `.env.local` file:
+
+```bash
+NEXT_PUBLIC_GRAIN_TENANT_ID=your-tenant-id
+```
+
+### Use in Pages
+
+```tsx
+// pages/index.tsx
+import { useTrack, useConfig } from '@grainql/analytics-web/react';
+
+export default function HomePage() {
+  const track = useTrack();
+  const { value: heroText } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+### Track Page Views
+
+Track route changes with Next.js Router:
+
+```tsx
+// pages/_app.tsx
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { GrainProvider } from '@grainql/analytics-web/react';
+import { useTrack } from '@grainql/analytics-web/react';
+
+function AnalyticsTracker() {
+  const router = useRouter();
+  const track = useTrack();
+  
+  useEffect(() => {
+    const handleRouteChange = (url: string) => {
+      track('page_viewed', {
+        page: url,
+        title: document.title
+      });
+    };
+    
+    router.events.on('routeChangeComplete', handleRouteChange);
+    
+    // Track initial page
+    handleRouteChange(router.pathname);
+    
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [router, track]);
+  
+  return null;
+}
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <GrainProvider config={{ tenantId: process.env.NEXT_PUBLIC_GRAIN_TENANT_ID! }}>
+      <AnalyticsTracker />
+      <Component {...pageProps} />
+    </GrainProvider>
+  );
+}
+```
+
+---
+
+## Server-Side Tracking
+
+Track events from API routes or Server Components:
+
+### API Routes
+
+```typescript
+// app/api/checkout/route.ts (App Router)
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  
+  // Track server-side event
+  await grain.track('checkout_completed', {
+    order_id: body.orderId,
+    total: body.total
+  }, { flush: true }); // Flush immediately for serverless
+  
+  return Response.json({ success: true });
+}
+```
+
+<Tip>
+  **Serverless tip**: Use `{ flush: true }` to send events immediately before the function terminates.
+</Tip>
+
+### Server Actions (App Router)
+
+```typescript
+// app/actions.ts
+'use server';
+
+import { createGrainAnalytics } from '@grainql/analytics-web';
+
+const grain = createGrainAnalytics({
+  tenantId: process.env.GRAIN_TENANT_ID!,
+  authStrategy: 'SERVER_SIDE',
+  secretKey: process.env.GRAIN_SECRET_KEY!
+});
+
+export async function submitForm(formData: FormData) {
+  // Your form logic...
+  
+  await grain.track('form_submitted', {
+    form_name: 'contact'
+  }, { flush: true });
+  
+  return { success: true };
+}
+```
+
+---
+
+## Complete Example
+
+Here's a full Next.js App Router example:
+
+```tsx
+// app/providers.tsx
+'use client';
+
+import { GrainProvider } from '@grainql/analytics-web/react';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <GrainProvider config={{ 
+      tenantId: process.env.NEXT_PUBLIC_GRAIN_TENANT_ID!
+    }}>
+      {children}
+    </GrainProvider>
+  );
+}
+```
+
+```tsx
+// app/layout.tsx
+import { Providers } from './providers';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// app/page.tsx
+'use client';
+
+import { useTrack, useConfig } from '@grainql/analytics-web/react';
+
+export default function HomePage() {
+  const track = useTrack();
+  const { value: heroText } = useConfig('hero_text');
+  const { value: ctaText } = useConfig('cta_text');
+  
+  return (
+    <div>
+      <h1>{heroText || 'Welcome to Next.js + Grain'}</h1>
+      <button onClick={() => track('cta_clicked', { location: 'hero' })}>
+        {ctaText || 'Get Started'}
+      </button>
+    </div>
+  );
+}
+```
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="React Hooks Reference" icon="react" href="/api-reference/react-hooks">
+    See all available hooks and options
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Secure your analytics with Auth0 or JWT
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Track users across sessions
+  </Card>
+  <Card title="Server-Side Setup" icon="server" href="/advanced/configuration">
+    Advanced server-side configuration
+  </Card>
+</CardGroup>
+
+<Tip>
+  **Vercel deployment**: All environment variables starting with `NEXT_PUBLIC_` are automatically available in the browser. Keep secret keys (for server-side tracking) private by omitting the `NEXT_PUBLIC_` prefix.
+</Tip>
+

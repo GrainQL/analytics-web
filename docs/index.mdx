@@ -1,125 +1,259 @@
 ---
 title: "Grain Analytics SDK"
-description: "A lightweight, developer-friendly SDK for tracking analytics and managing remote configurations"
+description: "Track analytics and manage remote configurations with a lightweight, developer-friendly SDK"
 ---
 
 ## Welcome to Grain Analytics
 
-Grain Analytics is a modern analytics platform that helps you understand user behavior and dynamically control your application through remote configurations. Our SDK is designed to be simple, powerful, and easy to integrate.
+Grain Analytics helps you understand user behavior and control your app's features remotely—all without sacrificing performance or simplicity.
+
+Whether you're a developer building a React app or a marketer setting up tracking via Google Tag Manager, we've got you covered.
 
 <Note>
-  **New to Grain?** Head over to [grainql.com](https://grainql.com) to create your account and get your tenant identifier (use the alias shown on your dashboard, not the UUID).
+  **New to Grain?** Head to [grainql.com](https://grainql.com) to create your account and grab your tenant ID from the dashboard.
 </Note>
 
-## Why Grain Analytics?
+## What Can You Do with Grain?
 
-Grain Analytics provides two powerful features that work seamlessly together:
+### Track User Behavior
 
-### Analytics Tracking
+Understand how people actually use your app. See where they click, what paths they take, and which features drive engagement.
 
-Track user behavior to understand how people use your application. Grain's analytics engine helps you:
+### Control Features Remotely
 
-- **Understand user journeys** - See how users navigate through your app
-- **Measure engagement** - Track feature usage and user interactions
-- **Make data-driven decisions** - Use real data to improve your product
+Turn features on or off, run A/B tests, and personalize content—all without deploying code.
 
-The SDK handles the complex parts like batching, retries, and reliable delivery, so you can focus on deciding what to track.
+### Own Your Data
 
-### Remote Configuration
+No vendor lock-in. Export your data anytime, query it however you want, and keep full control.
 
-Control your application's behavior without deploying code. Remote configurations let you:
+## Choose Your Path
 
-- **A/B test new features** - Show different experiences to different users
-- **Enable feature flags** - Turn features on/off without code changes
-- **Personalize content** - Display user-specific content based on properties
-
-Remote config uses a cache-first strategy, meaning your app loads instantly with cached values while fresh data loads in the background.
-
-## Key Features
+Pick what fits your situation best:
 
 <CardGroup cols={2}>
-  <Card title="Zero Dependencies" icon="feather">
-    Tiny bundle size with no external dependencies
+  <Card
+    title="I'm a Developer"
+    icon="code"
+    href="#for-developers"
+  >
+    Working with JavaScript, React, or Next.js
   </Card>
-  <Card title="TypeScript First" icon="code">
-    Full type safety and autocomplete support
-  </Card>
-  <Card title="Automatic Batching" icon="layer-group">
-    Events are queued and sent efficiently in batches
-  </Card>
-  <Card title="React Hooks" icon="react">
-    Built-in hooks for seamless React integration
-  </Card>
-  <Card title="Retry Logic" icon="rotate">
-    Automatic retries with exponential backoff
-  </Card>
-  <Card title="Cross-Platform" icon="globe">
-    Works in browsers, Node.js, and React Native
+  <Card
+    title="I Don't Code"
+    icon="mouse-pointer"
+    href="#no-code-integrations"
+  >
+    Using tools like GTM, Shopify, or WordPress
   </Card>
 </CardGroup>
 
+---
+
+## For Developers
+
+Jump into the platform you're using:
+
+<CardGroup cols={3}>
+  <Card
+    title="React"
+    icon="react"
+    href="/quickstart/react"
+  >
+    Hooks-based integration for React apps
+  </Card>
+  <Card
+    title="Next.js"
+    icon="N"
+    href="/quickstart/nextjs"
+  >
+    App Router and Pages Router examples
+  </Card>
+  <Card
+    title="Vanilla JavaScript"
+    icon="js"
+    href="/quickstart/vanilla-js"
+  >
+    Works with any framework (Vue, Svelte, etc.)
+  </Card>
+  <Card
+    title="CDN / Script Tag"
+    icon="globe"
+    href="/quickstart/cdn"
+  >
+    No build step required—just add a script tag
+  </Card>
+  <Card
+    title="Node.js / Backend"
+    icon="server"
+    href="/quickstart/nodejs"
+  >
+    Track server-side events and API calls
+  </Card>
+  <Card
+    title="TypeScript"
+    icon="code"
+    href="/advanced/typescript"
+  >
+    Full type safety and autocomplete
+  </Card>
+</CardGroup>
+
+### What You'll Get
+
+- **Tiny footprint** — 6 KB gzipped, zero dependencies
+- **Built for React** — Hooks that feel natural
+- **TypeScript first** — Full type safety out of the box
+- **Smart batching** — Automatic event queuing and retries
+- **Works everywhere** — Browser, Node.js, React Native
+
+<Tip>
+  **Not sure where to start?** Try the [React Quick Start](/quickstart/react) if you're using React, or [Vanilla JS Quick Start](/quickstart/vanilla-js) for anything else.
+</Tip>
+
+---
+
+## No-Code Integrations
+
+Set up tracking without touching your codebase:
+
+<CardGroup cols={3}>
+  <Card
+    title="Google Tag Manager"
+    icon="tags"
+    href="/integrations/gtm"
+  >
+    Add via GTM in under 10 minutes
+  </Card>
+  <Card
+    title="Shopify"
+    icon="shopping-bag"
+    href="/integrations/shopify"
+  >
+    Track your entire customer journey
+  </Card>
+  <Card
+    title="WordPress"
+    icon="wordpress"
+    href="/integrations/wordpress"
+  >
+    Install with a simple plugin or theme edit
+  </Card>
+</CardGroup>
+
+These guides are written for non-technical users. No coding experience required.
+
+---
+
 ## Quick Example
 
-Here's how simple it is to get started with Grain Analytics:
+Here's what using Grain looks like in code:
 
 ```typescript
 import { createGrainAnalytics } from '@grainql/analytics-web';
 
-// Initialize the SDK
+// Initialize
 const grain = createGrainAnalytics({
   tenantId: 'your-tenant-id'
 });
 
-// Track an event
+// Track events
 grain.track('button_clicked', {
   button_name: 'signup'
 });
 
-// Get a configuration value
-const heroText = grain.getConfig('hero_text');
+// Get remote config
+const featureEnabled = grain.getConfig('new_feature_enabled');
 ```
 
-## Get Started
+Or use React hooks:
 
-<CardGroup cols={2}>
-  <Card
-    title="Quick Start"
-    icon="rocket"
-    href="/quickstart"
-  >
-    Get up and running in 5 minutes
-  </Card>
-  <Card
-    title="Installation"
-    icon="download"
-    href="/installation"
-  >
-    Install the SDK in your project
-  </Card>
-  <Card
-    title="React Integration"
-    icon="react"
-    href="/react/overview"
-  >
-    Learn about React hooks
-  </Card>
-  <Card
-    title="API Reference"
-    icon="book"
-    href="/api-reference/overview"
-  >
-    Explore the complete API
-  </Card>
-</CardGroup>
+```typescript
+import { useTrack, useConfig } from '@grainql/analytics-web/react';
+
+function MyComponent() {
+  const track = useTrack();
+  const { value: heroText } = useConfig('hero_text');
+  
+  return (
+    <div>
+      <h1>{heroText || 'Welcome!'}</h1>
+      <button onClick={() => track('cta_clicked')}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+```
+
+---
 
 ## What's Next?
 
-After installation, you'll want to:
+### Learn Core Concepts
 
-1. **Learn Core Concepts** - Understand event tracking and remote configurations
-2. **Explore Guides** - See real-world examples like e-commerce tracking and A/B testing
-3. **Check API Reference** - Dive deep into all available methods and options
+Understand how tracking and remote configuration work:
 
-<Note>
-  Need help? Visit our [dashboard at grainql.com](https://grainql.com/dashboard) to manage your configurations and view analytics.
-</Note>
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    How events are batched, sent, and retried
+  </Card>
+  <Card title="Remote Configuration" icon="sliders" href="/core/remote-config">
+    Cache-first config with instant loading
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Track users across sessions and devices
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Secure your analytics with Auth0 or custom JWT
+  </Card>
+</CardGroup>
+
+### Explore Guides
+
+See real-world examples and best practices:
+
+<CardGroup cols={2}>
+  <Card title="E-commerce Tracking" icon="shopping-cart" href="/guides/ecommerce">
+    Track purchases, carts, and product views
+  </Card>
+  <Card title="A/B Testing" icon="flask" href="/guides/ab-testing">
+    Test features and measure impact
+  </Card>
+  <Card title="Feature Flags" icon="flag" href="/guides/feature-flags">
+    Roll out features gradually and safely
+  </Card>
+  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
+    Analyze complete user journeys
+  </Card>
+</CardGroup>
+
+### Browse the API
+
+<CardGroup cols={2}>
+  <Card title="Core API" icon="book" href="/api-reference/overview">
+    All SDK methods and options
+  </Card>
+  <Card title="React Hooks" icon="react" href="/api-reference/react-hooks">
+    Complete hooks reference
+  </Card>
+  <Card title="Query API" icon="database" href="/api-reference/query-api/overview">
+    Query your analytics data programmatically
+  </Card>
+  <Card title="TypeScript Types" icon="code" href="/api-reference/types">
+    Type definitions and interfaces
+  </Card>
+</CardGroup>
+
+---
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="chart-line" href="https://grainql.com/dashboard">
+    View your analytics and manage configs
+  </Card>
+  <Card title="Live Chat" icon="message" href="https://grainql.com">
+    Chat with our team (bottom right corner)
+  </Card>
+</CardGroup>

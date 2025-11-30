@@ -17,9 +17,26 @@
             "group": "Getting Started",
             "pages": [
               "index",
-              "quickstart",
               "installation",
               "authentication"
+            ]
+          },
+          {
+            "group": "Quick Start by Platform",
+            "pages": [
+              "quickstart/react",
+              "quickstart/nextjs",
+              "quickstart/vanilla-js",
+              "quickstart/cdn",
+              "quickstart/nodejs"
+            ]
+          },
+          {
+            "group": "No-Code Integrations",
+            "pages": [
+              "integrations/gtm",
+              "integrations/shopify",
+              "integrations/wordpress"
             ]
           },
           {
@@ -34,7 +51,7 @@
             ]
           },
           {
-            "group": "React Integration",
+            "group": "React Hooks",
             "pages": [
               "react/overview",
               "react/grain-provider",
@@ -45,17 +62,14 @@
             ]
           },
           {
-            "group": "Guides",
+            "group": "Guides & Examples",
             "pages": [
               "guides/ecommerce",
               "guides/ab-testing",
               "guides/feature-flags",
               "guides/personalization",
               "guides/analytics-dashboard",
-              "guides/query-api",
-              "guides/gtm-integration",
-              "guides/shopify-integration",
-              "guides/wordpress-integration"
+              "guides/query-api"
             ]
           },
           {

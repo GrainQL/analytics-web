@@ -15,13 +15,12 @@ Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com
     npm install @grainql/analytics-web
     ```
   </Step>
-
   <Step title="Initialize the SDK">
     Create a Grain client with your tenant ID:
 
     ```typescript
     import { createGrainAnalytics } from '@grainql/analytics-web';
-
+    
     const grain = createGrainAnalytics({
       tenantId: 'your-tenant-id'
     });
@@ -31,7 +30,6 @@ Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com
       This is the simplest setup with no authentication. For production apps, check out [authentication options](/authentication).
     </Note>
   </Step>
-
   <Step title="Track Your First Event">
     Track user actions to understand behavior:
 
@@ -40,7 +38,7 @@ Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com
     grain.track('page_viewed', {
       page: '/home'
     });
-
+    
     // Track a button click
     grain.track('button_clicked', {
       button_name: 'signup',
@@ -50,7 +48,6 @@ Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com
 
     **What's happening here?** The `track` method sends an event with a name and optional properties. Events are batched automatically and sent every 5 seconds for efficiency.
   </Step>
-
   <Step title="Use Remote Configuration">
     Get configuration values to control your app:
 
@@ -62,7 +59,7 @@ Before you start, you'll need a tenant ID from [grainql.com](https://grainql.com
         hero_text: 'Welcome!'
       }
     });
-
+    
     // Get config value (instant, from cache or defaults)
     const heroText = grain.getConfig('hero_text');
     console.log(heroText); // "Welcome!"

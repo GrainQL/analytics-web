@@ -1,0 +1,356 @@
+---
+title: "Shopify Integration"
+description: "Add Grain Analytics to your Shopify store to track customer journeys"
+---
+
+## Why Track Your Shopify Store?
+
+Understanding how customers navigate your store is crucial for improving conversions. Grain Analytics helps you:
+
+- **See the complete journey**: From landing to purchase (or abandonment)
+- **Identify friction**: Where do customers drop off?
+- **Optimize your funnel**: What paths lead to purchases?
+- **Test changes**: A/B test different layouts, pricing, or messaging
+
+**Time to implement**: About 10 minutes, no coding required.
+
+## Before You Start
+
+You'll need:
+- Admin access to your Shopify store
+- Your Grain tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
+- Basic familiarity with Shopify's theme editor (we'll walk you through it!)
+
+<Warning>
+  **Back up your theme first!** Before editing code, duplicate your theme: **Online Store → Themes → Actions → Duplicate**. This gives you an easy rollback option.
+</Warning>
+
+## Step 1: Access Your Theme Code
+
+1. Log into your [Shopify admin](https://admin.shopify.com)
+2. Click **Online Store** in the left sidebar
+3. Click **Themes**
+4. Find your active theme (the one with the "Current theme" badge)
+5. Click **Actions** → **Edit code**
+
+You'll see a list of files on the left. Don't worry—we're only editing one!
+
+## Step 2: Open theme.liquid
+
+In the file list on the left:
+
+1. Look for the **Layout** folder
+2. Click on **theme.liquid** (this is your main template file)
+3. The code will open in the editor on the right
+
+<Note>
+  **What's theme.liquid?** This file wraps around every page on your store, making it perfect for analytics that need to load everywhere.
+</Note>
+
+## Step 3: Add Grain Analytics Code
+
+Scroll down until you find the `</head>` closing tag (use Ctrl+F or Cmd+F to search for it).
+
+Add this code **right before** `</head>`:
+
+```html
+<!-- Grain Analytics -->
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  // Track page views with Shopify context
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    page_type: '{{ template }}',
+    shop: '{{ shop.name }}',
+    currency: '{{ shop.currency }}'
+  });
+</script>
+```
+
+**Important**: Replace `'your-tenant-id'` with your actual tenant ID!
+
+<Tip>
+  **Pro tip**: Those `{{ template }}` and `{{ shop.name }}` things are Liquid variables—Shopify's templating language. They automatically fill in with real values for each page.
+</Tip>
+
+## Step 4: Save Your Changes
+
+1. Click **Save** in the top right
+2. You'll see a confirmation message
+3. That's it—Grain Analytics is now live on your store! 🎉
+
+## Step 5: Track E-commerce Events
+
+Now let's track the important stuff: cart additions, checkouts, and purchases.
+
+### Track "Add to Cart" Clicks
+
+Still in **theme.liquid**, add this code just before `</body>`:
+
+```html
+<script>
+  // Track add to cart clicks
+  document.addEventListener('DOMContentLoaded', function() {
+    // Shopify's cart form selector
+    const cartForms = document.querySelectorAll('form[action*="/cart/add"]');
+    
+    cartForms.forEach(function(form) {
+      form.addEventListener('submit', function(e) {
+        const variantId = form.querySelector('[name="id"]')?.value;
+        const quantity = form.querySelector('[name="quantity"]')?.value || 1;
+        
+        if (window.grain) {
+          grain.track('product_added_to_cart', {
+            variant_id: variantId,
+            quantity: parseInt(quantity),
+            page: window.location.pathname
+          });
+        }
+      });
+    });
+  });
+</script>
+```
+
+### Track Checkout Started
+
+Shopify redirects to checkout, so we need to track when users click checkout buttons:
+
+```html
+<script>
+  // Track checkout button clicks
+  document.addEventListener('DOMContentLoaded', function() {
+    const checkoutButtons = document.querySelectorAll('button[name="checkout"], a[href*="/checkout"]');
+    
+    checkoutButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        if (window.grain) {
+          grain.track('checkout_started', {
+            page: window.location.pathname,
+            cart_url: window.location.href
+          });
+        }
+      });
+    });
+  });
+</script>
+```
+
+### Track Purchases (Thank You Page)
+
+For the final conversion event, we need to edit a different file:
+
+1. In the file list, find **Layout** → **theme.liquid** (if you're not already there)
+2. Alternatively, look for **Sections** → **order-confirmation.liquid** or similar
+3. Add this code in the checkout success / thank you page section:
+
+```html
+{% if checkout.id %}
+<script>
+  if (window.grain) {
+    grain.track('purchase_completed', {
+      order_id: '{{ checkout.order_id }}',
+      total: {{ checkout.total_price | money_without_currency }},
+      currency: '{{ checkout.currency }}',
+      items: {{ checkout.line_items | json }},
+      discount: {{ checkout.total_discounts | money_without_currency }},
+      shipping: {{ checkout.shipping_price | money_without_currency }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+<Info>
+  **Where to add this?** Shopify themes vary, but the checkout success code typically goes in **Settings → Checkout → Order status page → Additional scripts** in newer Shopify versions.
+</Info>
+
+## Alternative: Use Shopify Settings Panel
+
+For **Shopify Plus** or certain themes, there's an easier way:
+
+1. Go to **Settings** → **Checkout**
+2. Scroll to **Order status page**
+3. Look for **Additional scripts** section
+4. Paste the Grain Analytics initialization code there
+
+This method only tracks on checkout pages but doesn't require theme editing.
+
+## Step 6: Test Your Integration
+
+Let's make sure everything works:
+
+1. Open your store in a new incognito/private window
+2. Browse a product page
+3. Add something to cart
+4. Go to checkout (you don't have to complete it)
+5. Open your browser console (F12 → Console)
+6. Look for Grain Analytics logs (if debug mode is enabled)
+
+Then check your [Grain dashboard](https://grainql.com/dashboard) for events coming in!
+
+<Tip>
+  **Testing tip**: Enable debug mode temporarily by adding `debug: true` in the config:
+  ```javascript
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    debug: true // Remove this before going to production!
+  });
+  ```
+</Tip>
+
+## Track Custom Shopify Events
+
+Want to track more? Here are some useful events:
+
+### Product Views
+
+```html
+{% if template == 'product' %}
+<script>
+  if (window.grain) {
+    grain.track('product_viewed', {
+      product_id: '{{ product.id }}',
+      product_title: '{{ product.title }}',
+      product_type: '{{ product.type }}',
+      price: {{ product.price | money_without_currency }},
+      vendor: '{{ product.vendor }}',
+      available: {{ product.available }},
+      tags: {{ product.tags | json }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+### Collection Views
+
+```html
+{% if template == 'collection' %}
+<script>
+  if (window.grain) {
+    grain.track('collection_viewed', {
+      collection_id: '{{ collection.id }}',
+      collection_title: '{{ collection.title }}',
+      product_count: {{ collection.products.size }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+### Search Queries
+
+```html
+{% if template == 'search' %}
+<script>
+  if (window.grain) {
+    grain.track('search_performed', {
+      query: '{{ search.terms }}',
+      results_count: {{ search.results.size }}
+    });
+  }
+</script>
+{% endif %}
+```
+
+## Privacy & GDPR Compliance
+
+For stores serving EU customers, add consent management:
+
+```html
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    consentMode: 'opt-in', // Require consent for EU compliance
+    waitForConsent: true    // Don't track until consent granted
+  });
+  
+  // Grant consent when customer accepts cookies
+  // (integrate with your cookie banner)
+  function handleCookieConsent() {
+    if (window.grain) {
+      grain.grantConsent(['necessary', 'analytics']);
+    }
+  }
+</script>
+```
+
+<Note>
+  **Shopify's GDPR tools**: If you're using Shopify's built-in GDPR features, you'll need to integrate Grain's consent methods with Shopify's cookie consent banner.
+</Note>
+
+## Troubleshooting
+
+### Code not working
+
+- **Check for typos**: Especially in your tenant ID
+- **Clear cache**: Sometimes Shopify caches theme files—try hard refresh (Ctrl+Shift+R)
+- **Check browser console**: Press F12 and look for errors in the Console tab
+- **Verify placement**: Make sure code is before `</head>` or `</body>` tags
+
+### Events not appearing in dashboard
+
+- Wait a few minutes—there can be a slight delay
+- Check that `window.grain` exists by typing it in browser console
+- Verify your tenant ID matches what's in your dashboard
+- Make sure you saved the theme file (check for the "Saved" message)
+
+### Theme broke or looks weird
+
+- Revert to your backup: **Themes → Actions → Unpublish** on the broken theme, then publish your backup
+- Double-check you didn't accidentally delete any Liquid tags (they look like `{{ }}` or `{% %}`)
+
+## Performance Considerations
+
+Grain Analytics is lightweight (~6 KB gzipped), but here are some best practices:
+
+<Check>
+  **Do**: Load Grain from the CDN—it's cached globally and loads fast
+</Check>
+
+<Check>
+  **Do**: Use Shopify's Liquid variables to minimize custom JavaScript
+</Check>
+
+<Warning>
+  **Don't**: Add Grain to every theme partial/section—once in theme.liquid is enough
+</Warning>
+
+<Warning>
+  **Don't**: Track every single DOM interaction—focus on meaningful business events
+</Warning>
+
+## Next Steps
+
+Your Shopify store is now tracked! Here's what to do next:
+
+<CardGroup cols={2}>
+  <Card title="Tracks Feature" icon="route" href="/features/tracks">
+    Analyze customer journeys from landing to purchase
+  </Card>
+  <Card title="E-commerce Guide" icon="shopping-cart" href="/guides/ecommerce">
+    Best practices for e-commerce analytics
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    A/B test pricing, messaging, and layouts
+  </Card>
+  <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
+    Build custom reports and dashboards
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+We're here to help you get the most out of Grain:
+
+- **Live Chat**: Click the chat icon at [grainql.com](https://grainql.com)
+- **Email**: [support@grainql.com](mailto:support@grainql.com)
+- **Book a Call**: Need custom tracking for complex Shopify setups? Let's chat!
+
+Happy selling! 🛍️
+

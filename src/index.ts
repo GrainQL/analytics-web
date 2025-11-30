@@ -8,6 +8,31 @@ import { setCookie, getCookie, deleteCookie, areCookiesEnabled, CookieConfig } f
 import { ActivityDetector } from './activity';
 import { HeartbeatManager, type HeartbeatTracker } from './heartbeat';
 import { PageTrackingManager, type PageTracker } from './page-tracking';
+import {
+  categorizeReferrer,
+  parseUTMParameters,
+  getOrCreateFirstTouchAttribution,
+  getSessionUTMParameters,
+  type ReferrerCategory,
+  type UTMParameters,
+  type FirstTouchAttribution,
+} from './attribution';
+
+// Re-export attribution types and functions
+export type { ReferrerCategory, UTMParameters, FirstTouchAttribution };
+export { categorizeReferrer, parseUTMParameters };
+
+// Re-export timezone-country utilities
+export { getCountry, getCountryCodeFromTimezone, getState } from './countries';
+
+// Re-export auto-tracking types
+export type {
+  InteractionConfig,
+  SectionConfig,
+  AutoTrackingConfig,
+  SectionViewData,
+  SectionTrackingOptions,
+} from './types/auto-tracking';
 
 export interface GrainEvent {
   eventName: string;
@@ -89,6 +114,7 @@ export interface RemoteConfigRequest {
   userId: string;
   immediateKeys: string[];
   properties?: Record<string, string>;
+  currentUrl?: string; // Optional current URL for page-specific configs
 }
 
 export interface RemoteConfigResponse {
@@ -100,6 +126,22 @@ export interface RemoteConfigResponse {
   qualifiedRuleSets: string[];
   timestamp: string;
   isFromCache: boolean;
+  autoTrackingConfig?: {
+    interactions: Array<{
+      eventName: string;
+      description: string;
+      selector: string;
+      priority: number;
+      label: string;
+    }>;
+    sections: Array<{
+      sectionName: string;
+      description: string;
+      sectionType: string;
+      selector: string;
+      importance: number;
+    }>;
+  };
 }
 
 export interface RemoteConfigOptions {
@@ -276,6 +318,12 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   private pageTrackingManager: PageTrackingManager | null = null;
   private ephemeralSessionId: string | null = null;
   private eventCountSinceLastHeartbeat: number = 0;
+  // Auto-tracking properties
+  private interactionTrackingManager: any | null = null;
+  private sectionTrackingManager: any | null = null;
+  // Session tracking
+  private sessionStartTime: number = Date.now();
+  private sessionEventCount: number = 0;
 
   constructor(config: GrainConfig) {
     this.config = {
@@ -336,6 +384,8 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     // Initialize automatic tracking (browser only)
     if (typeof window !== 'undefined') {
       this.initializeAutomaticTracking();
+      // Track session start
+      this.trackSessionStart();
     }
 
     // Set up consent change listener to flush waiting events and handle consent upgrade
@@ -517,7 +567,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     return this.persistentAnonymousUserId;
   }
 
-  private log(...args: unknown[]): void {
+  log(...args: unknown[]): void {
     if (this.config.debug) {
       console.log('[Grain Analytics]', ...args);
     }
@@ -778,10 +828,14 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       const headers = await this.getAuthHeaders();
       const url = `${this.config.apiUrl}/v1/events/${encodeURIComponent(this.config.tenantId)}/multi`;
 
-      const body = JSON.stringify({ events });
+      // Send events array directly (not wrapped in object) to match API expectation
+      const body = JSON.stringify(events);
 
-      // Try beacon API first (more reliable for page unload)
-      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+      // Beacon API doesn't support custom headers, so only use it for unauthenticated requests
+      const needsAuth = this.config.authStrategy !== 'NONE';
+
+      // Try beacon API first (more reliable for page unload, but only if no auth needed)
+      if (!needsAuth && typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
         const blob = new Blob([body], { type: 'application/json' });
         const success = navigator.sendBeacon(url, blob);
         
@@ -791,7 +845,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         }
       }
 
-      // Fallback to fetch with keepalive
+      // Use fetch with keepalive (supports headers and works during page unload)
       await fetch(url, {
         method: 'POST',
         headers,
@@ -828,6 +882,9 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     if (typeof window === 'undefined') return;
 
     const handleBeforeUnload = () => {
+      // Track session end
+      this.trackSessionEnd();
+      
       if (this.eventQueue.length > 0) {
         // Use beacon API for reliable delivery during page unload
         const eventsToSend = [...this.eventQueue];
@@ -895,6 +952,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
           {
             stripQueryParams: this.config.stripQueryParams,
             debug: this.config.debug,
+            tenantId: this.config.tenantId,
           }
         );
         this.log('Auto page view tracking initialized');
@@ -902,6 +960,270 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         this.log('Failed to initialize page view tracking:', error);
       }
     }
+
+    // Initialize auto-tracking when config is available
+    this.initializeAutoTracking();
+  }
+
+  /**
+   * Initialize auto-tracking (interactions and sections)
+   */
+  private async initializeAutoTracking(): Promise<void> {
+    try {
+      this.log('Initializing auto-tracking...');
+      
+      // Fetch remote config to get auto-tracking configuration
+      const userId = this.globalUserId || this.persistentAnonymousUserId || this.generateUUID();
+      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+      
+      // Fetch config with currentUrl
+      const request: RemoteConfigRequest = {
+        userId,
+        immediateKeys: [],
+        properties: {},
+        currentUrl, // Add current URL to request
+      };
+
+      const headers = await this.getAuthHeaders();
+      const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/config/configurations`;
+
+      this.log('Fetching auto-tracking config from:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        this.log('Failed to fetch auto-tracking config:', response.status, response.statusText);
+        return;
+      }
+
+        const configResponse: RemoteConfigResponse = await response.json();
+      this.log('Received config response:', configResponse);
+        
+        if (configResponse.autoTrackingConfig) {
+        this.log('Auto-tracking config found:', configResponse.autoTrackingConfig);
+          this.setupAutoTrackingManagers(configResponse.autoTrackingConfig);
+      } else {
+        this.log('No auto-tracking config in response');
+      }
+    } catch (error) {
+      this.log('Failed to initialize auto-tracking:', error);
+      // Fail silently - auto-tracking is optional
+    }
+  }
+
+  /**
+   * Setup auto-tracking managers
+   */
+  private setupAutoTrackingManagers(config: NonNullable<RemoteConfigResponse['autoTrackingConfig']>): void {
+    this.log('Setting up auto-tracking managers...', config);
+    
+    // Lazy load the managers to avoid bundling them if not needed
+    if (config.interactions && config.interactions.length > 0) {
+      this.log('Loading interaction tracking module for', config.interactions.length, 'interactions');
+    import('./interaction-tracking').then(({ InteractionTrackingManager }) => {
+      try {
+          this.interactionTrackingManager = new InteractionTrackingManager(
+            this,
+            config.interactions,
+            {
+              debug: this.config.debug,
+              enableMutationObserver: true,
+              mutationDebounceDelay: 500,
+            }
+          );
+          this.log('✅ Interaction tracking initialized successfully with', config.interactions.length, 'interactions');
+      } catch (error) {
+          this.log('❌ Failed to initialize interaction tracking:', error);
+      }
+    }).catch((error) => {
+        this.log('❌ Failed to load interaction tracking module:', error);
+    });
+    } else {
+      this.log('No interactions configured for auto-tracking');
+    }
+
+    if (config.sections && config.sections.length > 0) {
+      this.log('Loading section tracking module for', config.sections.length, 'sections');
+    import('./section-tracking').then(({ SectionTrackingManager }) => {
+      try {
+          this.sectionTrackingManager = new SectionTrackingManager(
+            this,
+            config.sections,
+            {
+              minDwellTime: 1000,
+              scrollVelocityThreshold: 500,
+              intersectionThreshold: 0.1,
+              debounceDelay: 100,
+              batchDelay: 2000,
+              debug: this.config.debug,
+            }
+          );
+          this.log('✅ Section tracking initialized successfully with', config.sections.length, 'sections');
+      } catch (error) {
+          this.log('❌ Failed to initialize section tracking:', error);
+      }
+    }).catch((error) => {
+        this.log('❌ Failed to load section tracking module:', error);
+    });
+    } else {
+      this.log('No sections configured for auto-tracking');
+    }
+  }
+
+  /**
+   * Track session start event
+   */
+  private trackSessionStart(): void {
+    if (typeof window === 'undefined') return;
+
+    const hasConsent = this.consentManager.hasConsent('analytics');
+    
+    const properties: Record<string, unknown> = {
+      session_id: this.getSessionId(),
+      timestamp: this.sessionStartTime,
+    };
+
+    if (hasConsent) {
+      const referrer = document.referrer || '';
+      const currentUrl = window.location.href;
+      
+      // Parse UTM parameters
+      const utmParams = parseUTMParameters(currentUrl);
+      const sessionUTMs = getSessionUTMParameters() || utmParams;
+      
+      // Get first-touch attribution
+      const firstTouch = getOrCreateFirstTouchAttribution(
+        this.config.tenantId,
+        referrer,
+        currentUrl,
+        sessionUTMs
+      );
+
+      // Landing page
+      properties.landing_page = window.location.pathname;
+      
+      // Referrer info
+      if (referrer) {
+        properties.referrer = referrer;
+        properties.referrer_domain = new URL(referrer).hostname;
+        properties.referrer_category = categorizeReferrer(referrer, currentUrl);
+      } else {
+        properties.referrer_category = 'direct';
+      }
+
+      // UTM parameters
+      if (sessionUTMs.utm_source) properties.utm_source = sessionUTMs.utm_source;
+      if (sessionUTMs.utm_medium) properties.utm_medium = sessionUTMs.utm_medium;
+      if (sessionUTMs.utm_campaign) properties.utm_campaign = sessionUTMs.utm_campaign;
+      if (sessionUTMs.utm_term) properties.utm_term = sessionUTMs.utm_term;
+      if (sessionUTMs.utm_content) properties.utm_content = sessionUTMs.utm_content;
+
+      // First-touch attribution
+      properties.first_touch_source = firstTouch.source;
+      properties.first_touch_medium = firstTouch.medium;
+      properties.first_touch_campaign = firstTouch.campaign;
+      properties.first_touch_referrer_category = firstTouch.referrer_category;
+
+      // Device and browser info
+      properties.device = this.getDeviceType();
+      properties.screen_resolution = `${screen.width}x${screen.height}`;
+      properties.viewport = `${window.innerWidth}x${window.innerHeight}`;
+      properties.browser = this.getBrowser();
+      properties.os = this.getOS();
+      properties.language = navigator.language || '';
+      properties.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+
+    this.trackSystemEvent('_grain_session_start', properties);
+    this.log('Session started:', properties);
+  }
+
+  /**
+   * Track session end event
+   */
+  private trackSessionEnd(): void {
+    if (typeof window === 'undefined') return;
+
+    const hasConsent = this.consentManager.hasConsent('analytics');
+    const sessionDuration = Date.now() - this.sessionStartTime;
+    
+    const properties: Record<string, unknown> = {
+      session_id: this.getSessionId(),
+      session_duration: Math.floor(sessionDuration / 1000), // In seconds for easier querying
+      duration: sessionDuration, // Keep for backward compatibility
+      event_count: this.sessionEventCount,
+      timestamp: Date.now(),
+    };
+
+    if (hasConsent && this.pageTrackingManager) {
+      const pageCount = this.pageTrackingManager.getPageViewCount();
+      properties.pages_per_session = pageCount;
+      properties.page_count = pageCount; // Keep for backward compatibility
+    }
+
+    this.trackSystemEvent('_grain_session_end', properties);
+    this.log('Session ended:', properties);
+  }
+
+  /**
+   * Detect browser name
+   */
+  private getBrowser(): string {
+    if (typeof navigator === 'undefined') return 'Unknown';
+    const ua = navigator.userAgent;
+    if (ua.includes('Firefox/')) return 'Firefox';
+    if (ua.includes('Edg/')) return 'Edge';
+    if (ua.includes('Chrome/')) return 'Chrome';
+    if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Safari';
+    if (ua.includes('Opera/') || ua.includes('OPR/')) return 'Opera';
+    return 'Unknown';
+  }
+
+  /**
+   * Detect operating system
+   */
+  private getOS(): string {
+    if (typeof navigator === 'undefined') return 'Unknown';
+    const ua = navigator.userAgent;
+    if (ua.includes('Win')) return 'Windows';
+    if (ua.includes('Mac')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    return 'Unknown';
+  }
+
+  /**
+   * Detect device type (Mobile, Tablet, Desktop)
+   */
+  private getDeviceType(): string {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'Unknown';
+    
+    const ua = navigator.userAgent;
+    const width = window.innerWidth;
+    
+    // Check for tablet-specific indicators
+    if (ua.includes('iPad') || (ua.includes('Android') && !ua.includes('Mobile'))) {
+      return 'Tablet';
+    }
+    
+    // Check for mobile indicators
+    if (ua.includes('Mobile') || ua.includes('iPhone') || ua.includes('Android')) {
+      return 'Mobile';
+    }
+    
+    // Fallback to screen width detection
+    if (width < 768) {
+      return 'Mobile';
+    } else if (width >= 768 && width < 1024) {
+      return 'Tablet';
+    }
+    
+    return 'Desktop';
   }
 
   /**
@@ -1066,6 +1388,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
       this.eventQueue.push(formattedEvent);
       this.eventCountSinceLastHeartbeat++;
+      this.sessionEventCount++;
       this.log(`Queued event: ${event.eventName}`, event.properties);
 
       // Check if we should flush immediately
@@ -1915,6 +2238,17 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     if (this.activityDetector) {
       this.activityDetector.destroy();
       this.activityDetector = null;
+    }
+
+    // Destroy auto-tracking managers
+    if (this.interactionTrackingManager) {
+      this.interactionTrackingManager.destroy();
+      this.interactionTrackingManager = null;
+    }
+
+    if (this.sectionTrackingManager) {
+      this.sectionTrackingManager.destroy();
+      this.sectionTrackingManager = null;
     }
 
     // Send any remaining events (in chunks if necessary)

@@ -1,0 +1,383 @@
+---
+title: "Tracks: User Journey Analysis"
+description: "Understand how users move through your product with powerful funnel and path analysis"
+---
+
+## What Are Tracks?
+
+**Tracks** help you answer the most important question in product analytics: *"How do users get from point A to point B?"*
+
+Instead of looking at isolated events, Tracks reveals the **complete journey** users take through your product—from where they start to where they succeed (or drop off).
+
+Think of it like GPS for your product: you set a starting point and destination, and Tracks shows you all the routes people take, which paths work best, and where people get lost.
+
+## Why Use Tracks?
+
+**Traditional analytics tell you *what* happened. Tracks show you *how* it happened.**
+
+Use Tracks to:
+
+- **Understand conversion funnels**: See exactly where users drop off
+- **Discover optimal paths**: What do successful users do differently?
+- **Identify friction points**: Which steps cause the most abandonment?
+- **Validate hypotheses**: Does that new feature help or hurt conversions?
+- **Segment behaviors**: How do different user groups navigate differently?
+
+**Real example**: You notice signup conversions are down. With Tracks, you discover that 60% of users abandon after viewing the pricing page—time to reconsider your pricing strategy!
+
+## How Tracks Work
+
+### Define Your Journey
+
+Every Track has three components:
+
+1. **Start Event**: Where the journey begins (e.g., "page_viewed: /signup")
+2. **Goal Event**: The desired outcome (e.g., "account_created")
+3. **Filters** (optional): Segment by user properties, date ranges, or event attributes
+
+### Grain Analyzes the Paths
+
+Once you define a Track, Grain automatically:
+
+- Reconstructs user sessions using a 30-minute inactivity window
+- Extracts all event sequences between your start and goal
+- Identifies conversion paths (successful) and deadend paths (abandoned)
+- Calculates key metrics like conversion rate and time to goal
+
+### Visualize the Results
+
+You get an **interactive graph** showing:
+
+- **Nodes**: Events in the journey
+- **Edges**: Transitions between events (thickness = number of users)
+- **Hub nodes**: Critical convergence points where many paths intersect
+- **Color coding**: Green paths reached the goal, red paths abandoned
+
+## Key Concepts
+
+### Conversion Paths vs. Deadend Paths
+
+- **Conversion paths**: User journeys that successfully reached the goal event
+- **Deadend paths**: Journeys that stopped before reaching the goal
+
+Grain shows both types so you can see what works and what doesn't.
+
+### Hub Nodes (Convergence Points)
+
+Not all events are equally important. Grain uses graph theory to identify **hub nodes**—critical events where many user journeys converge.
+
+Hub nodes are scored using:
+- **Flow**: How many users pass through this event
+- **Degree**: How connected it is (in-degree + out-degree)
+- **Betweenness**: How often this event lies on paths from start to goal
+- **Stability**: How consistent the outgoing traffic is
+- **Goal proximity**: Likelihood of reaching the goal from here
+
+**Why it matters**: Hub nodes are leverage points. Optimizing these events has the biggest impact on conversions.
+
+### Time to Goal
+
+Grain calculates how long users take to complete journeys:
+
+- **Median time**: The middle value (50th percentile)
+- **P25**: 25% of users convert faster than this
+- **P75**: 75% of users convert faster than this
+- **P95**: 95% of users convert faster than this
+
+**Use this to**: Set timeout windows, identify slow steps, or measure the impact of optimizations.
+
+## Creating Your First Track
+
+### Step 1: Navigate to Tracks
+
+From your [Grain dashboard](https://grainql.com/dashboard), click **Tracks** in the sidebar.
+
+### Step 2: Define Start and Goal
+
+1. Click **Create Track** or press `Cmd/Ctrl + N`
+2. **Select start event**: Choose where the journey begins (e.g., "page_viewed")
+3. **Optional filters**: Add event property filters (e.g., page = "/signup")
+4. **Select goal event**: Choose the desired outcome (e.g., "account_created")
+
+<Tip>
+  **Pro tip**: Start with broad events first (like "page_viewed" → "purchase_completed"), then add filters to segment specific flows.
+</Tip>
+
+### Step 3: Set Time Window
+
+Choose how far back to analyze:
+- Last 7 days (default)
+- Last 30 days
+- Custom date range (max 90 days)
+
+<Note>
+  **Why limit to 90 days?** Analyzing long time periods requires significant compute. For historical analysis beyond 90 days, contact support for custom queries.
+</Note>
+
+### Step 4: Analyze Results
+
+Once created, you'll see:
+
+- **Conversion metrics**: Starters, converters, conversion rate
+- **Interactive graph**: Visual representation of user flows
+- **Top paths**: Most common routes users take
+- **Abandonment points**: Where users drop off most frequently
+- **Time analysis**: How long journeys take
+
+## Understanding the Graph
+
+### Node Types
+
+- **Start node** (green circle): Your starting event
+- **Goal node** (blue target): Your desired outcome
+- **Hub nodes** (highlighted): Critical convergence points
+- **Regular nodes** (gray circles): Intermediate events
+
+### Edge Thickness
+
+Thicker edges = more users took this path. Hover over edges to see exact counts.
+
+### Colors and Indicators
+
+- **Green edges**: Lead to goal completion
+- **Red edges**: Lead to abandonment
+- **✓ Completed**: Transition from a successful path
+- **⏳ In progress**: Transition from an ongoing journey
+
+## Advanced Features
+
+### Segmentation
+
+Want to see how different user groups behave? Add segment breakdowns:
+
+- **By country**: Do US users convert differently than EU users?
+- **By device**: Mobile vs. desktop journey differences
+- **By referrer**: Organic vs. paid traffic behavior
+- **By custom properties**: Any property you track (plan tier, user role, etc.)
+
+### Path Filtering
+
+Narrow down the visualization:
+
+- **Show only conversion paths**: Hide deadends to focus on success
+- **Show only deadend paths**: Focus on where people abandon
+- **Minimum user threshold**: Hide low-volume paths for clarity
+
+### Comparing Tracks
+
+Create multiple Tracks with different filters to compare:
+
+- **Before/after**: Did your change improve conversions?
+- **A/B tests**: Which variant performs better?
+- **Cohorts**: How do different user segments compare?
+
+## Common Use Cases
+
+### Onboarding Funnel
+
+**Start**: "account_created"  
+**Goal**: "first_action_completed"
+
+**Learn**: Where do new users get stuck? What's the optimal onboarding flow?
+
+### Checkout Flow
+
+**Start**: "cart_viewed"  
+**Goal**: "purchase_completed"
+
+**Learn**: Where do customers abandon? How many steps before they buy?
+
+### Feature Adoption
+
+**Start**: "feature_discovered"  
+**Goal**: "feature_became_habit" (e.g., used 5+ times)
+
+**Learn**: What leads to sticky feature usage?
+
+### Content Engagement
+
+**Start**: "blog_post_viewed"  
+**Goal**: "newsletter_subscribed"
+
+**Learn**: Which content converts readers to subscribers?
+
+### Support Deflection
+
+**Start**: "help_page_viewed"  
+**Goal**: "issue_resolved" (no support ticket)
+
+**Learn**: Does your help content actually help?
+
+## Interpreting Results
+
+### High Conversion Rate (>50%)
+
+**What it means**: Your journey is well-optimized!
+
+**Next steps**: 
+- Look for patterns in successful paths
+- Can you shorten the journey further?
+- Scale what's working
+
+### Medium Conversion Rate (20-50%)
+
+**What it means**: There's room for improvement.
+
+**Next steps**:
+- Identify the biggest drop-off points
+- A/B test changes to those steps
+- Simplify or remove unnecessary steps
+
+### Low Conversion Rate (<20%)
+
+**What it means**: Significant friction exists.
+
+**Next steps**:
+- Review deadend paths—where do most people abandon?
+- Talk to users—why did they stop?
+- Consider a redesign of the journey
+
+### Unexpected Paths
+
+See users taking routes you didn't expect?
+
+**What it means**: Your mental model doesn't match reality!
+
+**Next steps**:
+- Understand why users take these paths
+- Make the unexpected path easier (if it works)
+- Guide users to better paths (if it doesn't)
+
+## Best Practices
+
+<Check>
+  **Do**: Start with high-level journeys (landing → signup → activation)
+</Check>
+
+<Check>
+  **Do**: Focus on business-critical funnels first
+</Check>
+
+<Check>
+  **Do**: Review Tracks weekly to spot trends early
+</Check>
+
+<Check>
+  **Do**: Combine Tracks with qualitative data (user interviews, session replays)
+</Check>
+
+<Warning>
+  **Don't**: Create Tracks with too-narrow filters—you'll have too little data
+</Warning>
+
+<Warning>
+  **Don't**: Over-optimize micro-conversions—focus on what matters for your business
+</Warning>
+
+<Warning>
+  **Don't**: Ignore deadend paths—they're where the learning happens!
+</Warning>
+
+## Technical Details
+
+### Session Definition
+
+Grain defines sessions using a **30-minute inactivity window**. If a user is inactive for more than 30 minutes, the next event starts a new session.
+
+### Sampling for Large Datasets
+
+For Tracks with millions of events, Grain uses **balanced sampling**:
+
+- Ensures both conversion and deadend paths are represented
+- Guarantees start and goal event visibility
+- Maintains statistical significance
+
+**Result**: Fast analysis even with huge datasets, without losing insights.
+
+### Path Extraction Algorithm
+
+Grain uses a graph-based algorithm:
+
+1. **Build user event sequences** from ClickHouse
+2. **Segment journeys** when users trigger the start event multiple times
+3. **Extract transitions** between events with user counts
+4. **Calculate hub metrics** using composite scoring
+5. **Render graph** with topological ordering and force-directed layout
+
+## Limitations & Considerations
+
+### Time Window
+
+Tracks analyze up to 90 days by default. For longer analysis, contact support.
+
+### Event Volume
+
+Very high-traffic sites (millions of events/day) may see sampled results. Core metrics remain accurate.
+
+### Real-Time Updates
+
+Track analysis runs on-demand, not real-time. Expect 1-2 minute compute time for complex Tracks.
+
+### Cross-Device Journeys
+
+If users aren't identified (via `setUserId()`), cross-device journeys won't be connected. Use user identification for best results.
+
+## Next Steps
+
+Ready to dive deeper into user behavior?
+
+<CardGroup cols={2}>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Set up the right events for journey analysis
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Connect journeys across sessions and devices
+  </Card>
+  <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
+    Build custom journey analysis programmatically
+  </Card>
+  <Card title="Dashboard" icon="gauge" href="https://grainql.com/dashboard">
+    Start creating Tracks now
+  </Card>
+</CardGroup>
+
+## Examples from Real Users
+
+<Accordion title="SaaS Onboarding (B2B)">
+  **Track**: "signup_completed" → "workspace_created" → "first_invite_sent" → "team_active"
+  
+  **Insight**: Users who invited teammates within 24 hours had 3x higher retention. Product added an "invite team" prompt right after workspace creation.
+  
+  **Result**: +40% activation rate.
+</Accordion>
+
+<Accordion title="E-commerce Checkout (DTC)">
+  **Track**: "cart_viewed" → "purchase_completed"
+  
+  **Insight**: 45% of users abandoned at shipping info entry. Average time spent: 8 minutes (way too long!).
+  
+  **Action**: Implemented address autocomplete and saved addresses for returning customers.
+  
+  **Result**: -22% abandonment rate, +$180K annual revenue.
+</Accordion>
+
+<Accordion title="Content Platform (Media)">
+  **Track**: "article_viewed" → "newsletter_subscribed"
+  
+  **Insight**: Users who read 3+ articles converted at 18%, but those from social media converted at only 3%.
+  
+  **Action**: Changed social media strategy to focus on email list building landing pages instead of direct article links.
+  
+  **Result**: 6x increase in newsletter growth rate.
+</Accordion>
+
+## Need Help?
+
+Tracks are powerful but can be complex. We're here to help:
+
+- **Live Chat**: Click the chat icon at [grainql.com](https://grainql.com)
+- **Email**: [support@grainql.com](mailto:support@grainql.com)
+- **Book a Call**: Want help setting up your first Tracks? [Schedule time with us](https://grainql.com/book-call)
+
+Happy tracking! 🚀
+

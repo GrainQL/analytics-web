@@ -258,6 +258,18 @@ curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
   Query API keys are different from SDK authentication. Use Query API keys only for server-side applications that need to access analytics data programmatically.
 </Warning>
 
+## Dashboard Session Management
+
+When using the Grain dashboard, your session is managed via Auth0 with automatic token refresh:
+
+- **Session Duration**: Access tokens are cached for ~4 minutes and automatically refreshed
+- **Token Expiry**: If your session expires (e.g., after prolonged inactivity), you'll see a friendly error message with a "Reload page" action
+- **Long-lived Tabs**: Tabs open for extended periods will automatically redirect to login when the session expires
+
+<Tip>
+  **Session Expired?** Simply reload the page or click the "Reload" button in the error notification. Your work is preserved and you'll be redirected back after re-authentication.
+</Tip>
+
 ## Next Steps
 
 <CardGroup cols={2}>

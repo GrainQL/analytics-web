@@ -39,6 +39,31 @@ function copyRecursive(src, dest) {
   }
 }
 
+// Helper to flatten directory structure
+function flattenDirectory(src, dest) {
+  const exists = fs.existsSync(src);
+  const stats = exists && fs.statSync(src);
+  const isDirectory = exists && stats.isDirectory();
+
+  if (isDirectory) {
+    ensureDir(dest);
+    fs.readdirSync(src).forEach(childItemName => {
+      const srcPath = path.join(src, childItemName);
+      const destPath = path.join(dest, childItemName);
+      const childStats = fs.statSync(srcPath);
+      
+      if (childStats.isDirectory()) {
+        // Recursively flatten subdirectories
+        flattenDirectory(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    });
+  } else {
+    fs.copyFileSync(src, dest);
+  }
+}
+
 console.log('Building React package...');
 
 // Clean previous build
@@ -55,83 +80,50 @@ console.log('\nBuilding React ESM...');
 ensureDir('dist/react');
 exec('tsc --module esnext --target es2020 --jsx react --declaration --declarationMap --skipLibCheck --outDir dist/react-temp src/react/index.tsx');
 
-// Copy ESM JS files
-const esmFiles = [];
-function findJsFiles(dir, baseDir = dir) {
+// Flatten the react subdirectory structure
+if (fs.existsSync('dist/react-temp/react')) {
+  flattenDirectory('dist/react-temp/react', 'dist/react');
+  // Remove the nested react directory
+  fs.rmSync('dist/react-temp', { recursive: true });
+} else {
+  // If no nested structure, copy everything
+  copyRecursive('dist/react-temp', 'dist/react');
+  fs.rmSync('dist/react-temp', { recursive: true });
+}
+
+// Rename .js files to .mjs for ESM
+function renameJsToMjs(dir) {
   const files = fs.readdirSync(dir);
   files.forEach(file => {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
     if (stat.isDirectory()) {
-      findJsFiles(filePath, baseDir);
+      renameJsToMjs(filePath);
     } else if (file.endsWith('.js')) {
-      const relativePath = path.relative(baseDir, filePath);
-      esmFiles.push(relativePath);
+      const newPath = filePath.replace('.js', '.mjs');
+      fs.renameSync(filePath, newPath);
     }
   });
 }
 
-findJsFiles('dist/react-temp');
-
-// Copy and rename ESM files
-esmFiles.forEach(file => {
-  const srcPath = path.join('dist/react-temp', file);
-  const destPath = path.join('dist/react', file.replace('.js', '.mjs'));
-  ensureDir(path.dirname(destPath));
-  fs.copyFileSync(srcPath, destPath);
-});
-
-// Copy declaration files for ESM
-const dtsFiles = [];
-function findDtsFiles(dir, baseDir = dir) {
-  const files = fs.readdirSync(dir);
-  files.forEach(file => {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-    if (stat.isDirectory()) {
-      findDtsFiles(filePath, baseDir);
-    } else if (file.endsWith('.d.ts') || file.endsWith('.d.ts.map')) {
-      const relativePath = path.relative(baseDir, filePath);
-      dtsFiles.push(relativePath);
-    }
-  });
-}
-
-findDtsFiles('dist/react-temp');
-
-dtsFiles.forEach(file => {
-  const srcPath = path.join('dist/react-temp', file);
-  const destPath = path.join('dist/react', file);
-  ensureDir(path.dirname(destPath));
-  fs.copyFileSync(srcPath, destPath);
-});
-
-// Clean temp ESM build
-fs.rmSync('dist/react-temp', { recursive: true });
+renameJsToMjs('dist/react');
 
 // Build CJS
 console.log('\nBuilding React CJS...');
 exec('tsc --module commonjs --target es2020 --jsx react --skipLibCheck --outDir dist/react-temp src/react/index.tsx');
 
-// Copy CJS files
-const cjsFiles = [];
-findJsFiles('dist/react-temp');
-
-esmFiles.length = 0;
-findJsFiles('dist/react-temp');
-
-esmFiles.forEach(file => {
-  const srcPath = path.join('dist/react-temp', file);
-  const destPath = path.join('dist/react', file);
-  ensureDir(path.dirname(destPath));
-  fs.copyFileSync(srcPath, destPath);
-});
-
-// Clean temp CJS build
-fs.rmSync('dist/react-temp', { recursive: true });
+// Flatten the react subdirectory structure for CJS
+if (fs.existsSync('dist/react-temp/react')) {
+  // Copy CJS files, overwriting ESM files
+  flattenDirectory('dist/react-temp/react', 'dist/react');
+  fs.rmSync('dist/react-temp', { recursive: true });
+} else {
+  // If no nested structure, copy everything
+  copyRecursive('dist/react-temp', 'dist/react');
+  fs.rmSync('dist/react-temp', { recursive: true });
+}
 
 console.log('\nReact package built successfully!');
 console.log('  - ESM: dist/react/*.mjs');
 console.log('  - CJS: dist/react/*.js');
 console.log('  - Types: dist/react/*.d.ts');
-

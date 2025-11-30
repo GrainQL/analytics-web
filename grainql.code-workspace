@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../../IdeaProjects/grainsvc"
+		},
+		{
+			"path": "../../IdeaProjects/radar-edge"
 		}
 	],
 	"settings": {}

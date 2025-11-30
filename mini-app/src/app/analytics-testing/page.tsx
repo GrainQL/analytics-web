@@ -16,7 +16,7 @@ export default function AnalyticsTesting() {
     setIsClient(true);
     
     // Initialize Grain Analytics
-    const initializeGrain = async () => {
+    const initializerain = async () => {
       try {
         // For now, we'll create a mock implementation
         // In a real scenario, you'd import from the built SDK

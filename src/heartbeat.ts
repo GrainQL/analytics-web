@@ -16,6 +16,7 @@ export interface HeartbeatTracker {
   hasConsent(category?: string): boolean;
   getEffectiveUserId(): string;
   getEphemeralSessionId(): string;
+  getSessionId(): string;
   getCurrentPage(): string | null;
   getEventCountSinceLastHeartbeat(): number;
   resetEventCountSinceLastHeartbeat(): void;
@@ -110,7 +111,6 @@ export class HeartbeatManager {
 
     // Base properties (always included)
     const properties: Record<string, unknown> = {
-      type: 'heartbeat',
       heartbeat_type: heartbeatType,
       status: isActive ? 'active' : 'inactive',
       timestamp: now,
@@ -122,6 +122,8 @@ export class HeartbeatManager {
       if (page) {
         properties.page = page;
       }
+      
+      properties.session_id = this.tracker.getSessionId();
       
       // Only include duration and event count for periodic heartbeats
       if (heartbeatType === 'periodic') {

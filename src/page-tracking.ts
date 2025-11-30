@@ -3,9 +3,21 @@
  * Automatically tracks page views with consent-aware behavior
  */
 
+import {
+  categorizeReferrer,
+  parseUTMParameters,
+  getOrCreateFirstTouchAttribution,
+  getSessionUTMParameters,
+  setSessionUTMParameters,
+  type UTMParameters,
+  type FirstTouchAttribution,
+} from './attribution';
+import { getCountryCodeFromTimezone } from './countries';
+
 export interface PageTrackingConfig {
   stripQueryParams: boolean;
   debug?: boolean;
+  tenantId: string;
 }
 
 export interface PageTracker {
@@ -13,6 +25,7 @@ export interface PageTracker {
   hasConsent(category?: string): boolean;
   getEffectiveUserId(): string;
   getEphemeralSessionId(): string;
+  getSessionId(): string;
 }
 
 export class PageTrackingManager {
@@ -22,13 +35,16 @@ export class PageTrackingManager {
   private currentPath: string | null = null;
   private originalPushState: typeof history.pushState | null = null;
   private originalReplaceState: typeof history.replaceState | null = null;
+  private previousPage: string | null = null;
+  private landingPage: string | null = null;
+  private pageViewCount = 0;
 
   constructor(tracker: PageTracker, config: PageTrackingConfig) {
     this.tracker = tracker;
     this.config = config;
     
-    // Track initial page load
-    this.trackCurrentPage();
+    // Track initial page load (this is the landing page)
+    this.trackCurrentPage(true);
     
     // Setup listeners
     this.setupHistoryListeners();
@@ -86,19 +102,52 @@ export class PageTrackingManager {
   /**
    * Track the current page
    */
-  private trackCurrentPage(): void {
+  private trackCurrentPage(isLanding: boolean = false): void {
     if (this.isDestroyed || typeof window === 'undefined') return;
 
     const page = this.extractPath(window.location.href);
     
-    // Don't track if it's the same page
-    if (page === this.currentPath) {
+    // Don't track if it's the same page (unless it's the landing page)
+    if (!isLanding && page === this.currentPath) {
       return;
     }
 
+    // Store previous page before updating
+    if (this.currentPath) {
+      this.previousPage = this.currentPath;
+    }
+
     this.currentPath = page;
+    this.pageViewCount++;
+
+    // Set landing page on first view
+    if (isLanding) {
+      this.landingPage = page;
+    }
 
     const hasConsent = this.tracker.hasConsent('analytics');
+    const currentUrl = window.location.href;
+    const referrer = document.referrer || '';
+
+    // Parse UTM parameters from current URL
+    const utmParams = parseUTMParameters(currentUrl);
+    
+    // Store session UTM if they exist (first time only or if new UTMs appear)
+    if (Object.keys(utmParams).length > 0) {
+      const existing = getSessionUTMParameters();
+      if (!existing || isLanding) {
+        setSessionUTMParameters(utmParams);
+      }
+    }
+
+    // Get or create first-touch attribution
+    const sessionUTMs = getSessionUTMParameters() || {};
+    const firstTouch = getOrCreateFirstTouchAttribution(
+      this.config.tenantId,
+      referrer,
+      currentUrl,
+      sessionUTMs
+    );
 
     // Base properties (always included)
     const properties: Record<string, unknown> = {
@@ -108,9 +157,53 @@ export class PageTrackingManager {
 
     // Enhanced properties when consent is granted
     if (hasConsent) {
-      properties.referrer = document.referrer || '';
       properties.title = document.title || '';
-      properties.full_url = window.location.href;
+      properties.full_url = currentUrl;
+      properties.session_id = this.tracker.getSessionId();
+
+      // Add referrer info
+      if (referrer) {
+        properties.referrer = referrer;
+        properties.referrer_domain = this.extractDomain(referrer);
+        properties.referrer_category = categorizeReferrer(referrer, currentUrl);
+      }
+
+      // Add landing page if this is not the first view
+      if (this.landingPage && !isLanding) {
+        properties.landing_page = this.landingPage;
+      }
+
+      // Add previous page if available
+      if (this.previousPage) {
+        properties.previous_page = this.previousPage;
+      }
+
+      // Add UTM parameters if present (from session)
+      if (sessionUTMs.utm_source) properties.utm_source = sessionUTMs.utm_source;
+      if (sessionUTMs.utm_medium) properties.utm_medium = sessionUTMs.utm_medium;
+      if (sessionUTMs.utm_campaign) properties.utm_campaign = sessionUTMs.utm_campaign;
+      if (sessionUTMs.utm_term) properties.utm_term = sessionUTMs.utm_term;
+      if (sessionUTMs.utm_content) properties.utm_content = sessionUTMs.utm_content;
+
+      // Add first-touch attribution
+      properties.first_touch_source = firstTouch.source;
+      properties.first_touch_medium = firstTouch.medium;
+      properties.first_touch_campaign = firstTouch.campaign;
+      properties.first_touch_referrer_category = firstTouch.referrer_category;
+
+      // Browser and device info
+      properties.device = this.getDeviceType();
+      properties.browser = this.getBrowser();
+      properties.os = this.getOS();
+      properties.language = navigator.language || '';
+      
+      // Timezone and country (privacy-friendly: derived from timezone, no IP tracking)
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      properties.timezone = timezone;
+      properties.country = getCountryCodeFromTimezone();
+      
+      properties.screen_resolution = `${screen.width}x${screen.height}`;
+      properties.viewport = `${window.innerWidth}x${window.innerHeight}`;
     }
 
     // Track the page view event
@@ -119,6 +212,71 @@ export class PageTrackingManager {
     if (this.config.debug) {
       console.log('[Page Tracking] Tracked page view:', properties);
     }
+  }
+
+  /**
+   * Extract domain from URL
+   */
+  private extractDomain(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Detect browser name
+   */
+  private getBrowser(): string {
+    const ua = navigator.userAgent;
+    if (ua.includes('Firefox/')) return 'Firefox';
+    if (ua.includes('Edg/')) return 'Edge';
+    if (ua.includes('Chrome/')) return 'Chrome';
+    if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Safari';
+    if (ua.includes('Opera/') || ua.includes('OPR/')) return 'Opera';
+    return 'Unknown';
+  }
+
+  /**
+   * Detect operating system
+   */
+  private getOS(): string {
+    const ua = navigator.userAgent;
+    if (ua.includes('Win')) return 'Windows';
+    if (ua.includes('Mac')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    return 'Unknown';
+  }
+
+  /**
+   * Detect device type (Mobile, Tablet, Desktop)
+   */
+  private getDeviceType(): string {
+    const ua = navigator.userAgent;
+    const width = window.innerWidth;
+    
+    // Check for tablet-specific indicators
+    if (ua.includes('iPad') || (ua.includes('Android') && !ua.includes('Mobile'))) {
+      return 'Tablet';
+    }
+    
+    // Check for mobile indicators
+    if (ua.includes('Mobile') || ua.includes('iPhone') || ua.includes('Android')) {
+      return 'Mobile';
+    }
+    
+    // Fallback to screen width detection
+    if (width < 768) {
+      return 'Mobile';
+    } else if (width >= 768 && width < 1024) {
+      return 'Tablet';
+    }
+    
+    return 'Desktop';
   }
 
   /**
@@ -166,15 +324,24 @@ export class PageTrackingManager {
     };
 
     // Enhanced properties when consent is granted
-    if (hasConsent && typeof document !== 'undefined') {
+    if (hasConsent && typeof document !== 'undefined' && typeof window !== 'undefined') {
       if (!baseProperties.referrer) {
         baseProperties.referrer = document.referrer || '';
       }
       if (!baseProperties.title) {
         baseProperties.title = document.title || '';
       }
-      if (!baseProperties.full_url && typeof window !== 'undefined') {
+      if (!baseProperties.full_url) {
         baseProperties.full_url = window.location.href;
+      }
+      if (!baseProperties.session_id) {
+        baseProperties.session_id = this.tracker.getSessionId();
+      }
+      if (!baseProperties.browser) {
+        baseProperties.browser = this.getBrowser();
+      }
+      if (!baseProperties.os) {
+        baseProperties.os = this.getOS();
       }
     }
 
@@ -183,6 +350,13 @@ export class PageTrackingManager {
     if (this.config.debug) {
       console.log('[Page Tracking] Manually tracked page:', baseProperties);
     }
+  }
+
+  /**
+   * Get page view count for current session
+   */
+  getPageViewCount(): number {
+    return this.pageViewCount;
   }
 
   /**

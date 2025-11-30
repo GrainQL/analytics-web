@@ -52,7 +52,16 @@
               "guides/feature-flags",
               "guides/personalization",
               "guides/analytics-dashboard",
-              "guides/query-api"
+              "guides/query-api",
+              "guides/gtm-integration",
+              "guides/shopify-integration",
+              "guides/wordpress-integration"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/tracks"
             ]
           },
           {

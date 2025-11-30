@@ -1,0 +1,260 @@
+---
+title: "Google Tag Manager Integration"
+description: "Add Grain Analytics to your website using Google Tag Manager"
+---
+
+## Why Use GTM?
+
+Google Tag Manager lets you add Grain Analytics to your website without touching your codebase. Perfect for marketers, product managers, or anyone who wants to get analytics running fast without waiting for a developer.
+
+**What you'll do**: Create a custom HTML tag in GTM that loads Grain Analytics on every page. Takes about 5 minutes.
+
+## Before You Start
+
+Make sure you have:
+- Access to your Google Tag Manager account
+- Your Grain tenant ID (found in your [dashboard](https://grainql.com/dashboard))
+- Basic familiarity with GTM (or just follow along—it's straightforward!)
+
+## Step 1: Open GTM and Create a Tag
+
+1. Log into [Google Tag Manager](https://tagmanager.google.com)
+2. Select the container for your website
+3. Click **Tags** in the left sidebar
+4. Click the **New** button (top right)
+5. Click the tag configuration area (it says "Tag Configuration")
+6. Choose **Custom HTML** from the list
+
+## Step 2: Add the Grain Analytics Code
+
+Copy and paste this code into the HTML field:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  // Optional: Track page views automatically
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    url: window.location.href,
+    title: document.title
+  });
+</script>
+```
+
+**Important**: Replace `'your-tenant-id'` with your actual tenant ID from the dashboard!
+
+<Note>
+  **What's happening here?** The first `<script>` tag loads Grain Analytics from our CDN. The second one initializes it with your tenant ID and optionally tracks a page view.
+</Note>
+
+## Step 3: Set the Trigger
+
+Now tell GTM when to fire this tag:
+
+1. Scroll down to **Triggering**
+2. Click the triggering area
+3. Click the **+** icon (top right) to create a new trigger
+4. Choose **Initialization - All Pages**
+5. Name it something like "All Pages - Initialization"
+6. Click **Save**
+
+<Info>
+  **Why Initialization?** This trigger fires before anything else on your page, ensuring Grain loads early and captures all user interactions.
+</Info>
+
+## Step 4: Name and Save Your Tag
+
+1. At the top, click the tag name (it says "Untitled Tag")
+2. Name it something clear like "Grain Analytics"
+3. Click **Save** in the top right
+
+## Step 5: Preview and Test
+
+Before publishing, test that it works:
+
+1. Click **Preview** in the top right of GTM
+2. Enter your website URL
+3. GTM opens your site with a debug panel at the bottom
+4. Look for your "Grain Analytics" tag in the "Tags Fired" section
+5. Open your browser console (F12 → Console tab)
+6. You should see Grain Analytics initializing
+
+<Tip>
+  **Pro tip**: Type `window.grain` in the console. If you see an object with methods like `track` and `getConfig`, you're good to go!
+</Tip>
+
+## Step 6: Publish Your Changes
+
+Everything working in preview? Time to go live:
+
+1. Click **Submit** in the top right
+2. Name your version (e.g., "Added Grain Analytics")
+3. Add a description (optional but helpful for team members)
+4. Click **Publish**
+
+Your analytics are now live! 🎉
+
+## Track Custom Events
+
+Now that Grain is installed, you can track custom events using GTM's built-in triggers:
+
+### Track Button Clicks
+
+1. Create a new tag (Custom HTML type)
+2. Add this code:
+
+```html
+<script>
+  window.grain.track('button_clicked', {
+    button_text: {{Click Text}},
+    button_url: {{Click URL}}
+  });
+</script>
+```
+
+3. Set the trigger to **All Elements - Click**
+4. Add a filter if you only want specific buttons
+
+### Track Form Submissions
+
+1. Create a new tag (Custom HTML type)
+2. Add this code:
+
+```html
+<script>
+  window.grain.track('form_submitted', {
+    form_name: {{Form ID}},
+    form_url: window.location.pathname
+  });
+</script>
+```
+
+3. Set the trigger to **Form Submission**
+
+### Track Link Clicks
+
+1. Create a new tag (Custom HTML type)
+2. Add this code:
+
+```html
+<script>
+  window.grain.track('link_clicked', {
+    link_text: {{Click Text}},
+    link_url: {{Click URL}},
+    destination: {{Click URL}}
+  });
+</script>
+```
+
+3. Set the trigger to **Just Links - All Elements**
+
+<Note>
+  **GTM Variables**: Those `{{Click Text}}` and `{{Click URL}}` things are built-in GTM variables. Enable them in **Variables → Configure** if they're not showing up.
+</Note>
+
+## Advanced: Data Layer Integration
+
+If you're using GTM's Data Layer, you can pass event data to Grain:
+
+```html
+<script>
+  // Listen for dataLayer pushes
+  window.dataLayer = window.dataLayer || [];
+  
+  window.dataLayer.push({
+    event: 'customEvent',
+    eventName: 'purchase_completed',
+    eventData: {
+      orderId: '12345',
+      total: 99.99,
+      currency: 'USD'
+    }
+  });
+  
+  // Track to Grain
+  if (window.grain) {
+    window.grain.track('purchase_completed', {
+      orderId: '12345',
+      total: 99.99,
+      currency: 'USD'
+    });
+  }
+</script>
+```
+
+## Troubleshooting
+
+### Tag isn't firing
+
+- Check that your trigger is set to **Initialization - All Pages**
+- Make sure you published your container (not just saved it)
+- Clear your browser cache and reload
+
+### Events not showing in dashboard
+
+- Verify your tenant ID is correct (check for typos!)
+- Open browser console and look for errors
+- Check that `window.grain` exists by typing it in the console
+- Make sure your site is actually published (not in GTM preview mode)
+
+### GTM conflicts with other tags
+
+- Grain Analytics is lightweight and rarely conflicts, but if you see issues:
+- Move Grain's tag to a higher priority (edit tag → Advanced Settings → Tag firing priority)
+- Try setting the trigger to **DOM Ready** instead of **Initialization**
+
+## Best Practices
+
+<Check>
+  **Do**: Use descriptive event names like `signup_clicked` instead of generic names like `click1`
+</Check>
+
+<Check>
+  **Do**: Add properties to events for context (e.g., button location, product name, page section)
+</Check>
+
+<Check>
+  **Do**: Test in GTM Preview mode before publishing
+</Check>
+
+<Warning>
+  **Don't**: Track sensitive data like passwords, credit card numbers, or personal info in event properties
+</Warning>
+
+<Warning>
+  **Don't**: Create too many similar tags—combine logic when possible to keep GTM clean
+</Warning>
+
+## Next Steps
+
+Now that Grain Analytics is running on your site:
+
+<CardGroup cols={2}>
+  <Card title="Track Events" icon="chart-line" href="/core/event-tracking">
+    Learn event tracking best practices
+  </Card>
+  <Card title="User Identification" icon="user" href="/core/user-identification">
+    Track users across sessions
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    Use feature flags and A/B tests
+  </Card>
+  <Card title="Tracks Feature" icon="route" href="/features/tracks">
+    Analyze user journeys and funnels
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+Stuck on something? We've got you covered:
+
+- **Chat Support**: Click the chat icon in the bottom right of [grainql.com](https://grainql.com)
+- **Email**: [support@grainql.com](mailto:support@grainql.com)
+- **Documentation**: Browse our [full docs](https://docs.grainql.com)
+
+Happy tracking! 📊
+

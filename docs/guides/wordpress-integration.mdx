@@ -1,0 +1,424 @@
+---
+title: "WordPress Integration"
+description: "Add Grain Analytics to your WordPress site without plugins"
+---
+
+## Why Grain for WordPress?
+
+Most WordPress analytics plugins are bloated, slow, or lock you into their ecosystem. Grain Analytics is different:
+
+- **Lightweight**: Just 6 KB, won't slow down your site
+- **Privacy-first**: GDPR compliant by default
+- **Customizable**: Track exactly what matters to you
+- **No vendor lock-in**: Own your data, export anytime
+
+**Setup time**: About 10 minutes, no plugins required!
+
+## Before You Start
+
+Make sure you have:
+- Admin access to your WordPress dashboard
+- Your Grain tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
+- A child theme or willingness to use a plugin like "Insert Headers and Footers" (recommended!)
+
+<Warning>
+  **Use a child theme!** If you edit your theme directly, updates will overwrite your changes. Either use a child theme or a header/footer plugin.
+</Warning>
+
+## Method 1: Using Insert Headers and Footers (Recommended)
+
+This is the safest method—no theme editing required!
+
+### Install the Plugin
+
+1. Go to **Plugins → Add New**
+2. Search for "Insert Headers and Footers"
+3. Click **Install Now** → **Activate**
+
+### Add Grain Analytics
+
+1. Go to **Settings → Insert Headers and Footers**
+2. In the **Scripts in Header** box, paste:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  // Track page views with WordPress context
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    url: window.location.href,
+    title: document.title,
+    post_type: '<?php echo get_post_type(); ?>',
+    is_front_page: <?php echo is_front_page() ? 'true' : 'false'; ?>
+  });
+</script>
+```
+
+3. Click **Save**
+
+Done! Grain Analytics is now running on your site. 🎉
+
+<Note>
+  **Alternative plugins**: "WP Code" (formerly "Insert Headers and Footers") or "Simple Custom CSS and JS" work great too!
+</Note>
+
+## Method 2: Theme Functions (Advanced)
+
+If you prefer adding code to your theme (using a child theme!):
+
+### Add to functions.php
+
+1. Go to **Appearance → Theme File Editor**
+2. Select **Theme Functions (functions.php)**
+3. Add this at the bottom:
+
+```php
+<?php
+function grain_analytics_header() {
+  $tenant_id = 'your-tenant-id'; // Replace with your actual tenant ID
+  ?>
+  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script>
+    window.grain = Grain.createGrainAnalytics({
+      tenantId: '<?php echo esc_js($tenant_id); ?>'
+    });
+    
+    // Track page views
+    grain.track('page_viewed', {
+      page: window.location.pathname,
+      title: document.title,
+      post_type: '<?php echo get_post_type(); ?>',
+      post_id: <?php echo get_the_ID(); ?>,
+      is_singular: <?php echo is_singular() ? 'true' : 'false'; ?>,
+      is_front_page: <?php echo is_front_page() ? 'true' : 'false'; ?>
+    });
+  </script>
+  <?php
+}
+add_action('wp_head', 'grain_analytics_header');
+?>
+```
+
+4. Click **Update File**
+
+<Tip>
+  **Using a child theme?** Perfect! Add this to your child theme's `functions.php` to keep it safe from parent theme updates.
+</Tip>
+
+## Method 3: Direct Theme Editing
+
+Only if you can't use the other methods (and you're using a child theme!):
+
+1. Go to **Appearance → Theme File Editor**
+2. Look for **header.php** in the file list
+3. Find the `</head>` closing tag
+4. Add this code **right before** `</head>`:
+
+```html
+<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script>
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
+  });
+  
+  grain.track('page_viewed', {
+    page: window.location.pathname,
+    title: document.title
+  });
+</script>
+```
+
+5. Click **Update File**
+
+## Track WordPress-Specific Events
+
+Now let's track things that matter on WordPress sites:
+
+### Track Blog Post Reads
+
+Add this to your single post template or use the functions.php method:
+
+```php
+<?php if (is_single()) : ?>
+<script>
+  if (window.grain) {
+    grain.track('blog_post_viewed', {
+      post_id: <?php echo get_the_ID(); ?>,
+      post_title: '<?php echo esc_js(get_the_title()); ?>',
+      post_type: '<?php echo get_post_type(); ?>',
+      author: '<?php echo esc_js(get_the_author()); ?>',
+      categories: <?php echo json_encode(wp_get_post_categories(get_the_ID(), array('fields' => 'names'))); ?>,
+      tags: <?php echo json_encode(wp_get_post_tags(get_the_ID(), array('fields' => 'names'))); ?>
+    });
+  }
+</script>
+<?php endif; ?>
+```
+
+### Track Comment Submissions
+
+Add this in functions.php:
+
+```php
+function grain_track_comment_submit() {
+  ?>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const commentForm = document.getElementById('commentform');
+      if (commentForm && window.grain) {
+        commentForm.addEventListener('submit', function() {
+          grain.track('comment_submitted', {
+            post_id: <?php echo get_the_ID(); ?>,
+            post_title: '<?php echo esc_js(get_the_title()); ?>'
+          });
+        });
+      }
+    });
+  </script>
+  <?php
+}
+add_action('comment_form_after', 'grain_track_comment_submit');
+```
+
+### Track Search Queries
+
+```php
+<?php if (is_search()) : ?>
+<script>
+  if (window.grain) {
+    grain.track('search_performed', {
+      query: '<?php echo esc_js(get_search_query()); ?>',
+      results_count: <?php echo $wp_query->found_posts; ?>
+    });
+  }
+</script>
+<?php endif; ?>
+```
+
+### Track Contact Form 7 Submissions
+
+If you use Contact Form 7:
+
+```javascript
+document.addEventListener('wpcf7mailsent', function(event) {
+  if (window.grain) {
+    grain.track('contact_form_submitted', {
+      form_id: event.detail.contactFormId,
+      form_title: event.detail.inputs.find(i => i.name === 'form-name')?.value
+    });
+  }
+});
+```
+
+### Track WooCommerce Events (If Applicable)
+
+For WooCommerce stores:
+
+```php
+// Track product views
+function grain_track_product_view() {
+  if (!is_product()) return;
+  global $product;
+  ?>
+  <script>
+    if (window.grain) {
+      grain.track('product_viewed', {
+        product_id: <?php echo $product->get_id(); ?>,
+        product_name: '<?php echo esc_js($product->get_name()); ?>',
+        price: <?php echo $product->get_price(); ?>,
+        category: '<?php echo esc_js(strip_tags($product->get_categories())); ?>'
+      });
+    }
+  </script>
+  <?php
+}
+add_action('wp_footer', 'grain_track_product_view');
+
+// Track add to cart
+add_action('woocommerce_add_to_cart', function($cart_item_key, $product_id) {
+  ?>
+  <script>
+    if (window.grain) {
+      grain.track('product_added_to_cart', {
+        product_id: <?php echo $product_id; ?>
+      });
+    }
+  </script>
+  <?php
+}, 10, 2);
+```
+
+## Track Scroll Depth
+
+See how far people read your content:
+
+```javascript
+<script>
+let scrollTracked = false;
+window.addEventListener('scroll', function() {
+  if (scrollTracked) return;
+  
+  const scrollPercent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+  
+  if (scrollPercent > 75 && window.grain) {
+    grain.track('page_scrolled_75', {
+      page: window.location.pathname,
+      title: document.title
+    });
+    scrollTracked = true;
+  }
+});
+</script>
+```
+
+## Privacy & GDPR Compliance
+
+For European visitors, enable consent mode:
+
+```javascript
+window.grain = Grain.createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  consentMode: 'opt-in',     // Require consent for GDPR
+  waitForConsent: true,       // Queue events until consent granted
+  enableCookies: true,        // Use cookies after consent
+  cookieOptions: {
+    maxAge: 365 * 24 * 60 * 60, // 365 days
+    sameSite: 'lax',
+    secure: true              // Require HTTPS
+  }
+});
+
+// Grant consent when user accepts cookies
+// (integrate with your cookie banner plugin)
+function handleCookieConsent() {
+  if (window.grain) {
+    grain.grantConsent(['necessary', 'analytics']);
+  }
+}
+```
+
+<Info>
+  **Using a cookie consent plugin?** Integrate Grain's `grantConsent()` with popular plugins like Cookie Notice, Complianz, or GDPR Cookie Compliance.
+</Info>
+
+## Step-by-Step: Integrate with Cookie Notice Plugin
+
+1. Install **Cookie Notice for GDPR & CCPA** plugin
+2. Go to **Settings → Cookie Notice**
+3. Enable the consent notice
+4. In **Custom Code** (if available) or in your theme's footer, add:
+
+```javascript
+document.addEventListener('DOMContentLoaded', function() {
+  // Listen for Cookie Notice consent
+  document.addEventListener('click', function(e) {
+    if (e.target.id === 'cn-accept-cookie' && window.grain) {
+      grain.grantConsent(['necessary', 'analytics']);
+    }
+  });
+});
+```
+
+## Test Your Integration
+
+Let's verify everything works:
+
+1. Open your site in an incognito/private window
+2. Open browser console (F12 → Console)
+3. Type `window.grain` and press Enter
+4. You should see an object with methods like `track`, `getConfig`, etc.
+5. Navigate a few pages
+6. Check your [Grain dashboard](https://grainql.com/dashboard) for incoming events
+
+<Tip>
+  **Debug mode**: Add `debug: true` to your config temporarily to see console logs:
+  ```javascript
+  window.grain = Grain.createGrainAnalytics({
+    tenantId: 'your-tenant-id',
+    debug: true // Remove before going live!
+  });
+  ```
+</Tip>
+
+## Troubleshooting
+
+### Script not loading
+
+- **Check PHP syntax**: Missing semicolons or quotes can break the page
+- **Clear cache**: Use a cache plugin? Clear cache and/or disable temporarily
+- **Check browser console**: Press F12 and look for JavaScript errors
+- **Verify placement**: Make sure code is in the `<head>` section or hooked to `wp_head`
+
+### Events not showing in dashboard
+
+- Wait 1-2 minutes—slight delay is normal
+- Check that `window.grain` exists in console
+- Verify your tenant ID is correct
+- Make sure you're not blocking analytics in browser extensions (ad blockers)
+
+### Theme broke after editing
+
+- **Revert immediately**: Go to **Appearance → Themes** and activate a default theme
+- **Fix syntax**: If you edited PHP, check for missing `?>` or unclosed strings
+- **Use FTP**: Access your site via FTP and restore the original file from a backup
+
+### WordPress admin slow
+
+- Grain shouldn't affect admin—it only loads on the frontend
+- If admin is slow, check for other plugins or server issues
+
+## Performance Best Practices
+
+<Check>
+  **Do**: Use the CDN version—it's cached globally and loads fast
+</Check>
+
+<Check>
+  **Do**: Load Grain in the header for early initialization
+</Check>
+
+<Check>
+  **Do**: Use WordPress's built-in JavaScript enqueue if you're comfortable with it
+</Check>
+
+<Warning>
+  **Don't**: Load Grain on admin pages—only front-end pages need analytics
+</Warning>
+
+<Warning>
+  **Don't**: Track every scroll pixel or mouse movement—keep events meaningful
+</Warning>
+
+## Next Steps
+
+Your WordPress site is tracked! Here's what to explore next:
+
+<CardGroup cols={2}>
+  <Card title="Tracks Feature" icon="route" href="/features/tracks">
+    Analyze user journeys through your content
+  </Card>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn event tracking best practices
+  </Card>
+  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
+    A/B test layouts, CTAs, and messaging
+  </Card>
+  <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
+    Build custom dashboards and reports
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+Run into issues? We're here to help:
+
+- **Live Chat**: Visit [grainql.com](https://grainql.com) and click the chat icon
+- **Email**: [support@grainql.com](mailto:support@grainql.com)
+- **WordPress Experts**: Need custom tracking for plugins? Let's chat!
+
+Happy blogging! ✍️
+

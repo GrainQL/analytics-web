@@ -5,6 +5,107 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2025-11-25
+
+### Fixed
+- **Section Tracking**: Added 3-second split duration to prevent event loss when users view sections for extended periods
+- **Beacon API Format**: Fixed 400 error on navigation by sending events array directly (not wrapped in object) to match API expectation
+- **Navigation Click Tracking**: Added immediate flush for navigation link clicks to ensure events are sent before page unload
+- **Authenticated Beacon Requests**: Updated beacon API to skip for authenticated requests (beacon doesn't support headers) and use fetch with keepalive instead
+
+## [2.5.2] - 2025-11-25
+
+### Fixed
+- **XPath Selector Parsing**: Fixed XPath evaluation error by stripping `xpath=` prefix from Stagehand selectors
+- **Interaction Tracking**: Resolved "cannot be converted to the desired type" error in interaction tracking
+- **Section Tracking**: Applied same XPath prefix fix to section tracking for consistency
+
+## [2.5.1] - 2025-11-25
+
+### Fixed
+- **Auto-Tracking Initialization**: Fixed issue where SDK did not fetch auto-tracking configurations from backend
+- **Remote Config Request**: Added missing `currentUrl` field to `RemoteConfigRequest` interface
+- **Debug Logging**: Enhanced initialization logging to help diagnose auto-tracking setup issues
+- **Manager Setup**: Improved auto-tracking manager initialization with better error visibility
+
+## [2.5.0] - 2025-11-25
+
+### Added
+
+#### Auto-Tracking System
+- **Automatic Interaction Tracking**: SDK automatically attaches click and focus listeners to detected interactive elements using XPath selectors
+- **Intelligent Section Tracking**: Scroll-based section visibility tracking with viewport metrics, scroll depth, and engagement analysis
+- **Smart Event Sanitization**: Filters rapid scrolling and short dwell times to prevent noisy data
+- **Event Batching**: Section view events are batched and sent efficiently to reduce API calls
+- **Dynamic Content Support**: MutationObserver handles dynamically added elements automatically
+
+### Technical Details
+- **InteractionTrackingManager**: XPath-based element detection with caching and dynamic content handling
+- **SectionTrackingManager**: IntersectionObserver-based visibility tracking with scroll velocity analysis
+- **Remote Config Integration**: Auto-tracking configurations fetched automatically from remote config API
+- **Performance Optimized**: Passive event listeners, debounced handlers, and lazy module loading
+
+## [2.4.0] - 2025-10-27
+
+### Added
+
+#### Privacy-First Country Detection
+- **Timezone-Based Country Mapping**: Client-side country detection using IANA timezone data (no IP tracking)
+- **TIMEZONE_TO_COUNTRY Map**: Comprehensive mapping of 150+ timezones to ISO 3166-1 alpha-2 country codes
+- **getCountryFromTimezone()**: Public API for converting timezone to country code
+
+### Changed
+
+#### Privacy Improvements
+- **Removed IP Geolocation**: Eliminated server-side IP-to-country lookups to third-party APIs
+- **Client-Side Detection**: Country is now derived from user's timezone setting (privacy-friendly)
+
+### Technical Details
+- **Timezone Mapping**: Added `timezone-country.ts` with extensive timezone-to-country mappings
+- **Page View Events**: Now include `country` property derived from timezone
+- **Backward Compatibility**: No breaking changes, country detection is automatic
+
+## [2.3.1] - 2025-10-27
+
+### Added
+
+#### User Context Dimensions
+- **Server-Side Country Detection**: The backend now automatically enriches events with country information using IP geolocation
+- **Cross-Event Dimension Analysis**: User context dimensions (country, device, browser, os, language, timezone) are now queryable across all events, not just page_view events
+- **Smart Dimension Fallback**: When analyzing events that don't log device/location properties, the backend automatically derives them from the user's most recent page_view event
+
+### Changed
+
+#### Matrix Analytics Improvements
+- **User Context Query Logic**: Matrix queries now use intelligent fallback to derive user dimensions from page_view events
+- **Country Dimension**: Now populated server-side via IP geolocation (no client-side changes required)
+- **Enhanced Dimension Support**: Device, browser, OS, language, and timezone dimensions now work seamlessly across all event types in matrix analysis
+
+### Technical Details
+- **GeoIP Service**: Added server-side IP geolocation service for country detection
+- **Dimension Extraction**: Enhanced ClickHouse queries with subquery fallback for user-context dimensions
+- **Event Enrichment**: EventPublisherController now enriches events with country data from client IP address
+
+## [2.3.0] - 2025-10-27
+
+### Added
+
+#### Enhanced Matrix Analytics Support
+- **Device Type Detection**: Added `device` property (Mobile/Tablet/Desktop) to page_view and session_start events
+- **Session Duration Tracking**: Added `session_duration` property (in seconds) to session_end events for better analytics
+- **Pages Per Session**: Added `pages_per_session` property to session_end events for engagement analysis
+- **Backward Compatibility**: Maintained existing property names (`duration`, `page_count`) for seamless migration
+
+#### Matrix Dimension Support
+- **Session Duration Bucketing**: Backend now properly buckets session duration into meaningful ranges (< 30s, 30-60s, 1-3m, 3-5m, 5-10m, 10-30m, > 30m)
+- **Pages Per Session Bucketing**: Backend buckets page counts into user-friendly ranges (1 page, 2 pages, 3 pages, 4-5 pages, 6-10 pages, > 10 pages)
+- **Full Matrix Template Compatibility**: All 23 pre-built matrix templates now work seamlessly with SDK logging and backend queries
+
+### Technical Details
+- **Device Detection**: Uses user agent parsing and viewport width for accurate device type classification
+- **Session Analytics**: Enhanced session tracking with duration and page count metrics
+- **Matrix Integration**: Complete compatibility between frontend templates, SDK logging, and backend dimension extraction
+
 ## [2.2.0] - 2025-10-21
 
 ### Added
@@ -218,6 +319,8 @@ function YourComponent() {
 
 ---
 
+[2.5.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.5.0
+[2.4.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.4.0
 [2.1.3]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.3
 [2.1.2]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.2
 [2.1.0]: https://github.com/GrainQL/analytics-web/releases/tag/v2.1.0

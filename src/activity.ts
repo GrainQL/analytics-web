@@ -120,7 +120,7 @@ export class ActivityDetector {
       try {
         listener();
       } catch (error) {
-        console.error('[Activity Detector] Listener error:', error);
+        // Silent failure - listener threw an error
       }
     }
   }

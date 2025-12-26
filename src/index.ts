@@ -89,6 +89,8 @@ export interface GrainConfig {
   heartbeatInactiveInterval?: number; // Inactive interval in ms (default: 300000 - 5 min)
   enableAutoPageView?: boolean; // Enable automatic page view tracking (default: true)
   stripQueryParams?: boolean; // Strip query params from URLs (default: true)
+  // Heatmap Tracking options
+  enableHeatmapTracking?: boolean; // Enable heatmap tracking (default: true)
 }
 
 export interface SendEventOptions {
@@ -322,9 +324,13 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   // Auto-tracking properties
   private interactionTrackingManager: any | null = null;
   private sectionTrackingManager: any | null = null;
+  private heatmapTrackingManager: any | null = null;
   // Session tracking
   private sessionStartTime: number = Date.now();
   private sessionEventCount: number = 0;
+  // Debug mode properties
+  private debugAgent: any | null = null;
+  private isDebugMode: boolean = false;
 
   constructor(config: GrainConfig) {
     this.config = {
@@ -353,6 +359,8 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       heartbeatInactiveInterval: 300000, // 5 minutes
       enableAutoPageView: true,
       stripQueryParams: true,
+      // Heatmap Tracking defaults
+      enableHeatmapTracking: true,
       ...config,
       tenantId: config.tenantId,
     };
@@ -384,9 +392,16 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
     // Initialize automatic tracking (browser only)
     if (typeof window !== 'undefined') {
+      // Check for debug mode before initializing tracking
+      this.checkAndInitializeDebugMode();
+      
       this.initializeAutomaticTracking();
       // Track session start
       this.trackSessionStart();
+      // Initialize heatmap tracking if enabled
+      if (this.config.enableHeatmapTracking) {
+        this.initializeHeatmapTracking();
+      }
     }
 
     // Set up consent change listener to flush waiting events and handle consent upgrade
@@ -662,6 +677,9 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
    * Log formatted error gracefully
    */
   private logError(formattedError: FormattedError): void {
+    // Only log errors in debug mode to reduce noise in production
+    if (!this.config.debug) return;
+    
     const { code, message, digest, timestamp, context } = formattedError;
     
     const errorOutput = {
@@ -681,11 +699,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     };
 
     console.error('🚨 Grain Analytics Error:', errorOutput);
-    
-    // Also log in a more compact format for debugging
-    if (this.config.debug) {
       console.error(`[Grain Analytics] ${code}: ${message} (${context}) - Events: ${digest.eventCount}, Props: ${digest.totalProperties}, Size: ${digest.totalSize}B`);
-    }
   }
 
   /**
@@ -805,8 +819,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         const headers = await this.getAuthHeaders();
         const url = `${this.config.apiUrl}/v1/events/${encodeURIComponent(this.config.tenantId)}/multi`;
 
-        this.log(`Sending ${events.length} events to ${url} (attempt ${attempt + 1})`);
-
         const response = await fetch(url, {
           method: 'POST',
           headers,
@@ -890,8 +902,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         body,
         keepalive: true,
       });
-
-      this.log(`Successfully sent ${events.length} events via fetch (keepalive)`);
     } catch (error) {
       // Log error gracefully for beacon failures (page unload scenarios)
       const formattedError = this.formatError(error, 'sendEventsWithBeacon', events);
@@ -977,7 +987,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
             debug: this.config.debug,
           }
         );
-        this.log('Heartbeat tracking initialized');
       } catch (error) {
         this.log('Failed to initialize heartbeat tracking:', error);
       }
@@ -993,7 +1002,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
             tenantId: this.config.tenantId,
           }
         );
-        this.log('Auto page view tracking initialized');
       } catch (error) {
         this.log('Failed to initialize page view tracking:', error);
       }
@@ -1004,11 +1012,43 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   /**
+   * Initialize heatmap tracking
+   */
+  private initializeHeatmapTracking(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      this.log('Initializing heatmap tracking');
+      
+      import('./heatmap-tracking').then(({ HeatmapTrackingManager }) => {
+        try {
+          this.heatmapTrackingManager = new HeatmapTrackingManager(
+            this,
+            {
+              scrollDebounceDelay: 100,
+              batchDelay: 2000,
+              maxBatchSize: 20,
+              debug: this.config.debug,
+            }
+          );
+          this.log('Heatmap tracking initialized');
+        } catch (error) {
+          this.log('Failed to initialize heatmap tracking:', error);
+        }
+      }).catch((error) => {
+        this.log('Failed to load heatmap tracking module:', error);
+      });
+    } catch (error) {
+      this.log('Failed to initialize heatmap tracking:', error);
+    }
+  }
+
+  /**
    * Initialize auto-tracking (interactions and sections)
    */
   private async initializeAutoTracking(): Promise<void> {
     try {
-      this.log('Initializing auto-tracking...');
+      this.log('Initializing auto-tracking');
       
       // Fetch remote config to get auto-tracking configuration
       const userId = this.globalUserId || this.persistentAnonymousUserId || this.generateUUID();
@@ -1025,8 +1065,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       const headers = await this.getAuthHeaders();
       const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/config/configurations`;
 
-      this.log('Fetching auto-tracking config from:', url);
-
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -1034,18 +1072,15 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       });
 
       if (!response.ok) {
-        this.log('Failed to fetch auto-tracking config:', response.status, response.statusText);
+        this.log('Failed to fetch auto-tracking config:', response.status);
         return;
       }
 
         const configResponse: RemoteConfigResponse = await response.json();
-      this.log('Received config response:', configResponse);
         
         if (configResponse.autoTrackingConfig) {
-        this.log('Auto-tracking config found:', configResponse.autoTrackingConfig);
+        this.log('Auto-tracking config loaded');
           this.setupAutoTrackingManagers(configResponse.autoTrackingConfig);
-      } else {
-        this.log('No auto-tracking config in response');
       }
     } catch (error) {
       this.log('Failed to initialize auto-tracking:', error);
@@ -1057,11 +1092,11 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
    * Setup auto-tracking managers
    */
   private setupAutoTrackingManagers(config: NonNullable<RemoteConfigResponse['autoTrackingConfig']>): void {
-    this.log('Setting up auto-tracking managers...', config);
+    this.log('Setting up auto-tracking managers');
     
     // Lazy load the managers to avoid bundling them if not needed
     if (config.interactions && config.interactions.length > 0) {
-      this.log('Loading interaction tracking module for', config.interactions.length, 'interactions');
+      this.log('Loading interaction tracking:', config.interactions.length, 'interactions');
     import('./interaction-tracking').then(({ InteractionTrackingManager }) => {
       try {
           this.interactionTrackingManager = new InteractionTrackingManager(
@@ -1071,21 +1106,21 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
               debug: this.config.debug,
               enableMutationObserver: true,
               mutationDebounceDelay: 500,
+              tenantId: this.config.tenantId,
+              apiUrl: this.config.apiUrl,
             }
           );
-          this.log('✅ Interaction tracking initialized successfully with', config.interactions.length, 'interactions');
+          this.log('Interaction tracking initialized');
       } catch (error) {
-          this.log('❌ Failed to initialize interaction tracking:', error);
+          this.log('Failed to initialize interaction tracking:', error);
       }
     }).catch((error) => {
-        this.log('❌ Failed to load interaction tracking module:', error);
+        this.log('Failed to load interaction tracking module:', error);
     });
-    } else {
-      this.log('No interactions configured for auto-tracking');
     }
 
     if (config.sections && config.sections.length > 0) {
-      this.log('Loading section tracking module for', config.sections.length, 'sections');
+      this.log('Loading section tracking:', config.sections.length, 'sections');
     import('./section-tracking').then(({ SectionTrackingManager }) => {
       try {
           this.sectionTrackingManager = new SectionTrackingManager(
@@ -1100,15 +1135,13 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
               debug: this.config.debug,
             }
           );
-          this.log('✅ Section tracking initialized successfully with', config.sections.length, 'sections');
+          this.log('Section tracking initialized');
       } catch (error) {
-          this.log('❌ Failed to initialize section tracking:', error);
+          this.log('Failed to initialize section tracking:', error);
       }
     }).catch((error) => {
-        this.log('❌ Failed to load section tracking module:', error);
+        this.log('Failed to load section tracking module:', error);
     });
-    } else {
-      this.log('No sections configured for auto-tracking');
     }
   }
 
@@ -1177,7 +1210,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     }
 
     this.trackSystemEvent('_grain_session_start', properties);
-    this.log('Session started:', properties);
+    this.log('Session started');
   }
 
   /**
@@ -1204,7 +1237,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     }
 
     this.trackSystemEvent('_grain_session_end', properties);
-    this.log('Session ended:', properties);
+    this.log('Session ended');
   }
 
   /**
@@ -1309,7 +1342,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     this.eventQueue.push(event);
     this.eventCountSinceLastHeartbeat++;
 
-    this.log(`Queued system event: ${eventName}`, properties);
+    this.log(`Queued system event: ${eventName}`);
 
     // Consider flushing
     if (this.eventQueue.length >= this.config.batchSize) {
@@ -1349,6 +1382,16 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
    */
   resetEventCountSinceLastHeartbeat(): void {
     this.eventCountSinceLastHeartbeat = 0;
+  }
+
+  /**
+   * Get the activity detector (for internal use by tracking managers)
+   */
+  getActivityDetector(): ActivityDetector {
+    if (!this.activityDetector) {
+      throw new Error('Activity detector not initialized');
+    }
+    return this.activityDetector;
   }
 
   /**
@@ -1427,7 +1470,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       this.eventQueue.push(formattedEvent);
       this.eventCountSinceLastHeartbeat++;
       this.sessionEventCount++;
-      this.log(`Queued event: ${event.eventName}`, event.properties);
+      this.log(`Queued event: ${event.eventName}`);
 
       // Check if we should flush immediately
       if (opts.flush || this.eventQueue.length >= this.config.batchSize) {
@@ -1677,8 +1720,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       try {
         const headers = await this.getAuthHeaders();
         const url = `${this.config.apiUrl}/v1/events/${encodeURIComponent(this.config.tenantId)}/properties`;
-
-        this.log(`Setting properties for user ${payload.userId} (attempt ${attempt + 1})`);
 
         const response = await fetch(url, {
           method: 'POST',
@@ -1945,8 +1986,6 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
           const headers = await this.getAuthHeaders();
           const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/config/configurations`;
 
-          this.log(`Fetching configurations for user ${userId} (attempt ${attempt + 1})`);
-
           const response = await fetch(url, {
             method: 'POST',
             headers,
@@ -1979,7 +2018,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
             this.updateConfigCache(configResponse, userId);
           }
 
-          this.log(`Successfully fetched configurations for user ${userId}:`, configResponse);
+          this.log('Successfully fetched configurations');
           return configResponse;
           
         } catch (error) {
@@ -2246,6 +2285,104 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   /**
+   * Check for debug mode parameters and initialize debug agent if valid
+   */
+  private checkAndInitializeDebugMode(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDebug = urlParams.get('grain_debug') === '1';
+      const sessionId = urlParams.get('grain_session');
+      
+      if (!isDebug || !sessionId) {
+        return;
+      }
+      
+      this.log('Debug mode detected, verifying session:', sessionId);
+      
+      // Verify session with API
+      this.verifyDebugSession(sessionId, window.location.hostname)
+        .then((valid) => {
+          if (valid) {
+            this.log('Debug session verified, initializing debug agent');
+            this.isDebugMode = true;
+            this.initializeDebugAgent(sessionId);
+          } else {
+            this.log('Debug session verification failed');
+          }
+        })
+        .catch((error) => {
+          this.log('Failed to verify debug session:', error);
+        });
+    } catch (error) {
+      this.log('Error checking debug mode:', error);
+    }
+  }
+  
+  /**
+   * Verify debug session with API
+   */
+  private async verifyDebugSession(sessionId: string, domain: string): Promise<boolean> {
+    try {
+      const url = `${this.config.apiUrl}/v1/tenant/${encodeURIComponent(this.config.tenantId)}/debug-sessions/verify`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          domain,
+        }),
+      });
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const result = await response.json();
+      return result.valid === true;
+    } catch (error) {
+      this.log('Debug session verification error:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Initialize debug agent
+   */
+  private initializeDebugAgent(sessionId: string): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      this.log('Loading debug agent module');
+      
+      import('./debug-agent').then(({ DebugAgent }) => {
+        try {
+          this.debugAgent = new DebugAgent(
+            this,
+            sessionId,
+            this.config.tenantId,
+            this.config.apiUrl,
+            {
+              debug: this.config.debug,
+            }
+          );
+          this.log('Debug agent initialized');
+        } catch (error) {
+          this.log('Failed to initialize debug agent:', error);
+        }
+      }).catch((error) => {
+        this.log('Failed to load debug agent module:', error);
+      });
+    } catch (error) {
+      this.log('Error initializing debug agent:', error);
+    }
+  }
+
+  /**
    * Destroy the client and clean up resources
    */
   destroy(): void {
@@ -2287,6 +2424,17 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     if (this.sectionTrackingManager) {
       this.sectionTrackingManager.destroy();
       this.sectionTrackingManager = null;
+    }
+
+    if (this.heatmapTrackingManager) {
+      this.heatmapTrackingManager.destroy();
+      this.heatmapTrackingManager = null;
+    }
+    
+    // Destroy debug agent
+    if (this.debugAgent) {
+      this.debugAgent.destroy();
+      this.debugAgent = null;
     }
 
     // Send any remaining events (in chunks if necessary)

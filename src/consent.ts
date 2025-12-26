@@ -60,7 +60,7 @@ export class ConsentManager {
       }
       // Note: In opt-in mode without stored consent, consentState remains null (no consent)
     } catch (error) {
-      console.error('[Grain Consent] Failed to load consent state:', error);
+      // Silent failure - consent will be requested when needed
     }
   }
 
@@ -73,7 +73,7 @@ export class ConsentManager {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.consentState));
     } catch (error) {
-      console.error('[Grain Consent] Failed to save consent state:', error);
+      // Silent failure - consent state won't persist
     }
   }
 
@@ -195,7 +195,7 @@ export class ConsentManager {
       try {
         listener(this.consentState!);
       } catch (error) {
-        console.error('[Grain Consent] Listener error:', error);
+        // Silent failure - listener threw an error
       }
     });
   }
@@ -210,7 +210,7 @@ export class ConsentManager {
       localStorage.removeItem(this.storageKey);
       this.consentState = null;
     } catch (error) {
-      console.error('[Grain Consent] Failed to clear consent:', error);
+      // Silent failure - consent state may not be fully cleared
     }
   }
 }

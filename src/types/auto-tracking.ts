@@ -44,6 +44,10 @@ export interface SectionTrackingOptions {
   debounceDelay: number; // Delay for debouncing scroll events
   batchDelay: number; // Delay before batching and sending events
   debug?: boolean;
+  // Attention quality options (applied via AttentionQualityManager)
+  maxSectionDuration?: number; // Max continuous attention per section (default: 9000ms)
+  minScrollDistance?: number; // Min scroll to reset attention (default: 100px)
+  idleThreshold?: number; // Idle time before pausing tracking (default: 30000ms)
 }
 
 export interface SectionTrackingState {

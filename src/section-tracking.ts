@@ -4,10 +4,13 @@
  */
 
 import type { SectionConfig, SectionViewData, SectionTrackingOptions, SectionTrackingState } from './types/auto-tracking';
+import { AttentionQualityManager } from './attention-quality';
+import type { ActivityDetector } from './activity';
 
 export interface SectionTracker {
   trackSystemEvent(eventName: string, properties: Record<string, unknown>): void;
   hasConsent(category: 'analytics' | 'marketing' | 'functional'): boolean;
+  getActivityDetector(): ActivityDetector;
   log(...args: unknown[]): void;
 }
 
@@ -45,6 +48,9 @@ export class SectionTrackingManager {
   private sectionTimers: Map<string, number> = new Map(); // sectionName -> timer ID
   private readonly SPLIT_DURATION = 3000; // 3 seconds
 
+  // Attention quality management
+  private attentionQuality: AttentionQualityManager;
+
   constructor(
     tracker: SectionTracker,
     sections: SectionConfig[],
@@ -53,6 +59,17 @@ export class SectionTrackingManager {
     this.tracker = tracker;
     this.sections = sections;
     this.options = { ...DEFAULT_OPTIONS, ...options };
+
+    // Initialize attention quality manager
+    this.attentionQuality = new AttentionQualityManager(
+      tracker.getActivityDetector(),
+      {
+        maxSectionDuration: 9000, // 9 seconds
+        minScrollDistance: 100, // 100 pixels
+        idleThreshold: 30000, // 30 seconds
+        debug: this.options.debug,
+      }
+    );
 
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       // Initialize after DOM is ready
@@ -70,7 +87,7 @@ export class SectionTrackingManager {
   private initialize(): void {
     if (this.isDestroyed) return;
 
-    this.log('Initializing section tracking for', this.sections.length, 'sections');
+    this.log('Initializing section tracking');
 
     // Setup intersection observer
     this.setupIntersectionObserver();
@@ -159,8 +176,6 @@ export class SectionTrackingManager {
       if (this.intersectionObserver) {
         this.intersectionObserver.observe(element);
       }
-
-      this.log('Section initialized and observed:', section.sectionName);
     }
   }
 
@@ -201,8 +216,6 @@ export class SectionTrackingManager {
    * Handle section entry (became visible)
    */
   private handleSectionEntry(state: SectionTrackingState): void {
-    this.log('Section entered view:', state.config.sectionName);
-    
     state.entryTime = Date.now();
     state.entryScrollSpeed = this.scrollVelocity;
     state.lastScrollPosition = window.scrollY;
@@ -231,6 +244,27 @@ export class SectionTrackingManager {
       
       // Only track if minimum dwell time has passed
       if (duration >= this.options.minDwellTime) {
+        // Check attention quality policies
+        const currentScrollY = window.scrollY;
+        const attentionCheck = this.attentionQuality.shouldTrackSection(
+          state.config.sectionName,
+          currentScrollY
+        );
+
+        // If attention was reset due to scroll, reset our entry time
+        if (attentionCheck.resetAttention) {
+          this.log(`Section "${state.config.sectionName}": Attention reset, restarting timer`);
+          state.entryTime = now;
+          state.entryScrollSpeed = this.scrollVelocity;
+          return;
+        }
+
+        // If tracking is not allowed (page hidden, idle, or max duration reached)
+        if (!attentionCheck.shouldTrack) {
+          this.log(`Section "${state.config.sectionName}": Tracking paused - ${attentionCheck.reason}`);
+          return;
+        }
+
         // Create partial section view data
         const viewData: SectionViewData = {
           sectionName: state.config.sectionName,
@@ -263,7 +297,8 @@ export class SectionTrackingManager {
             is_split: true, // Flag to indicate this is a periodic split, not final exit
           });
           
-          this.log('Tracked periodic section view split:', state.config.sectionName, 'duration:', duration);
+          // Update attention quality duration tracker
+          this.attentionQuality.updateSectionDuration(state.config.sectionName, duration);
           
           // Reset entry time for next split (but keep tracking)
           state.entryTime = now;
@@ -290,10 +325,11 @@ export class SectionTrackingManager {
    * Handle section exit (became invisible)
    */
   private handleSectionExit(state: SectionTrackingState): void {
-    this.log('Section exited view:', state.config.sectionName);
-    
     // Stop periodic tracking
     this.stopPeriodicTracking(state.config.sectionName);
+    
+    // Reset attention for this section
+    this.attentionQuality.resetSection(state.config.sectionName);
     
     if (state.entryTime === null) return;
 
@@ -398,7 +434,6 @@ export class SectionTrackingManager {
    */
   private queueSectionView(viewData: SectionViewData): void {
     this.pendingEvents.push(viewData);
-    this.log('Queued section view:', viewData.sectionName, 'duration:', viewData.duration);
 
     // Setup batch timer if not already set
     if (this.batchTimer === null) {
@@ -417,8 +452,6 @@ export class SectionTrackingManager {
       this.pendingEvents = [];
       return;
     }
-
-    this.log('Flushing', this.pendingEvents.length, 'section view events');
 
     // Track each section view
     for (const viewData of this.pendingEvents) {
@@ -553,6 +586,9 @@ export class SectionTrackingManager {
       this.intersectionObserver.disconnect();
       this.intersectionObserver = null;
     }
+
+    // Destroy attention quality manager
+    this.attentionQuality.destroy();
 
     // Clear state
     this.sectionStates.clear();

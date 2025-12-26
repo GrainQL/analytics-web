@@ -208,10 +208,6 @@ export class PageTrackingManager {
 
     // Track the page view event
     this.tracker.trackSystemEvent('page_view', properties);
-
-    if (this.config.debug) {
-      console.log('[Page Tracking] Tracked page view:', properties);
-    }
   }
 
   /**
@@ -346,10 +342,6 @@ export class PageTrackingManager {
     }
 
     this.tracker.trackSystemEvent('page_view', baseProperties);
-
-    if (this.config.debug) {
-      console.log('[Page Tracking] Manually tracked page:', baseProperties);
-    }
   }
 
   /**
@@ -382,10 +374,6 @@ export class PageTrackingManager {
     }
 
     this.isDestroyed = true;
-
-    if (this.config.debug) {
-      console.log('[Page Tracking] Destroyed');
-    }
   }
 }
 

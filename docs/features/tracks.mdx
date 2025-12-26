@@ -86,6 +86,76 @@ Grain calculates how long users take to complete journeys:
 
 **Use this to**: Set timeout windows, identify slow steps, or measure the impact of optimizations.
 
+## Page and Section Events in Tracks
+
+Grain automatically normalizes page views and section views to create **distinct nodes for each page and section**, helping you understand exactly which pages and content sections drive conversions.
+
+### Normalized Event Patterns
+
+When you track events, Grain transforms them into more meaningful representations:
+
+- **Page Views**: Each unique page becomes a separate event
+  - Example: `page_view:/home`, `page_view:/pricing`, `page_view:/checkout`
+  - Shows specific page transitions in your funnel
+  
+- **Section Views**: Tracked sections appear as distinct events  
+  - Example: `section_view:hero`, `section_view:cta`, `section_view:testimonials`
+  - Reveals which content sections engage users before conversion
+
+- **Regular Events**: All other events appear unchanged
+  - Example: `button_clicked`, `purchase_completed`, `video_watched`
+
+This transformation happens automatically in the Tracks analysis—no code changes needed!
+
+### Why This Matters
+
+Instead of seeing generic "page_view" nodes that obscure your funnel, you get granular visibility:
+
+**Before normalization:**
+```
+page_view → button_clicked → page_view → purchase_completed
+```
+
+**After normalization:**
+```
+page_view:/home → button_clicked → page_view:/pricing → purchase_completed
+```
+
+Now you can see that users typically view your homepage before pricing, helping you optimize each step.
+
+### Logarithmic Normalization
+
+To prevent power users from skewing results, Grain applies **logarithmic normalization** to path counts:
+
+| User Activity | Raw Count | Normalized Contribution |
+|--------------|-----------|------------------------|
+| 1 page visit | 1 | log(2) = 0.69 |
+| 10 page visits | 10 | log(11) = 2.40 |
+| 100 page visits | 100 | log(101) = 4.62 |
+| 1000 page visits | 1000 | log(1001) = 6.91 |
+
+**Result**: A single power user with 1000 page views won't drown out 50 regular users with 10 views each.
+
+This ensures your Tracks analysis reflects genuine user patterns, not just the behavior of a few extreme outliers.
+
+### Creating Tracks with Normalized Events
+
+When creating a Track, you can now target specific pages and sections:
+
+**Example: Homepage to Purchase Flow**
+- **Start event**: `page_view:/home` (users landing on homepage)
+- **Goal event**: `purchase_completed` (successful conversion)
+- **Result**: See exactly which paths from homepage lead to purchases
+
+**Example: Section Engagement Analysis**
+- **Start event**: `section_view:pricing_table` (viewing pricing)
+- **Goal event**: `checkout_initiated` (starting checkout)
+- **Result**: Measure how pricing page engagement impacts conversions
+
+<Tip>
+  **Scroll events excluded**: To keep your graph clean, `scroll:section_*` events are automatically filtered from Tracks. Use the Heatmaps feature to analyze scroll behavior.
+</Tip>
+
 ## Creating Your First Track
 
 ### Step 1: Navigate to Tracks

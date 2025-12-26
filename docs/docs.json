@@ -43,6 +43,7 @@
             "group": "Core Concepts",
             "pages": [
               "core/event-tracking",
+              "core/event-naming",
               "core/user-identification",
               "core/user-properties",
               "core/remote-config",
@@ -85,7 +86,8 @@
               "advanced/error-handling",
               "advanced/security",
               "advanced/performance",
-              "advanced/typescript"
+              "advanced/typescript",
+              "advanced/ATTENTION_QUALITY_POLICY"
             ]
           }
         ]

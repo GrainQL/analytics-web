@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "../../IdeaProjects/radar-edge"
+		},
+		{
+			"path": "../../PycharmProjects/grain-analytics-python"
 		}
 	],
 	"settings": {}

@@ -4,6 +4,7 @@
  */
 
 import type { InteractionConfig } from './types/auto-tracking';
+import { cleanElementText } from './text-utils';
 
 export interface SendEventOptions {
   flush?: boolean;
@@ -19,6 +20,8 @@ export interface InteractionTrackingConfig {
   debug?: boolean;
   enableMutationObserver?: boolean;
   mutationDebounceDelay?: number;
+  tenantId?: string;
+  apiUrl?: string;
 }
 
 export class InteractionTrackingManager {
@@ -42,21 +45,78 @@ export class InteractionTrackingManager {
       debug: config.debug ?? false,
       enableMutationObserver: config.enableMutationObserver ?? true,
       mutationDebounceDelay: config.mutationDebounceDelay ?? 500,
+      tenantId: config.tenantId,
+      apiUrl: config.apiUrl,
     };
 
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // Fetch and merge trackers if configured
+      if (this.config.tenantId && this.config.apiUrl) {
+        this.fetchAndMergeTrackers().then(() => {
+          this.attachAllListeners();
+        });
+      } else {
       // Attach listeners after DOM is ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => this.attachAllListeners());
       } else {
         // DOM already loaded
         setTimeout(() => this.attachAllListeners(), 0);
+        }
       }
 
       // Setup mutation observer for dynamic content
       if (this.config.enableMutationObserver) {
         this.setupMutationObserver();
       }
+    }
+  }
+  
+  /**
+   * Fetch trackers from API and merge with existing interactions
+   */
+  private async fetchAndMergeTrackers(): Promise<void> {
+    if (!this.config.tenantId || !this.config.apiUrl) return;
+    
+    try {
+      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+      const url = `${this.config.apiUrl}/v1/client/${encodeURIComponent(this.config.tenantId)}/trackers?url=${encodeURIComponent(currentUrl)}`;
+      
+      this.log('Fetching trackers from:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        this.log('Failed to fetch trackers:', response.status);
+        return;
+      }
+      
+      const result = await response.json();
+      
+      if (result.trackers && Array.isArray(result.trackers)) {
+        this.log('Fetched', result.trackers.length, 'trackers');
+        
+        // Convert trackers to InteractionConfig format
+        const trackerInteractions: InteractionConfig[] = result.trackers.map((tracker: any) => ({
+          eventName: tracker.eventName,
+          selector: tracker.selector,
+          priority: 5, // High priority for manually created trackers
+          label: tracker.eventName,
+          description: `Tracker: ${tracker.eventName}`,
+        }));
+        
+        // Merge with existing interactions (trackers take precedence)
+        this.interactions = [...trackerInteractions, ...this.interactions];
+        
+        this.log('Merged trackers, total interactions:', this.interactions.length);
+      }
+    } catch (error) {
+      this.log('Error fetching trackers:', error);
     }
   }
 
@@ -66,7 +126,7 @@ export class InteractionTrackingManager {
   private attachAllListeners(): void {
     if (this.isDestroyed) return;
 
-    this.log('Attaching interaction listeners for', this.interactions.length, 'interactions');
+    this.log('Attaching interaction listeners');
 
     for (const interaction of this.interactions) {
       this.attachInteractionListener(interaction);
@@ -107,7 +167,6 @@ export class InteractionTrackingManager {
     }
 
     this.attachedListeners.set(element, handlers);
-    this.log('Attached listeners to element for:', interaction.eventName);
   }
 
   /**
@@ -128,28 +187,22 @@ export class InteractionTrackingManager {
       interaction_description: interaction.description,
       interaction_priority: interaction.priority,
       element_tag: element.tagName?.toLowerCase(),
-      element_text: element.textContent?.trim().substring(0, 100),
+      element_text: cleanElementText(element.textContent),
       element_id: element.id || undefined,
       element_class: element.className || undefined,
       ...(isNavigationLink && { href: element.href }),
       timestamp: Date.now(),
     };
     
-    // If it's a navigation link, flush immediately to ensure event is sent before navigation
-    if (isNavigationLink) {
-      // Use flush option to send immediately - handle promise if returned
+    // Always use flush for auto-tracked clicks to ensure delivery
+    // This is especially important for navigation links and quick interactions
       const result = this.tracker.track(interaction.eventName, eventProperties, { flush: true });
       if (result instanceof Promise) {
         result.catch((error: unknown) => {
-          // Log error but don't block navigation
-          this.log('Failed to track navigation click:', error);
+        // Log error but don't block interaction
+        this.log('Failed to track click:', error);
         });
-      }
-    } else {
-      this.tracker.track(interaction.eventName, eventProperties);
     }
-
-    this.log('Tracked click interaction:', interaction.eventName);
   }
 
   /**
@@ -171,8 +224,6 @@ export class InteractionTrackingManager {
       element_class: element.className || undefined,
       timestamp: Date.now(),
     });
-
-    this.log('Tracked focus interaction:', interaction.eventName);
   }
 
   /**
@@ -294,7 +345,6 @@ export class InteractionTrackingManager {
     });
 
     this.attachedListeners.delete(element);
-    this.log('Detached listeners from element');
   }
 
   /**

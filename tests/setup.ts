@@ -1,32 +1,32 @@
-// Jest setup file
-import { jest } from '@jest/globals';
+// Jest setup file for Grain Analytics tests
 
-// Mock fetch globally for all tests
-global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+// Test configuration
+export const TEST_TENANT_ID = 'grain-test-lab';
+export const TEST_API_URL = 'https://api.grainql.com';
 
-// Mock navigator.sendBeacon
-Object.defineProperty(global.navigator, 'sendBeacon', {
-  value: jest.fn(),
-  writable: true,
-});
+// Mock IntersectionObserver
+global.IntersectionObserver = class IntersectionObserver {
+  constructor(public callback: IntersectionObserverCallback) {}
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds = [];
+} as any;
 
-// Mock window.addEventListener
-Object.defineProperty(global.window, 'addEventListener', {
-  value: jest.fn(),
-  writable: true,
-});
-
-// Mock document.addEventListener
-Object.defineProperty(global.document, 'addEventListener', {
-  value: jest.fn(),
-  writable: true,
-});
-
-// Mock setTimeout and clearInterval for timer tests
-global.setTimeout = jest.fn() as any;
-global.clearInterval = jest.fn() as any;
-global.setInterval = jest.fn() as any;
-
+// Cleanup and reset before each test
 beforeEach(() => {
-  jest.clearAllMocks();
+  // Clear storage
+  localStorage.clear();
+  sessionStorage.clear();
+  
+  // Setup basic DOM
+  document.body.innerHTML = `
+    <div id="root">
+      <div id="hero-section">Hero Content</div>
+      <div id="content-section">Main Content</div>
+    </div>
+  `;
 });

@@ -139,10 +139,6 @@ export class HeartbeatManager {
     this.tracker.trackSystemEvent('_grain_heartbeat', properties);
 
     this.lastHeartbeatTime = now;
-
-    if (this.config.debug) {
-      console.log('[Heartbeat] Sent heartbeat:', properties);
-    }
   }
 
   /**
@@ -157,10 +153,6 @@ export class HeartbeatManager {
     }
 
     this.isDestroyed = true;
-
-    if (this.config.debug) {
-      console.log('[Heartbeat] Destroyed');
-    }
   }
 }
 

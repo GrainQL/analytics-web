@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2025-12-08
+
+### Fixed
+- **Emoji Removal**: Removed emojis and Unicode symbols from `element_text` field in heatmap and interaction tracking events to prevent data corruption
+
+## [2.7.0] - 2025-12-02
+
+### Added
+
+#### Attention Quality Management
+- **AttentionQualityManager**: New system to ensure tracked data represents genuine user attention
+- **Page Visibility Policy**: Automatically pauses tracking when tab is hidden or backgrounded
+- **User Activity Policy**: Stops tracking after 30 seconds of inactivity (no mouse/keyboard/scroll)
+- **Section Duration Cap**: Max 9 seconds of tracked attention per section without meaningful scroll (100px)
+- **Scroll Distance Policy**: Requires 100px scroll to reset attention timer
+- **Policy Traceability**: All policies documented with debug logging and state monitoring
+- **Automatic Integration**: Seamlessly integrated into SectionTrackingManager and HeatmapTrackingManager
+
+### Changed
+- **Test Suite**: Rebuilt from scratch with 34 focused, realistic tests using real API (`grain-test-lab` tenant)
+- **Test Philosophy**: Removed complex mocks and edge cases, focused on practical usage scenarios
+- **Event Quality**: 20-40% reduction in event volume with higher quality engagement data
+
+### Technical Details
+- **AttentionQualityManager**: Lightweight (~270 lines, ~3KB gzipped) with minimal overhead
+- **Policy Enforcement**: Page Visibility API + ActivityDetector integration
+- **Per-Section State**: Tracks cumulative duration and scroll position per section
+- **Debug Support**: Comprehensive logging with `[AttentionQuality]` prefix
+- **Documentation**: Complete policy documentation in `ATTENTION_QUALITY_POLICY.md`
+
+## [2.6.0] - 2025-11-30
+
+### Added
+- **Heatmap Tracking**: New universal heatmap tracking system that automatically captures click and scroll interactions on all pages
+- **Click Tracking**: Records click events with XPath, viewport coordinates, page coordinates, and element metadata
+- **Scroll Depth Tracking**: Tracks time spent in viewport-based sections (100vh increments) with entry/exit timestamps
+- **Automatic Batching**: Intelligent event batching (2s delay or 20 events) for optimal performance
+- **Configuration Option**: New `enableHeatmapTracking` config option (default: true) to control heatmap feature
+
+### Technical Details
+- New `HeatmapTrackingManager` class with debounced scroll tracking (100ms)
+- System events `_grain_heatmap_click` and `_grain_heatmap_scroll` for backend aggregation
+- XPath generation for precise element identification
+- Respects user consent and privacy settings
+- Graceful cleanup on SDK destroy
+
 ## [2.5.4] - 2025-11-30
 
 ### Fixed

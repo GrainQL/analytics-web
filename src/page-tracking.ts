@@ -15,7 +15,8 @@ import {
 import { getCountryCodeFromTimezone } from './countries';
 
 export interface PageTrackingConfig {
-  stripQueryParams: boolean;
+  stripQueryParams: boolean; // Default: true for privacy
+  stripHash?: boolean; // Default: false
   debug?: boolean;
   tenantId: string;
 }
@@ -158,7 +159,7 @@ export class PageTrackingManager {
     // Enhanced properties when consent is granted
     if (hasConsent) {
       properties.title = document.title || '';
-      properties.full_url = currentUrl;
+      properties.full_url = this.cleanUrl(currentUrl); // Clean URL based on privacy settings
       properties.session_id = this.tracker.getSessionId();
 
       // Add referrer info
@@ -176,6 +177,13 @@ export class PageTrackingManager {
       // Add previous page if available
       if (this.previousPage) {
         properties.previous_page = this.previousPage;
+        
+        // Track navigation edge for Project Vanguard (minimal Phase 1)
+        this.tracker.trackSystemEvent('_grain_navigation', {
+          from_page: this.previousPage,
+          to_page: page,
+          timestamp: Date.now()
+        });
       }
 
       // Add UTM parameters if present (from session)
@@ -277,14 +285,21 @@ export class PageTrackingManager {
 
   /**
    * Extract path from URL, optionally stripping query parameters
+   * Privacy-first: strips query params by default
    */
   private extractPath(url: string): string {
     try {
       const urlObj = new URL(url);
-      let path = urlObj.pathname + urlObj.hash;
+      let path = urlObj.pathname;
       
+      // Include query params only if not stripping
       if (!this.config.stripQueryParams && urlObj.search) {
         path += urlObj.search;
+      }
+      
+      // Include hash only if not stripping
+      if (!this.config.stripHash && urlObj.hash) {
+        path += urlObj.hash;
       }
       
       return path;
@@ -293,6 +308,22 @@ export class PageTrackingManager {
       if (this.config.debug) {
         console.warn('[Page Tracking] Failed to parse URL:', url, error);
       }
+      return url;
+    }
+  }
+
+  /**
+   * Clean URL for privacy (strip query params based on config)
+   */
+  private cleanUrl(url: string): string {
+    if (!this.config.stripQueryParams) {
+      return url;
+    }
+    
+    try {
+      const urlObj = new URL(url);
+      return `${urlObj.origin}${urlObj.pathname}${this.config.stripHash ? '' : urlObj.hash}`;
+    } catch (error) {
       return url;
     }
   }

@@ -78,7 +78,7 @@ if (fs.existsSync('dist/react-temp')) {
 // Build ESM
 console.log('\nBuilding React ESM...');
 ensureDir('dist/react');
-exec('tsc --module esnext --target es2020 --jsx react --declaration --declarationMap --skipLibCheck --outDir dist/react-temp src/react/index.tsx');
+exec('tsc --module esnext --target es2020 --jsx react --declaration --declarationMap --skipLibCheck --moduleResolution node --outDir dist/react-temp src/react/index.tsx');
 
 // Flatten the react subdirectory structure
 if (fs.existsSync('dist/react-temp/react')) {
@@ -110,7 +110,7 @@ renameJsToMjs('dist/react');
 
 // Build CJS
 console.log('\nBuilding React CJS...');
-exec('tsc --module commonjs --target es2020 --jsx react --skipLibCheck --outDir dist/react-temp src/react/index.tsx');
+exec('tsc --module commonjs --target es2020 --jsx react --skipLibCheck --moduleResolution node --outDir dist/react-temp src/react/index.tsx');
 
 // Flatten the react subdirectory structure for CJS
 if (fs.existsSync('dist/react-temp/react')) {

@@ -448,10 +448,8 @@ export class SectionTrackingManager {
    */
   private flushPendingEvents(): void {
     if (this.isDestroyed || this.pendingEvents.length === 0) return;
-    if (!this.tracker.hasConsent('analytics')) {
-      this.pendingEvents = [];
-      return;
-    }
+    // v3: Always track events - consent only affects ID type (daily vs permanent)
+    // Removed consent check that was blocking events in cookieless mode
 
     // Track each section view
     for (const viewData of this.pendingEvents) {

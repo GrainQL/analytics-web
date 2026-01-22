@@ -1,6 +1,6 @@
 {
   "name": "@grainql/analytics-web",
-  "version": "2.8.0",
+  "version": "3.2.2",
   "description": "Lightweight TypeScript SDK for sending analytics events and managing remote configurations via Grain's REST API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -25,6 +25,9 @@
       "optional": true
     }
   },
+  "optionalDependencies": {
+    "rrweb-snapshot": "^2.0.0-alpha.18"
+  },
   "files": [
     "dist/"
   ],
@@ -45,7 +48,9 @@
     "size:limit": "size-limit",
     "dev:mini-app": "cd mini-app && npm run dev",
     "build:mini-app": "cd mini-app && npm run build",
-    "start:mini-app": "cd mini-app && npm run start"
+    "start:mini-app": "cd mini-app && npm run start",
+    "watch": "npm run build && nodemon --watch src --ext ts --exec 'npm run build'",
+    "copy-to-dashboard": "node scripts/copy-to-dashboard.js"
   },
   "keywords": [
     "analytics",
@@ -70,6 +75,7 @@
     "jsdom": "^26.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
+    "rrweb-snapshot": "^2.0.0-alpha.18",
     "size-limit": "^11.2.0",
     "ts-jest": "^29.4.1",
     "typescript": "^5.5.3"

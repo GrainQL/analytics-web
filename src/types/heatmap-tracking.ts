@@ -5,12 +5,23 @@
 export interface HeatmapClickData {
   pageUrl: string;
   xpath: string;
+  selector?: string; // CSS selector for element-relative positioning
+  relX?: number; // Relative X coordinate (0.0-1.0)
+  relY?: number; // Relative Y coordinate (0.0-1.0)
   viewportX: number;
   viewportY: number;
   pageX: number;
   pageY: number;
   elementTag: string;
   elementText?: string;
+  timestamp: number;
+  deviceType: 'mobile' | 'desktop'; // Device type
+}
+
+export interface HeatmapSnapshot {
+  sessionId: string;
+  pageUrl: string;
+  snapshot: unknown; // rrweb snapshot data
   timestamp: number;
 }
 
@@ -23,6 +34,7 @@ export interface HeatmapScrollData {
   exitTimestamp: number;
   pageHeight: number;
   viewportHeight: number;
+  deviceType: 'mobile' | 'desktop'; // Device type
 }
 
 export interface HeatmapTrackingOptions {

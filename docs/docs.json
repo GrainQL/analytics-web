@@ -18,7 +18,8 @@
             "pages": [
               "index",
               "installation",
-              "authentication"
+              "authentication",
+              "troubleshooting"
             ]
           },
           {

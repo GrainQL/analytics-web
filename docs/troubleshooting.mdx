@@ -1,0 +1,693 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions for Grain Analytics"
+---
+
+<Note>
+  **Can't find your issue?** Chat with us using the support widget or email [support@grainql.com](mailto:support@grainql.com)
+</Note>
+
+## Quick Diagnostics
+
+If you're seeing errors, start here:
+
+<Steps>
+  <Step title="Check Browser Console">
+    Open your browser's developer tools (F12 or Cmd+Option+I) and look for errors in the Console tab.
+  </Step>
+  <Step title="Verify Installation">
+    Type `window.grain` in the console. If it returns `undefined`, the SDK isn't loaded.
+  </Step>
+  <Step title="Check Network Tab">
+    Look for failed requests to `api.grainql.com` in the Network tab (F12 → Network).
+  </Step>
+</Steps>
+
+---
+
+## Authentication Errors (401)
+
+### Session Expired / Token Not Found
+
+**Error Message:**
+- "Your session has expired. Please refresh the page or sign in again."
+- "Authentication required"
+
+**Common Causes:**
+- Your login session expired (tokens expire after inactivity)
+- Cookies were cleared or blocked
+- Using the app in private/incognito mode
+
+**Solutions:**
+
+<AccordionGroup>
+  <Accordion title="Quick Fix">
+    1. Click the **Reload Page** button in the error message
+    2. If that doesn't work, sign out and sign back in
+  </Accordion>
+
+  <Accordion title="Persistent Issues">
+    If you keep getting logged out:
+    
+    - Check if your browser is blocking third-party cookies
+    - Disable ad blockers or tracking protection for `grainql.com`
+    - Try a different browser to isolate the issue
+    - Clear browser cache and cookies for `grainql.com`
+  </Accordion>
+
+  <Accordion title="For SDK Users">
+    If you're using the SDK and seeing auth errors:
+    
+    ```javascript
+    // Make sure you're initializing with correct credentials
+    grain.init({
+      tenantId: 'your-tenant-id', // Check this is correct
+      // ...other options
+    });
+    ```
+    
+    Verify your tenant ID in the [dashboard settings](https://grainql.com/dashboard).
+  </Accordion>
+</AccordionGroup>
+
+**Related Documentation:**
+- [Authentication Guide](/authentication)
+- [Installation](/installation)
+
+---
+
+## Network Errors
+
+### Connection Failed / Cannot Reach Server
+
+**Error Message:**
+- "Network connection issue. Please check your internet connection and try again."
+- "Failed to fetch"
+- "Network error: Unable to connect to server"
+
+**Common Causes:**
+- No internet connection
+- Firewall or proxy blocking requests
+- VPN interfering with connections
+- DNS resolution issues
+
+**Solutions:**
+
+<AccordionGroup>
+  <Accordion title="Basic Troubleshooting">
+    1. Check your internet connection
+    2. Try accessing [https://api.grainql.com/health](https://api.grainql.com/health) directly
+    3. If the API is unreachable, check if your network blocks analytics services
+  </Accordion>
+
+  <Accordion title="Corporate/Enterprise Networks">
+    If you're on a corporate network:
+    
+    - Whitelist `api.grainql.com` in your firewall
+    - Whitelist `*.grainql.com` to allow all subdomains
+    - Check if your proxy requires authentication
+    - Contact your IT department to allow analytics traffic
+  </Accordion>
+
+  <Accordion title="Content Blockers">
+    Ad blockers and privacy extensions may block Grain:
+    
+    - Temporarily disable browser extensions
+    - Add `grainql.com` to your extension's whitelist
+    - Try loading the site in incognito mode (without extensions)
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Server Errors (500, 502, 503)
+
+### Internal Server Error / Service Unavailable
+
+**Error Message:**
+- "Our servers are experiencing issues. Please try again in a few moments."
+- "API error 500"
+- "Service temporarily unavailable"
+
+**What This Means:**
+There's an issue on our end. These are usually temporary.
+
+**Solutions:**
+
+<Steps>
+  <Step title="Wait and Retry">
+    Wait 1-2 minutes and refresh the page. Most issues resolve automatically.
+  </Step>
+  <Step title="Check Status">
+    Check our [status page](https://status.grainql.com) for known incidents (if available).
+  </Step>
+  <Step title="Report Persistent Issues">
+    If the error persists for more than 5 minutes, contact support with:
+    - Error message and code
+    - Time the error occurred
+    - What action you were trying to perform
+  </Step>
+</Steps>
+
+---
+
+## Rate Limiting (429)
+
+### Too Many Requests
+
+**Error Message:**
+- "Rate limit exceeded. Please try again later."
+- "Too many requests"
+
+**What This Means:**
+You've exceeded the API rate limits for your plan.
+
+**Solutions:**
+
+<AccordionGroup>
+  <Accordion title="If You Hit Event Limits">
+    ```javascript
+    // Reduce event volume by being selective
+    // DON'T track every mouse move
+    window.addEventListener('mousemove', () => {
+      grain.track('mouse_move'); // ❌ TOO MANY EVENTS
+    });
+    
+    // DO track meaningful interactions
+    button.addEventListener('click', () => {
+      grain.track('cta_clicked'); // ✅ GOOD
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="If You Hit Query API Limits">
+    ```javascript
+    // Implement client-side caching
+    const cache = new Map();
+    
+    async function fetchWithCache(endpoint) {
+      if (cache.has(endpoint)) {
+        return cache.get(endpoint);
+      }
+      
+      const data = await fetch(endpoint);
+      cache.set(endpoint, data);
+      return data;
+    }
+    
+    // Batch multiple queries instead of making them separately
+    // Use longer intervals for auto-refresh features
+    ```
+  </Accordion>
+
+  <Accordion title="Upgrade Your Plan">
+    If you consistently hit limits, [upgrade your plan](https://grainql.com/pricing) for higher quotas.
+  </Accordion>
+</AccordionGroup>
+
+**Related Documentation:**
+- [Query API Rate Limits](/api-reference/query-api/overview#rate-limits)
+
+---
+
+## SDK Not Loading
+
+### `window.grain` is Undefined
+
+**Symptoms:**
+- Console error: `grain is not defined`
+- Events not being tracked
+- No network requests to `api.grainql.com`
+
+**Solutions by Installation Method:**
+
+<Tabs>
+  <Tab title="npm/yarn Package">
+    ```javascript
+    // ❌ Common mistake - forgetting to import
+    grain.track('event');
+    
+    // ✅ Correct - import first
+    import grain from '@grainql/analytics-web';
+    
+    grain.init({ tenantId: 'your-tenant-id' });
+    grain.track('event');
+    ```
+    
+    Check that:
+    - Package is installed: `npm list @grainql/analytics-web`
+    - Import statement is present
+    - Init is called before tracking
+  </Tab>
+
+  <Tab title="CDN Script Tag">
+    ```html
+    <!-- ❌ Wrong - script tag after usage -->
+    <script>
+      grain.init({ tenantId: 'your-tenant-id' });
+    </script>
+    <script src="https://cdn.grainql.com/grain.js"></script>
+    
+    <!-- ✅ Correct - script tag first -->
+    <script src="https://cdn.grainql.com/grain.js"></script>
+    <script>
+      grain.init({ tenantId: 'your-tenant-id' });
+    </script>
+    ```
+    
+    Check that:
+    - Script tag is in `<head>` or before usage
+    - No typos in the CDN URL
+    - Script loaded successfully (check Network tab)
+  </Tab>
+
+  <Tab title="Google Tag Manager">
+    In GTM:
+    - Check tag fired (GTM Preview mode → Tags Fired)
+    - Verify trigger is set to **Initialization - All Pages**
+    - Make sure container is published (not just saved)
+    - Clear browser cache
+    
+    See [GTM Integration Guide](/integrations/gtm) for details.
+  </Tab>
+</Tabs>
+
+---
+
+## Events Not Appearing in Dashboard
+
+### Events Sent But Not Visible
+
+**Possible Causes:**
+
+<AccordionGroup>
+  <Accordion title="1. Time Delay">
+    Events can take 1-2 minutes to appear in the dashboard.
+    
+    **Solution:** Wait 2-3 minutes and refresh the dashboard.
+  </Accordion>
+
+  <Accordion title="2. Wrong Tenant ID">
+    You might be sending events to the wrong tenant.
+    
+    ```javascript
+    // Check your tenant ID matches the dashboard
+    grain.init({
+      tenantId: 'your-tenant-id' // Verify this!
+    });
+    ```
+    
+    Find your tenant ID: Dashboard → Settings → Tenant ID
+  </Accordion>
+
+  <Accordion title="3. Events Filtered Out">
+    Check if you have filters applied in the dashboard:
+    
+    - Date range too narrow
+    - Event name filters active
+    - User filters excluding your events
+  </Accordion>
+
+  <Accordion title="4. Privacy/Consent Blocking">
+    If you have consent management enabled:
+    
+    ```javascript
+    // Events won't be sent until consent is granted
+    grain.consent.grant(['analytics', 'functional']);
+    ```
+    
+    See [Privacy & Compliance](/essentials/privacy-and-compliance) for details.
+  </Accordion>
+
+  <Accordion title="5. Network Issues">
+    Check browser console and Network tab for:
+    
+    - Failed POST requests to `/v1/events`
+    - CORS errors
+    - 4xx or 5xx status codes
+  </Accordion>
+</AccordionGroup>
+
+**Debug Checklist:**
+
+```javascript
+// Add this temporarily to verify events are being sent
+grain.init({
+  tenantId: 'your-tenant-id',
+  debug: true // Enable debug logging
+});
+
+// Check console for:
+// ✅ "Grain Analytics initialized"
+// ✅ "Tracking event: event_name"
+// ✅ "Event sent successfully"
+```
+
+---
+
+## Dashboard Errors
+
+### Data Not Loading / Blank Charts
+
+**Error Message:**
+- "Error fetching dashboard data"
+- "Failed to load analytics"
+
+**Solutions:**
+
+<Steps>
+  <Step title="Check Date Range">
+    Make sure you have data for the selected date range. Try "Last 30 days".
+  </Step>
+  <Step title="Verify Events Exist">
+    Go to Database view → Events tab to see if any events were received.
+  </Step>
+  <Step title="Check Permissions">
+    If you're a team member, verify you have viewer/editor access to the tenant.
+  </Step>
+  <Step title="Clear Browser Cache">
+    Dashboard uses caching. Clear cache or try incognito mode.
+  </Step>
+</Steps>
+
+### Mission Control Not Loading
+
+**Specific to Mission Control (conversion tracking):**
+
+<AccordionGroup>
+  <Accordion title="No Goals Configured">
+    Mission Control requires at least one goal to be set up.
+    
+    **Solution:** 
+    1. Go to Mission Control
+    2. Click "Configure Goals"
+    3. Set up your first conversion goal
+  </Accordion>
+
+  <Accordion title="Insufficient Data">
+    Goals need at least 10 events to show statistics.
+    
+    **Solution:** Wait for more data to accumulate or send test events.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## CORS Errors
+
+### Cross-Origin Request Blocked
+
+**Error Message:**
+- "Access to fetch at 'https://api.grainql.com/...' blocked by CORS policy"
+- "No 'Access-Control-Allow-Origin' header"
+
+**What This Means:**
+Your domain isn't whitelisted in tenant settings.
+
+**Solution:**
+
+<Steps>
+  <Step title="Add Your Domain">
+    Go to Dashboard → Settings → Allowed Origins
+  </Step>
+  <Step title="Add Origin">
+    Add your domain (e.g., `https://example.com`)
+    
+    For development: `http://localhost:3000`
+  </Step>
+  <Step title="Wildcards for Subdomains">
+    Use `https://*.example.com` to allow all subdomains
+  </Step>
+</Steps>
+
+**Common Patterns:**
+
+```javascript
+// Production
+https://example.com
+
+// All subdomains
+https://*.example.com
+
+// Development (multiple ports)
+http://localhost:3000
+http://localhost:3001
+http://localhost:5173
+
+// Mobile preview
+http://192.168.1.100:3000
+```
+
+---
+
+## TypeScript Errors
+
+### Type Issues with SDK
+
+**Common Issues:**
+
+<AccordionGroup>
+  <Accordion title="Module Not Found">
+    ```typescript
+    // Error: Cannot find module '@grainql/analytics-web'
+    
+    // Solution 1: Install types (already included)
+    npm install @grainql/analytics-web
+    
+    // Solution 2: Check tsconfig.json
+    {
+      "compilerOptions": {
+        "moduleResolution": "node",
+        "esModuleInterop": true
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Window Type Error">
+    ```typescript
+    // Error: Property 'grain' does not exist on type 'Window'
+    
+    // Solution: Extend Window interface
+    declare global {
+      interface Window {
+        grain: typeof import('@grainql/analytics-web').default;
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Event Properties Type">
+    ```typescript
+    // For type-safe event properties
+    import type { EventProperties } from '@grainql/analytics-web';
+    
+    interface CustomEventProps extends EventProperties {
+      category: string;
+      value: number;
+    }
+    
+    grain.track<CustomEventProps>('purchase', {
+      category: 'electronics',
+      value: 99.99
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+**Related Documentation:**
+- [TypeScript Guide](/advanced/typescript)
+
+---
+
+## Performance Issues
+
+### Slow Page Load / High Bundle Size
+
+**If using npm package:**
+
+```javascript
+// ❌ Imports entire SDK synchronously
+import grain from '@grainql/analytics-web';
+
+// ✅ Lazy load for better performance
+const grain = await import('@grainql/analytics-web');
+```
+
+**If using CDN:**
+
+```html
+<!-- ✅ Use async to avoid blocking page load -->
+<script async src="https://cdn.grainql.com/grain.js"></script>
+```
+
+**Reduce Event Volume:**
+
+```javascript
+// ❌ Too many events
+window.addEventListener('scroll', () => {
+  grain.track('scroll'); // Fires constantly!
+});
+
+// ✅ Throttle or debounce
+import { throttle } from 'lodash';
+
+window.addEventListener('scroll', throttle(() => {
+  grain.track('scroll');
+}, 1000)); // Once per second max
+```
+
+---
+
+## Integration-Specific Issues
+
+<AccordionGroup>
+  <Accordion title="Next.js Issues">
+    **"Cannot use import statement outside a module"**
+    
+    ```javascript
+    // ❌ Don't do this
+    import grain from '@grainql/analytics-web';
+    
+    // ✅ Use next/script for client-side
+    import Script from 'next/script';
+    
+    <Script src="https://cdn.grainql.com/grain.js" />
+    ```
+    
+    See [Next.js Quick Start](/quickstart/nextjs) for full setup.
+  </Accordion>
+
+  <Accordion title="React Issues">
+    **Events firing multiple times in development**
+    
+    This is normal in React 18 StrictMode (development only).
+    
+    ```javascript
+    // Events may fire twice in dev, but only once in production
+    useEffect(() => {
+      grain.track('page_view');
+    }, []);
+    ```
+    
+    See [React Quick Start](/quickstart/react) for more.
+  </Accordion>
+
+  <Accordion title="Shopify Issues">
+    **Theme conflicts**
+    
+    Some themes interfere with the SDK. See [Shopify Integration](/integrations/shopify#troubleshooting).
+  </Accordion>
+
+  <Accordion title="WordPress Issues">
+    **Plugin conflicts**
+    
+    Caching or optimization plugins may break tracking. See [WordPress Integration](/integrations/wordpress#troubleshooting).
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Validation Errors (400)
+
+### Invalid Input / Malformed Request
+
+**Common Validation Errors:**
+
+<AccordionGroup>
+  <Accordion title="Tenant ID Format">
+    ```javascript
+    // ❌ Invalid
+    grain.init({ tenantId: 'abc' }); // Too short
+    grain.init({ tenantId: 'my tenant' }); // Spaces not allowed
+    
+    // ✅ Valid
+    grain.init({ tenantId: 'my-tenant-123' }); // 4-32 chars, alphanumeric + hyphens
+    ```
+  </Accordion>
+
+  <Accordion title="Event Name Format">
+    ```javascript
+    // ❌ Invalid
+    grain.track('My Event!'); // Special chars not allowed
+    grain.track(''); // Empty string
+    
+    // ✅ Valid
+    grain.track('my_event'); // snake_case recommended
+    grain.track('button-clicked'); // kebab-case also ok
+    ```
+  </Accordion>
+
+  <Accordion title="Event Properties">
+    ```javascript
+    // ❌ Invalid
+    grain.track('event', {
+      circular: window, // Circular references not allowed
+      func: () => {}, // Functions not allowed
+    });
+    
+    // ✅ Valid
+    grain.track('event', {
+      category: 'value',
+      count: 42,
+      enabled: true,
+      tags: ['a', 'b'],
+      metadata: { key: 'value' }
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+**Related Documentation:**
+- [Event Naming Conventions](/core/event-naming)
+- [Event Properties Guide](/event-properties)
+
+---
+
+## Still Having Issues?
+
+If none of the above solutions work:
+
+<CardGroup cols={2}>
+  <Card title="Live Chat" icon="message">
+    Click the chat widget in the bottom-right corner of [grainql.com](https://grainql.com)
+  </Card>
+  <Card title="Email Support" icon="envelope" href="mailto:support@grainql.com">
+    Email us at support@grainql.com with:
+    - Error message and code
+    - Browser console logs
+    - Network tab screenshot
+    - Steps to reproduce
+  </Card>
+  <Card title="Community Discord" icon="discord">
+    Join our Discord for community support (coming soon)
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/grainql/analytics-web/issues">
+    Report SDK bugs on GitHub
+  </Card>
+</CardGroup>
+
+---
+
+## Additional Resources
+
+<CardGroup cols={3}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Platform-specific setup guides
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation instructions
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Complete API documentation
+  </Card>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Learn event tracking best practices
+  </Card>
+  <Card title="Privacy & Compliance" icon="shield" href="/essentials/privacy-and-compliance">
+    GDPR, consent management
+  </Card>
+  <Card title="Examples" icon="lightbulb" href="/examples/react">
+    Real-world code examples
+  </Card>
+</CardGroup>

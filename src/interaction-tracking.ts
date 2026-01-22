@@ -174,7 +174,8 @@ export class InteractionTrackingManager {
    */
   private handleInteractionClick(interaction: InteractionConfig, event: Event): void {
     if (this.isDestroyed) return;
-    if (!this.tracker.hasConsent('analytics')) return;
+    // v3: Always track events - consent only affects ID type (daily vs permanent)
+    // Removed: if (!this.tracker.hasConsent('analytics')) return;
 
     const element = event.target as HTMLElement;
     
@@ -210,7 +211,8 @@ export class InteractionTrackingManager {
    */
   private handleInteractionFocus(interaction: InteractionConfig, event: Event): void {
     if (this.isDestroyed) return;
-    if (!this.tracker.hasConsent('analytics')) return;
+    // v3: Always track events - consent only affects ID type (daily vs permanent)
+    // Removed: if (!this.tracker.hasConsent('analytics')) return;
 
     const element = event.target as HTMLElement;
     

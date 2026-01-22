@@ -1,9 +1,14 @@
 /**
- * Consent management for Grain Analytics
- * Handles GDPR-compliant consent tracking and state management
+ * Consent management for Grain Analytics v2.0
+ * Privacy-first, cookieless by default
+ * 
+ * Consent Modes:
+ * - cookieless: Default mode, daily rotating IDs, no consent needed
+ * - gdpr-strict: Requires explicit consent, falls back to cookieless
+ * - gdpr-opt-out: Permanent IDs by default, cookieless on opt-out
  */
 
-export type ConsentMode = 'opt-in' | 'opt-out' | 'disabled';
+export type ConsentMode = 'COOKIELESS' | 'GDPR_STRICT' | 'GDPR_OPT_OUT';
 
 export interface ConsentState {
   granted: boolean;
@@ -17,6 +22,7 @@ export const CONSENT_VERSION = '1.0.0';
 
 /**
  * Consent manager for handling user consent state
+ * v2.0: Cookieless by default, privacy-first approach
  */
 export class ConsentManager {
   private consentState: ConsentState | null = null;
@@ -24,7 +30,7 @@ export class ConsentManager {
   private storageKey: string;
   private listeners: Array<(state: ConsentState) => void> = [];
 
-  constructor(tenantId: string, consentMode: ConsentMode = 'opt-out') {
+  constructor(tenantId: string, consentMode: ConsentMode = 'COOKIELESS') {
     this.consentMode = consentMode;
     this.storageKey = `grain_consent_${tenantId}`;
     this.loadConsentState();
@@ -33,9 +39,8 @@ export class ConsentManager {
   /**
    * Load consent state from localStorage
    * 
-   * GDPR Compliance: In opt-in mode, we can use localStorage for consent preferences
-   * since storing consent choices is a legitimate interest and necessary for compliance.
-   * The consent preference itself is not tracking data.
+   * GDPR Compliance: localStorage only used for storing consent preferences
+   * (not for tracking), which is a legitimate interest for compliance.
    */
   private loadConsentState(): void {
     if (typeof window === 'undefined') return;
@@ -48,8 +53,8 @@ export class ConsentManager {
           ...parsed,
           timestamp: new Date(parsed.timestamp),
         };
-      } else if (this.consentMode === 'opt-out' || this.consentMode === 'disabled') {
-        // Auto-grant consent for opt-out and disabled modes
+      } else if (this.consentMode === 'GDPR_OPT_OUT') {
+        // Auto-grant consent for opt-out mode (user hasn't opted out yet)
         this.consentState = {
           granted: true,
           categories: DEFAULT_CONSENT_CATEGORIES,
@@ -58,9 +63,9 @@ export class ConsentManager {
         };
         this.saveConsentState();
       }
-      // Note: In opt-in mode without stored consent, consentState remains null (no consent)
+      // Note: cookieless and gdpr-strict modes without stored consent → no permanent tracking
     } catch (error) {
-      // Silent failure - consent will be requested when needed
+      // Silent failure - will use cookieless mode by default
     }
   }
 
@@ -135,37 +140,84 @@ export class ConsentManager {
   }
 
   /**
-   * Check if user has granted consent
+   * Check if user has granted consent for permanent IDs
    */
   hasConsent(category?: string): boolean {
-    // Disabled mode always returns true (no consent required)
-    if (this.consentMode === 'disabled') {
-      return true;
+    // Cookieless mode: no consent needed (no permanent tracking)
+    if (this.consentMode === 'COOKIELESS') {
+      return false; // No permanent IDs
     }
 
-    // No consent state in opt-in mode means no consent
-    if (this.consentMode === 'opt-in' && !this.consentState) {
-      return false;
+    // GDPR Strict: requires explicit consent
+    if (this.consentMode === 'GDPR_STRICT') {
+      if (!this.consentState?.granted) {
+        return false;
+      }
     }
 
-    // Check consent state
-    if (!this.consentState?.granted) {
-      return false;
+    // GDPR Opt-out: consent by default unless explicitly revoked
+    if (this.consentMode === 'GDPR_OPT_OUT') {
+      // If no state, assume consent (opt-out model)
+      if (!this.consentState) {
+        return true;
+      }
+      // Check if consent was revoked
+      if (!this.consentState.granted) {
+        return false;
+      }
     }
 
     // Check specific category if provided
-    if (category) {
+    if (category && this.consentState) {
       return this.consentState.categories.includes(category);
     }
 
-    return true;
+    return this.consentState?.granted ?? (this.consentMode === 'GDPR_OPT_OUT');
+  }
+
+  /**
+   * Check if permanent IDs are allowed
+   */
+  shouldUsePermanentId(): boolean {
+    return this.hasConsent();
+  }
+
+  /**
+   * Check if we should strip query parameters from URLs
+   * Query params stripped unless:
+   * - Mode is gdpr-opt-out, OR
+   * - Mode is gdpr-strict AND consent given
+   */
+  shouldStripQueryParams(): boolean {
+    if (this.consentMode === 'COOKIELESS') {
+      return true; // Always strip in cookieless mode
+    }
+    
+    if (this.consentMode === 'GDPR_STRICT') {
+      return !this.hasConsent(); // Strip unless consented
+    }
+    
+    if (this.consentMode === 'GDPR_OPT_OUT') {
+      return false; // Don't strip in opt-out mode
+    }
+    
+    return true; // Default: strip
+  }
+
+  /**
+   * Check if we can track events (always true in v2.0)
+   * Even cookieless mode allows basic analytics with daily IDs
+   */
+  canTrack(): boolean {
+    return true; // All modes allow some form of tracking
   }
 
   /**
    * Check if we should wait for consent before tracking
+   * Only relevant for GDPR Strict mode
    */
   shouldWaitForConsent(): boolean {
-    return this.consentMode === 'opt-in' && !this.consentState?.granted;
+    return this.consentMode === 'GDPR_STRICT' && !this.consentState?.granted;
   }
 
   /**
@@ -212,6 +264,21 @@ export class ConsentManager {
     } catch (error) {
       // Silent failure - consent state may not be fully cleared
     }
+  }
+
+  /**
+   * Get current consent mode
+   */
+  getConsentMode(): ConsentMode {
+    return this.consentMode;
+  }
+
+  /**
+   * Get ID mode based on consent state
+   * Returns 'cookieless' or 'permanent' for IdManager
+   */
+  getIdMode(): 'cookieless' | 'permanent' {
+    return this.shouldUsePermanentId() ? 'permanent' : 'cookieless';
   }
 }
 

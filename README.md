@@ -1,13 +1,25 @@
 # Grain Analytics Web SDK
 
-A lightweight, dependency-free TypeScript SDK for analytics and remote configuration management.
+A lightweight, dependency-free TypeScript SDK for privacy-first analytics and remote configuration management.
 
 [![npm version](https://badge.fury.io/js/@grainql%2Fanalytics-web.svg)](https://www.npmjs.com/package/@grainql/analytics-web)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@grainql/analytics-web)](https://bundlephobia.com/package/@grainql/analytics-web)
 
+## 🆕 What's New in v3.0
+
+**🔒 Privacy-First by Default:**
+- ✅ **Cookieless** - No tracking cookies, daily rotating IDs
+- ✅ **GDPR Compliant** - Cookieless mode requires no consent
+- ✅ **No IP Storage** - GeoIP data only (country, region, city)
+- ✅ **Query Params Stripped** - Privacy-first URL tracking
+- ✅ **Three Consent Modes** - Choose your privacy level
+
+**🚨 Breaking Changes:** This is a major version with breaking changes. See [BREAKING_CHANGES.md](./BREAKING_CHANGES.md) and [MIGRATION_GUIDE_V2.md](./MIGRATION_GUIDE_V2.md).
+
 ## Features
 
-- 🚀 **Zero dependencies** - ~6KB gzipped
+- 🔒 **Privacy-First** - Cookieless by default, GDPR compliant
+- 🚀 **Zero dependencies** - ~7KB gzipped
 - 📦 **Automatic batching** - Efficient event delivery
 - 🔄 **Retry logic** - Reliable with exponential backoff
 - 🎯 **TypeScript first** - Full type safety
@@ -46,8 +58,10 @@ npm install @grainql/analytics-web
 ```typescript
 import { createGrainAnalytics } from '@grainql/analytics-web';
 
+// Cookieless by default (no consent needed)
 const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id'
+  tenantId: 'your-tenant-id',
+  consentMode: 'cookieless', // Default: daily rotating IDs
 });
 
 // Track events
@@ -55,6 +69,25 @@ grain.track('page_viewed', { page: '/home' });
 
 // Get remote config
 const heroText = grain.getConfig('hero_text');
+```
+
+**For GDPR Strict (with consent management):**
+
+```typescript
+const grain = createGrainAnalytics({
+  tenantId: 'your-tenant-id',
+  consentMode: 'gdpr-strict', // Requires consent for permanent IDs
+  waitForConsent: true, // Queue events until consent granted
+});
+
+// Show consent banner
+if (!grain.hasConsent()) {
+  // Show your consent UI
+  showConsentBanner({
+    onAccept: () => grain.grantConsent(['analytics']),
+    onReject: () => grain.revokeConsent(),
+  });
+}
 ```
 
 ### React

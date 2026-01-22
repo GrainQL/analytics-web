@@ -8,6 +8,7 @@ import { setCookie, getCookie, deleteCookie, areCookiesEnabled, CookieConfig } f
 import { ActivityDetector } from './activity';
 import { HeartbeatManager, type HeartbeatTracker } from './heartbeat';
 import { PageTrackingManager, type PageTracker } from './page-tracking';
+import { IdManager, type IdMode } from './id-manager';
 import {
   categorizeReferrer,
   parseUTMParameters,
@@ -75,12 +76,11 @@ export interface GrainConfig {
   configCacheKey?: string; // Custom cache key for configurations
   configRefreshInterval?: number; // Auto-refresh interval in milliseconds (default: 5 minutes)
   enableConfigCache?: boolean; // Enable/disable configuration caching (default: true)
-  // Privacy & Consent options
-  consentMode?: ConsentMode; // 'opt-in' | 'opt-out' | 'disabled' (default: 'opt-out')
-  waitForConsent?: boolean; // Queue events until consent is granted (default: false)
-  enableCookies?: boolean; // Use cookies for persistent user ID (default: false)
-  cookieOptions?: CookieConfig; // Cookie configuration options
-  anonymizeIP?: boolean; // Anonymize IP addresses (default: false)
+  // Privacy & Consent options (v2.0)
+  consentMode?: ConsentMode; // 'cookieless' | 'gdpr-strict' | 'gdpr-opt-out' (default: 'cookieless')
+  waitForConsent?: boolean; // Queue events until consent is granted (default: false, only for gdpr-strict)
+  // Deprecated: enableCookies - cookies no longer used for user identification
+  // Deprecated: anonymizeIP - IP addresses never stored (GeoIP used instead)
   disableAutoProperties?: boolean; // Disable automatic property collection (default: false)
   allowedProperties?: string[]; // Whitelist of allowed event properties (default: all)
   // Automatic Tracking options
@@ -89,6 +89,7 @@ export interface GrainConfig {
   heartbeatInactiveInterval?: number; // Inactive interval in ms (default: 300000 - 5 min)
   enableAutoPageView?: boolean; // Enable automatic page view tracking (default: true)
   stripQueryParams?: boolean; // Strip query params from URLs (default: true)
+  stripHash?: boolean; // Strip hash from URLs (default: false)
   // Heatmap Tracking options
   enableHeatmapTracking?: boolean; // Enable heatmap tracking (default: true)
 }
@@ -152,6 +153,7 @@ export interface RemoteConfigOptions {
   properties?: Record<string, string>;
   userId?: string; // Override global userId
   forceRefresh?: boolean; // Force fetch from API, bypass cache
+  currentUrl?: string; // Optional current URL for page-specific configs (auto-tracking)
 }
 
 export interface RemoteConfigCache {
@@ -306,15 +308,16 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   private flushTimer: number | null = null;
   private isDestroyed = false;
   private globalUserId: string | null = null;
-  private persistentAnonymousUserId: string | null = null;
+  private persistentAnonymousUserId: string | null = null; // Deprecated: use idManager instead
   // Remote Config properties
   private configCache: RemoteConfigCache | null = null;
   private configRefreshTimer: number | null = null;
   private configChangeListeners: ConfigChangeListener[] = [];
   private configFetchPromise: Promise<RemoteConfigResponse> | null = null;
-  // Privacy & Consent properties
+  // Privacy & Consent properties (v2.0)
   private consentManager: ConsentManager;
-  private cookiesEnabled: boolean = false;
+  private idManager: IdManager;
+  private cookiesEnabled: boolean = false; // Deprecated: cookies no longer used for IDs
   // Automatic Tracking properties
   private activityDetector: ActivityDetector | null = null;
   private heartbeatManager: HeartbeatManager | null = null;
@@ -347,34 +350,33 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       configCacheKey: 'grain_config',
       configRefreshInterval: 300000, // 5 minutes
       enableConfigCache: true,
-      // Privacy defaults
-      consentMode: 'opt-out',
+      // Privacy defaults (v2.0)
+      consentMode: 'COOKIELESS', // Default: privacy-first, no permanent tracking
       waitForConsent: false,
-      enableCookies: false,
-      anonymizeIP: false,
       disableAutoProperties: false,
       // Automatic Tracking defaults
       enableHeartbeat: true,
       heartbeatActiveInterval: 120000, // 2 minutes
       heartbeatInactiveInterval: 300000, // 5 minutes
       enableAutoPageView: true,
-      stripQueryParams: true,
+      stripQueryParams: true, // Privacy-first: strip by default
+      stripHash: false,
       // Heatmap Tracking defaults
       enableHeatmapTracking: true,
       ...config,
       tenantId: config.tenantId,
     };
 
-    // Initialize consent manager
+    // Initialize consent manager (v2.0)
     this.consentManager = new ConsentManager(this.config.tenantId, this.config.consentMode);
 
-    // Check if cookies are enabled
-    if (this.config.enableCookies) {
-      this.cookiesEnabled = areCookiesEnabled();
-      if (!this.cookiesEnabled && this.config.debug) {
-        console.warn('[Grain Analytics] Cookies are not available, falling back to localStorage');
-      }
-    }
+    // Initialize ID manager (v2.0)
+    const idMode: IdMode = this.consentManager.getIdMode();
+    this.idManager = new IdManager({
+      mode: idMode,
+      tenantId: this.config.tenantId,
+      useLocalStorage: true, // For permanent IDs when consented
+    });
 
     // Set global userId if provided in config
     if (config.userId) {
@@ -382,7 +384,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     }
 
     this.validateConfig();
-    this.initializePersistentAnonymousUserId();
+    // Deprecated: initializePersistentAnonymousUserId() - now handled by IdManager
     this.setupBeforeUnload();
     this.startFlushTimer();
     this.initializeConfigCache();
@@ -404,8 +406,12 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       }
     }
 
-    // Set up consent change listener to flush waiting events and handle consent upgrade
+    // Set up consent change listener to sync IdManager and flush waiting events (v2.0)
     this.consentManager.addListener((state) => {
+      // Sync IdManager with consent state
+      const idMode = this.consentManager.getIdMode();
+      this.idManager.setMode(idMode);
+      
       if (state.granted) {
         this.handleConsentGranted();
       }
@@ -453,12 +459,15 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
    */
   private shouldAllowPersistentStorage(): boolean {
     const hasConsent = this.consentManager.hasConsent('analytics');
-    const isOptInMode = this.config.consentMode === 'opt-in';
+    const isCookieless = this.config.consentMode === 'COOKIELESS';
     const userExplicitlyIdentified = !!this.globalUserId;
     const isJWTAuth = this.config.authStrategy === 'JWT';
     
+    // Never allow persistent storage in cookieless mode
+    if (isCookieless) return false;
+    
     // Allow persistent storage if any of these conditions are met
-    return hasConsent || !isOptInMode || userExplicitlyIdentified || isJWTAuth;
+    return hasConsent || userExplicitlyIdentified || isJWTAuth;
   }
 
   /**
@@ -560,27 +569,22 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   /**
-   * Get the effective user ID (global userId or persistent anonymous ID)
+   * Get the effective user ID (v2.0)
    * 
-   * GDPR Compliance: In opt-in mode without consent and no explicit user identification,
-   * this should not be called. Use getEphemeralSessionId() instead.
+   * Privacy-first implementation:
+   * - Returns global userId if explicitly set (via identify/login)
+   * - Otherwise uses IdManager to generate:
+   *   - Daily rotating ID (cookieless mode)
+   *   - Permanent ID (with consent)
    */
   private getEffectiveUserIdInternal(): string {
+    // Explicit user identification always takes precedence
     if (this.globalUserId) {
       return this.globalUserId;
     }
     
-    if (this.persistentAnonymousUserId) {
-      return this.persistentAnonymousUserId;
-    }
-    
-    // Generate a new UUIDv4 identifier as fallback
-    this.persistentAnonymousUserId = this.generateAnonymousUserId();
-    
-    // Try to persist it (will be skipped in opt-in mode without consent)
-    this.savePersistentAnonymousUserId(this.persistentAnonymousUserId);
-    
-    return this.persistentAnonymousUserId;
+    // Use IdManager to generate appropriate ID based on consent
+    return this.idManager.getCurrentUserId();
   }
 
   log(...args: unknown[]): void {
@@ -998,6 +1002,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
           this,
           {
             stripQueryParams: this.config.stripQueryParams,
+            stripHash: this.config.stripHash,
             debug: this.config.debug,
             tenantId: this.config.tenantId,
           }
@@ -1328,12 +1333,13 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     const hasConsent = this.consentManager.hasConsent('analytics');
 
     // Create event with appropriate user ID
+    // v2.0: Always use IdManager which returns daily rotating ID or permanent ID based on consent
     const event: EventPayload = {
       eventName,
-      userId: hasConsent ? this.getEffectiveUserId() : this.getEphemeralSessionId(),
+      userId: this.getEffectiveUserId(), // IdManager handles daily vs permanent based on consent
       properties: {
         ...properties,
-        _minimal: !hasConsent, // Flag to indicate minimal tracking
+        _minimal: !hasConsent, // Flag to indicate minimal tracking (daily rotating ID)
         _consent_status: hasConsent ? 'granted' : 'pending',
       },
     };
@@ -1454,7 +1460,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
       const formattedEvent = this.formatEvent(event);
 
-      // Check consent before tracking
+      // Check if we should wait for consent (only if explicitly configured)
       if (this.consentManager.shouldWaitForConsent() && this.config.waitForConsent) {
         // Queue event until consent is granted
         this.waitingForConsentQueue.push(formattedEvent);
@@ -1462,10 +1468,16 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
         return;
       }
 
-      if (!this.consentManager.hasConsent('analytics')) {
-        this.log(`Event blocked by consent: ${event.eventName}`);
-        return;
-      }
+      // v2.0: GDPR Strict falls back to cookieless mode (daily rotating IDs)
+      // Events are never blocked - IdManager already provides correct ID (daily or permanent)
+      const hasConsent = this.consentManager.hasConsent('analytics');
+      
+      // Add tracking flags to indicate consent status
+      formattedEvent.properties = {
+        ...formattedEvent.properties,
+        _minimal: !hasConsent, // Flag: true = daily rotating ID, false = permanent ID
+        _consent_status: hasConsent ? 'granted' : 'pending',
+      };
 
       this.eventQueue.push(formattedEvent);
       this.eventCountSinceLastHeartbeat++;
@@ -1972,11 +1984,23 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
       const userId = options.userId || this.getEffectiveUserIdInternal();
       const immediateKeys = options.immediateKeys || [];
       const properties = options.properties || {};
+      // Include currentUrl from options, or automatically get it from window.location if available
+      // Strip query parameters and hash to match backend normalization
+      let currentUrl = options.currentUrl ?? (typeof window !== 'undefined' ? window.location.href : undefined);
+      if (currentUrl) {
+        try {
+          const urlObj = new URL(currentUrl);
+          currentUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+        } catch {
+          // If URL parsing fails, use as-is
+        }
+      }
 
       const request: RemoteConfigRequest = {
         userId,
         immediateKeys,
         properties,
+        currentUrl,
       };
 
       let lastError: unknown;
@@ -2224,13 +2248,27 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   // Privacy & Consent Methods
 
   /**
-   * Grant consent for tracking
+   * Grant consent for tracking (v2.0)
+   * Switches from cookieless mode to permanent IDs
    * @param categories - Optional array of consent categories (e.g., ['analytics', 'functional'])
    */
   grantConsent(categories?: string[]): void {
     try {
       this.consentManager.grantConsent(categories);
-      this.log('Consent granted', categories);
+      
+      // Sync ID manager with consent state
+      const idMode = this.consentManager.getIdMode();
+      this.idManager.setMode(idMode);
+      
+      this.log('Consent granted, switched to permanent IDs', categories);
+      
+      // Process any queued events waiting for consent
+      if (this.waitingForConsentQueue.length > 0) {
+        this.log(`Processing ${this.waitingForConsentQueue.length} queued events`);
+        this.eventQueue.push(...this.waitingForConsentQueue);
+        this.waitingForConsentQueue = [];
+        this.flush();
+      }
     } catch (error) {
       const formattedError = this.formatError(error, 'grantConsent');
       this.logError(formattedError);
@@ -2238,17 +2276,25 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
   }
 
   /**
-   * Revoke consent for tracking (opt-out)
+   * Revoke consent for tracking (v2.0)
+   * Switches from permanent IDs to cookieless mode
    * @param categories - Optional array of categories to revoke (if not provided, revokes all)
    */
   revokeConsent(categories?: string[]): void {
     try {
       this.consentManager.revokeConsent(categories);
-      this.log('Consent revoked', categories);
       
-      // Clear queued events when consent is revoked
-      this.eventQueue = [];
-      this.waitingForConsentQueue = [];
+      // Sync ID manager with consent state
+      const idMode = this.consentManager.getIdMode();
+      this.idManager.setMode(idMode);
+      
+      this.log('Consent revoked, switched to cookieless mode', categories);
+      
+      // Clear queued events when consent is fully revoked
+      if (!this.consentManager.hasConsent()) {
+        this.eventQueue = [];
+        this.waitingForConsentQueue = [];
+      }
     } catch (error) {
       const formattedError = this.formatError(error, 'revokeConsent');
       this.logError(formattedError);

@@ -727,37 +727,32 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
     const properties = event.properties || {};
     
     // Auto-enrich events with session-level attribution properties
-    // This ensures UTM parameters and attribution data are available on ALL events, not just page_view
+    // This ensures UTM parameters and attribution data are available on ALL events
     if (!this.config.disableAutoProperties && typeof window !== 'undefined') {
       const hasConsent = this.consentManager.hasConsent('analytics');
       
-      // Only enrich if not a system event (they handle their own properties)
-      const isSystemEvent = event.eventName.startsWith('_grain_');
+      const sessionUTMs = getSessionUTMParameters();
+      if (sessionUTMs) {
+        if (sessionUTMs.utm_source) properties.utm_source = sessionUTMs.utm_source;
+        if (sessionUTMs.utm_medium) properties.utm_medium = sessionUTMs.utm_medium;
+        if (sessionUTMs.utm_campaign) properties.utm_campaign = sessionUTMs.utm_campaign;
+        if (sessionUTMs.utm_term) properties.utm_term = sessionUTMs.utm_term;
+        if (sessionUTMs.utm_content) properties.utm_content = sessionUTMs.utm_content;
+      }
       
-      if (!isSystemEvent && hasConsent) {
-        // Get session UTM parameters
-        const sessionUTMs = getSessionUTMParameters();
-        if (sessionUTMs) {
-          if (sessionUTMs.utm_source) properties.utm_source = sessionUTMs.utm_source;
-          if (sessionUTMs.utm_medium) properties.utm_medium = sessionUTMs.utm_medium;
-          if (sessionUTMs.utm_campaign) properties.utm_campaign = sessionUTMs.utm_campaign;
-          if (sessionUTMs.utm_term) properties.utm_term = sessionUTMs.utm_term;
-          if (sessionUTMs.utm_content) properties.utm_content = sessionUTMs.utm_content;
-        }
-        
-        // Get first-touch attribution
-        const firstTouch = getFirstTouchAttribution(this.config.tenantId);
-        if (firstTouch) {
-          properties.first_touch_source = firstTouch.source;
-          properties.first_touch_medium = firstTouch.medium;
-          properties.first_touch_campaign = firstTouch.campaign;
-          properties.first_touch_referrer_category = firstTouch.referrer_category;
-        }
-        
-        // Add session ID if not already present
-        if (!properties.session_id) {
-          properties.session_id = this.getSessionId();
-        }
+      // Get first-touch attribution - ALWAYS include for analytics
+      const firstTouch = getFirstTouchAttribution(this.config.tenantId);
+      if (firstTouch) {
+        properties.first_touch_source = firstTouch.source;
+        properties.first_touch_medium = firstTouch.medium;
+        properties.first_touch_campaign = firstTouch.campaign;
+        properties.first_touch_referrer_category = firstTouch.referrer_category;
+      }
+      
+      // Add session ID if not already present (only with consent for non-system events)
+      const isSystemEvent = event.eventName.startsWith('_grain_');
+      if (!isSystemEvent && hasConsent && !properties.session_id) {
+        properties.session_id = this.getSessionId();
       }
     }
     
@@ -1332,20 +1327,24 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
     const hasConsent = this.consentManager.hasConsent('analytics');
 
-    // Create event with appropriate user ID
-    // v2.0: Always use IdManager which returns daily rotating ID or permanent ID based on consent
-    const event: EventPayload = {
+    // Use formatEvent to ensure attribution properties are added
+    // This is critical for Mission Control analytics
+    const event: GrainEvent = {
       eventName,
-      userId: this.getEffectiveUserId(), // IdManager handles daily vs permanent based on consent
-      properties: {
-        ...properties,
-        _minimal: !hasConsent, // Flag to indicate minimal tracking (daily rotating ID)
-        _consent_status: hasConsent ? 'granted' : 'pending',
-      },
+      properties,
+    };
+    
+    const formattedEvent = this.formatEvent(event);
+    
+    // Add consent status flags
+    formattedEvent.properties = {
+      ...formattedEvent.properties,
+      _minimal: !hasConsent, // Flag to indicate minimal tracking (daily rotating ID)
+      _consent_status: hasConsent ? 'granted' : 'pending',
     };
 
     // Bypass consent check for necessary system events
-    this.eventQueue.push(event);
+    this.eventQueue.push(formattedEvent);
     this.eventCountSinceLastHeartbeat++;
 
     this.log(`Queued system event: ${eventName}`);

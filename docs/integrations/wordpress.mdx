@@ -33,21 +33,18 @@ The safest method—no theme editing required.
 2. In **Scripts in Header**, paste:
 
 ```html
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 <script>
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
-  });
-  
-  // Track page views
-  grain.track('page_viewed', {
-    page: window.location.pathname,
-    title: document.title
-  });
+  // SDK auto-initializes with page view tracking
+  // Track additional custom events if needed
+  const grain = GrainTag.getInstance();
+  grain.track('custom_event', { /* your properties */ });
 </script>
 ```
 
 3. Click **Save**
+
+**Replace `your-tenant-id`** with your tenant identifier (not UUID)!
 
 Done! Grain is now tracking your site. 🎉
 
@@ -66,15 +63,13 @@ If you're using a child theme, add this to `functions.php`:
 function grain_analytics_header() {
   $tenant_id = 'your-tenant-id'; // Replace with your actual tenant ID
   ?>
-  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+  <script src="https://tag.grainql.com/v4/<?php echo esc_js($tenant_id); ?>.js"></script>
   <script>
-    window.grain = Grain.createGrainAnalytics({
-      tenantId: '<?php echo esc_js($tenant_id); ?>'
-    });
+    // SDK auto-initializes, get the instance
+    const grain = GrainTag.getInstance();
     
-    grain.track('page_viewed', {
-      page: window.location.pathname,
-      title: document.title,
+    // Track additional page context
+    grain.track('page_context', {
       post_type: '<?php echo get_post_type(); ?>',
       post_id: <?php echo get_the_ID(); ?>
     });

@@ -17,6 +17,12 @@
 		},
 		{
 			"path": "../../Documents/ollama-straico-apiproxy-main"
+		},
+		{
+			"path": "../grain-tag"
+		},
+		{
+			"path": "../grain-wordpress"
 		}
 	],
 	"settings": {}

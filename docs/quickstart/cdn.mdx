@@ -14,21 +14,19 @@ Perfect for landing pages, static sites, or quick prototypes. No build tools req
 Add this to your HTML `<head>`:
 
 ```html
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 <script>
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id'
-  });
+  // SDK auto-initializes, get the instance
+  const grain = GrainTag.getInstance();
   
-  // Track page view
-  grain.track('page_viewed', {
-    page: window.location.pathname,
-    title: document.title
+  // Track custom events
+  grain.track('button_clicked', {
+    button_id: 'signup'
   });
 </script>
 ```
 
-Replace `'your-tenant-id'` with the alias from your [dashboard](https://grainql.com/dashboard).
+Replace `your-tenant-id` with your tenant identifier (not UUID) from your [dashboard](https://grainql.com/dashboard).
 
 That's it! Grain is now loaded and tracking.
 
@@ -41,49 +39,25 @@ That's it! Grain is now loaded and tracking.
   <meta charset="UTF-8">
   <title>My Landing Page</title>
   
-  <!-- Grain Analytics -->
-  <script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
-  <script>
-    window.grain = Grain.createGrainAnalytics({
-      tenantId: 'your-tenant-id',
-      defaultConfigurations: {
-        hero_text: 'Welcome!',
-        show_banner: 'false'
-      }
-    });
-    
-    // Track page view
-    grain.track('page_viewed', {
-      page: window.location.pathname
-    });
-  </script>
+  <!-- Grain Tag (auto-initializes) -->
+  <script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 </head>
 <body>
-  <h1 id="hero-text">Welcome!</h1>
-  
+  <h1>Welcome!</h1>
   <button id="signup-btn">Get Started</button>
   
   <script>
-    // Use remote config to update content
-    document.addEventListener('DOMContentLoaded', function() {
-      const heroText = grain.getConfig('hero_text');
-      document.getElementById('hero-text').textContent = heroText;
-      
-      // Track button clicks
-      document.getElementById('signup-btn').addEventListener('click', function() {
-        grain.track('signup_clicked', {
-          location: 'hero'
-        });
-        
-        // Your signup logic...
-        window.location.href = '/signup';
-      });
-    });
+    // Get SDK instance (already initialized)
+    const grain = GrainTag.getInstance();
     
-    // Update UI when fresh config loads
-    grain.onConfigsUpdated(function() {
-      const newHeroText = grain.getConfig('hero_text');
-      document.getElementById('hero-text').textContent = newHeroText;
+    // Track button clicks
+    document.getElementById('signup-btn').addEventListener('click', function() {
+      grain.track('signup_clicked', {
+        location: 'hero'
+      });
+      
+      // Your signup logic...
+      window.location.href = '/signup';
     });
   </script>
 </body>

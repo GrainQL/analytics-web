@@ -28,22 +28,10 @@ Google Tag Manager lets you add analytics without touching your website's code. 
 Paste this into the HTML field:
 
 ```html
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
-<script>
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
-  });
-  
-  // Track page views automatically
-  grain.track('page_viewed', {
-    page: window.location.pathname,
-    url: window.location.href,
-    title: document.title
-  });
-</script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 ```
 
-**Replace `'your-tenant-id'`** with your actual tenant ID from the dashboard!
+**Replace `your-tenant-id`** with your tenant identifier (not UUID)!
 
 <Tip>
   Find your tenant ID in your [Grain dashboard](https://grainql.com/dashboard). It's the alias shown at the top (not the UUID).

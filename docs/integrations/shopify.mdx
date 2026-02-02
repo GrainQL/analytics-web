@@ -31,15 +31,13 @@ Understand how customers navigate your Shopify store. See what paths lead to pur
 
 ```html
 <!-- Grain Analytics -->
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 <script>
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id' // Replace with your actual tenant ID
-  });
+  // SDK auto-initializes with page tracking
+  // Track additional Shopify context
+  const grain = GrainTag.getInstance();
   
-  // Track page views with Shopify context
-  grain.track('page_viewed', {
-    page: window.location.pathname,
+  grain.track('page_context', {
     page_type: '{{ template }}',
     shop: '{{ shop.name }}',
     currency: '{{ shop.currency }}'
@@ -47,7 +45,7 @@ Understand how customers navigate your Shopify store. See what paths lead to pur
 </script>
 ```
 
-**Replace `'your-tenant-id'`** with your actual tenant ID!
+**Replace `your-tenant-id`** with your tenant identifier (not UUID)!
 
 <Tip>
   Those `{{ template }}` and `{{ shop.name }}` things are Liquid variables—Shopify automatically fills them in with real values.
@@ -117,11 +115,10 @@ Still in **theme.liquid**, add this just before `</body>`:
 For completed orders, add this to **Settings → Checkout → Order status page → Additional scripts**:
 
 ```html
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 <script>
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id'
-  });
+  // SDK auto-initializes, get the instance
+  const grain = GrainTag.getInstance();
   
   grain.track('purchase_completed', {
     order_id: '{{ checkout.order_id }}',

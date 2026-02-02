@@ -66,18 +66,20 @@ import { GrainProvider, useTrack, useConfig } from '@grainql/analytics-web/react
 
 ## CDN (Browser)
 
-For sites without a build step, use the CDN version:
+For sites without a build step, use the Grain Tag CDN:
 
 ```html
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 <script>
-  const grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id'
-  });
+  // SDK auto-initializes, get the instance
+  const grain = GrainTag.getInstance();
   
-  grain.track('page_viewed', { page: window.location.pathname });
+  // Track custom events
+  grain.track('button_clicked', { button_id: 'signup' });
 </script>
 ```
+
+Replace `your-tenant-id` with your tenant identifier (not UUID).
 
 ### Version Pinning
 

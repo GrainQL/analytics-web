@@ -1,140 +1,217 @@
 ---
 title: "WordPress"
-description: "Add Grain Analytics to WordPress—no plugins, no bloat"
+description: "Add Grain Analytics to WordPress with the official plugin"
 ---
 
-Most WordPress analytics plugins are slow and bloated. Grain is different: 6 KB, fast, and privacy-first.
-
-<Warning>
-  **Use a child theme!** If you edit your theme directly, updates will overwrite your changes. Either use a child theme or the header/footer plugin method below.
-</Warning>
+The official Grain Analytics WordPress plugin provides automatic tracking, WooCommerce integration, and zero-configuration setup. Fast, lightweight, and privacy-first.
 
 ## What You'll Need
 
 - Admin access to WordPress
 - Your Grain tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
-- 10 minutes
+- 5 minutes
 
 ---
 
-## Method 1: Header/Footer Plugin (Recommended)
+## Method 1: Official Plugin (Recommended)
 
-The safest method—no theme editing required.
+The easiest and most powerful method—automatic tracking for WordPress and WooCommerce.
 
-### Install the Plugin
+### Features
 
-1. Go to **Plugins → Add New**
-2. Search for "Insert Headers and Footers"
-3. Click **Install Now** → **Activate**
+- ✅ **Automatic page view tracking** with rich WordPress context (post type, categories, tags, author)
+- ✅ **WooCommerce e-commerce tracking** - product views, add to cart, checkout, purchases
+- ✅ **Zero configuration** - just add your Tenant ID and start tracking
+- ✅ **Privacy-first** - GDPR-compliant cookieless tracking
+- ✅ **Optimization plugin compatible** - works with WP Rocket, Autoptimize, and others
+- ✅ **Lightweight** - minimal performance impact
 
-### Add Grain Analytics
+### Download and Install
 
-1. Go to **Settings → Insert Headers and Footers**
-2. In **Scripts in Header**, paste:
+**Option A: Direct Download**
 
-```html
-<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
-<script>
-  // SDK auto-initializes with page view tracking
-  // Track additional custom events if needed
-  const grain = GrainTag.getInstance();
-  grain.track('custom_event', { /* your properties */ });
-</script>
-```
+1. Download the plugin: [grain-analytics-4.0.2.zip](https://cdn.xreos.co/grain/plugin/wordpress/grain-analytics-4.0.2.zip)
+2. Go to **Plugins → Add New** in WordPress admin
+3. Click **Upload Plugin** at the top
+4. Click **Choose File** and select the downloaded zip file
+5. Click **Install Now** → **Activate**
 
-3. Click **Save**
+**Option B: From Your Grain Dashboard**
 
-**Replace `your-tenant-id`** with your tenant identifier (not UUID)!
+When setting up a new site in Grain, select "WordPress" and follow the guided setup with automatic plugin download.
 
-Done! Grain is now tracking your site. 🎉
+### Configure the Plugin
 
-<Note>
-  **Alternative plugins**: "WP Code" or "Simple Custom CSS and JS" work great too!
-</Note>
+1. Go to **Settings → Grain Analytics** in your WordPress admin
+2. Enter your Tenant ID from [grainql.com/dashboard](https://grainql.com/dashboard)
+3. Enable tracking (on by default)
+4. Choose which WooCommerce events to track (if WooCommerce is installed)
+5. Click **Save Settings**
+6. Use the **Send Test Event** button to verify integration
 
----
+That's it! Your site is now tracked automatically. 🎉
 
-## Method 2: Functions.php (Advanced)
+### What Gets Tracked Automatically
 
-If you're using a child theme, add this to `functions.php`:
+**WordPress Events:**
+- Page views with context (post type, categories, tags, author)
+- Blog post engagement
+- Search queries
+- Comment submissions
+- User registration/login
 
-```php
-<?php
-function grain_analytics_header() {
-  $tenant_id = 'your-tenant-id'; // Replace with your actual tenant ID
-  ?>
-  <script src="https://tag.grainql.com/v4/<?php echo esc_js($tenant_id); ?>.js"></script>
-  <script>
-    // SDK auto-initializes, get the instance
-    const grain = GrainTag.getInstance();
-    
-    // Track additional page context
-    grain.track('page_context', {
-      post_type: '<?php echo get_post_type(); ?>',
-      post_id: <?php echo get_the_ID(); ?>
-    });
-  </script>
-  <?php
-}
-add_action('wp_head', 'grain_analytics_header');
-?>
-```
+**WooCommerce Events** (if WooCommerce is active):
+- Product views with full details
+- Add to cart / Remove from cart
+- Cart views
+- Checkout started
+- Order completed
+- Coupon applied/removed
 
 <Tip>
-  **Using a child theme?** Perfect! Add this to your child theme's `functions.php` to keep it safe from updates.
+  **WooCommerce店?** The plugin automatically detects WooCommerce and tracks all e-commerce events without any additional configuration!
 </Tip>
 
 ---
 
-## Track Blog Posts
+## Method 2: Manual Script Installation (Advanced)
 
-Track which posts people read:
+For advanced users who prefer manual integration or need custom implementations.
+
+<Warning>
+  **Use a child theme or plugin!** Direct theme edits will be lost on updates. Use the official plugin above or a header/footer plugin for safety.
+</Warning>
+
+### Option A: Header/Footer Plugin
+
+1. Install a plugin like "Insert Headers and Footers" or "WP Code"
+2. Go to **Settings → Insert Headers and Footers**
+3. In **Scripts in Header**, paste:
+
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+```
+
+4. Click **Save**
+
+**Replace `your-tenant-id`** with your actual tenant identifier!
+
+### Option B: Child Theme Functions.php
+
+Add this to your child theme's `functions.php`:
+
+```php
+function grain_analytics_header() {
+  $tenant_id = 'your-tenant-id'; // Replace with your actual tenant ID
+  ?>
+  <script src="https://tag.grainql.com/v4/<?php echo esc_js($tenant_id); ?>.js"></script>
+  <?php
+}
+add_action('wp_head', 'grain_analytics_header');
+```
+
+---
+
+## Custom Event Tracking
+
+The plugin automatically tracks most events, but you can add custom tracking for specific use cases.
+
+### Track Custom Events
+
+Use the global `grainTrack` function (available when using the plugin or manual installation):
+
+```javascript
+// Simple custom event
+grainTrack('button_clicked', {
+  button_name: 'Subscribe',
+  page: window.location.pathname
+});
+
+// Critical event with flush
+grainTrack('lead_form_submitted', {
+  form_id: 'contact-form'
+}, { flush: true });
+```
+
+### Track Blog Posts
+
+<Note>
+  **Using the plugin?** Blog posts are already tracked automatically with post ID, title, author, and categories. This is only needed for custom tracking scenarios.
+</Note>
+
+Track additional blog post engagement:
 
 ```php
 <?php if (is_single()) : ?>
 <script>
-  if (window.grain) {
-    grain.track('blog_post_viewed', {
-      post_id: <?php echo get_the_ID(); ?>,
-      post_title: '<?php echo esc_js(get_the_title()); ?>',
-      author: '<?php echo esc_js(get_the_author()); ?>',
-      categories: <?php echo json_encode(wp_get_post_categories(get_the_ID(), array('fields' => 'names'))); ?>
-    });
-  }
+  // Track custom engagement events
+  grainTrack('blog_post_engagement', {
+    post_id: <?php echo get_the_ID(); ?>,
+    post_title: '<?php echo esc_js(get_the_title()); ?>',
+    author: '<?php echo esc_js(get_the_author()); ?>',
+    categories: <?php echo json_encode(wp_get_post_categories(get_the_ID(), array('fields' => 'names'))); ?>
+  });
 </script>
 <?php endif; ?>
 ```
 
-## Track Form Submissions
+### Track Form Submissions
 
-For Contact Form 7:
+**Contact Form 7:**
 
 ```javascript
 document.addEventListener('wpcf7mailsent', function(event) {
-  if (window.grain) {
-    grain.track('contact_form_submitted', {
-      form_id: event.detail.contactFormId
-    });
-  }
+  grainTrack('contact_form_submitted', {
+    form_id: event.detail.contactFormId,
+    form_name: 'Contact Form 7'
+  }, { flush: true }); // Flush to ensure event is sent before page redirect
 });
 ```
 
-## Track Search Queries
+**Gravity Forms:**
+
+```javascript
+jQuery(document).on('gform_confirmation_loaded', function(event, formId){
+  grainTrack('gravity_form_submitted', {
+    form_id: formId
+  }, { flush: true });
+});
+```
+
+**WPForms:**
+
+```javascript
+wpforms.ready(function() {
+  wpforms.on('submit', function(event) {
+    grainTrack('wpforms_submitted', {
+      form_id: event.detail.formId
+    }, { flush: true });
+  });
+});
+```
+
+### Track Search Queries
+
+<Note>
+  **Using the plugin?** Search queries are already tracked automatically. This is for custom implementations.
+</Note>
 
 ```php
 <?php if (is_search()) : ?>
 <script>
-  if (window.grain) {
-    grain.track('search_performed', {
-      query: '<?php echo esc_js(get_search_query()); ?>',
-      results_count: <?php echo $wp_query->found_posts; ?>
-    });
-  }
+  grainTrack('search_performed', {
+    query: '<?php echo esc_js(get_search_query()); ?>',
+    results_count: <?php echo $wp_query->found_posts; ?>
+  });
 </script>
 <?php endif; ?>
 ```
 
-## Track Comments
+### Track Comments
+
+<Note>
+  **Using the plugin?** Comment submissions are already tracked automatically.
+</Note>
 
 ```php
 function grain_track_comment() {
@@ -142,11 +219,11 @@ function grain_track_comment() {
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const commentForm = document.getElementById('commentform');
-      if (commentForm && window.grain) {
+      if (commentForm) {
         commentForm.addEventListener('submit', function() {
-          grain.track('comment_submitted', {
+          grainTrack('comment_submitted', {
             post_id: <?php echo get_the_ID(); ?>
-          });
+          }, { flush: true });
         });
       }
     });
@@ -160,109 +237,156 @@ add_action('comment_form_after', 'grain_track_comment');
 
 ## WooCommerce Integration
 
-If you run a WooCommerce store:
+<Note>
+  **Using the plugin?** All WooCommerce events are tracked automatically! Product views, add to cart, checkout, and orders are handled out of the box. The examples below are for custom implementations only.
+</Note>
 
-### Track Product Views
+### Automatic WooCommerce Tracking (Plugin)
+
+When using the official Grain Analytics plugin, these events are tracked automatically:
+
+- ✅ **Product views** - with product ID, name, price, categories
+- ✅ **Add to cart** - both standard and AJAX add to cart
+- ✅ **Remove from cart**
+- ✅ **Cart views**
+- ✅ **Checkout started**
+- ✅ **Order completed** - critical conversion event with order details
+- ✅ **Coupon applied/removed**
+- ✅ **Quantity changes**
+
+No code required! Just enable WooCommerce tracking in **Settings → Grain Analytics**.
+
+### Manual WooCommerce Tracking (Advanced)
+
+For custom implementations or additional tracking:
+
+**Track Custom Product Events:**
 
 ```php
-function grain_track_product_view() {
+function grain_track_custom_product_event() {
   if (!is_product()) return;
   global $product;
   ?>
   <script>
-    if (window.grain) {
-      grain.track('product_viewed', {
+    // Track product wishlist add
+    jQuery(document).on('click', '.add-to-wishlist', function() {
+      grainTrack('product_added_to_wishlist', {
         product_id: <?php echo $product->get_id(); ?>,
         product_name: '<?php echo esc_js($product->get_name()); ?>',
         price: <?php echo $product->get_price(); ?>
       });
-    }
+    });
   </script>
   <?php
 }
-add_action('wp_footer', 'grain_track_product_view');
-```
-
-### Track Add to Cart
-
-```php
-add_action('woocommerce_add_to_cart', function($cart_item_key, $product_id) {
-  ?>
-  <script>
-    if (window.grain) {
-      grain.track('product_added_to_cart', {
-        product_id: <?php echo $product_id; ?>
-      });
-    }
-  </script>
-  <?php
-}, 10, 2);
+add_action('wp_footer', 'grain_track_custom_product_event');
 ```
 
 ---
 
 ## Test Your Integration
 
+### Using the Plugin
+
+1. Go to **Settings → Grain Analytics** in WordPress admin
+2. Click **Send Test Event** button at the bottom
+3. Check your [Grain dashboard](https://grainql.com/dashboard) for the test event
+4. Navigate your site and verify events appear in real-time
+
+### Manual Testing
+
 1. Open your site in **incognito/private window**
 2. Open browser console (F12 → Console)
-3. Type `window.grain` — you should see the Grain object
+3. Type `grainTrack` — you should see the function
 4. Navigate a few pages
 5. Check your [Grain dashboard](https://grainql.com/dashboard)
 
 <Tip>
-  **Debug mode**: Add `debug: true` temporarily to see logs:
-  ```javascript
-  window.grain = Grain.createGrainAnalytics({
-    tenantId: 'your-tenant-id',
-    debug: true // Remove before going live!
-  });
-  ```
+  **Debug mode**: Enable debug mode in the plugin settings to see detailed logs in the browser console. Remember to disable it before going live!
 </Tip>
 
 ---
 
 ## Troubleshooting
 
+### Plugin Not Tracking
+
+**Check the basics:**
+- Verify "Enable Tracking" is ON in **Settings → Grain Analytics**
+- Check that your Tenant ID is correct
+- Use the "Send Test Event" button to verify connection
+- Clear your site cache (if using WP Rocket, W3 Total Cache, etc.)
+- Check browser console for errors (F12 → Console)
+
+**If admin users are being tracked:**
+- Enable "Exclude Admin Users" in plugin settings
+- Log out and test in incognito mode
+
 ### Script Not Loading
 
+**For manual installations:**
 - Check PHP syntax (missing semicolons or quotes)
-- Clear cache (if using a cache plugin)
-- Check browser console for errors (F12)
+- Clear cache plugins
 - Verify code is in `<head>` section
+- Check theme.liquid or functions.php for errors
+
+**For plugin:**
+- Deactivate and reactivate the plugin
+- Check for JavaScript conflicts with other plugins
+- Ensure your site isn't blocking the Grain CDN
 
 ### Events Not in Dashboard
 
-- Wait 1-2 minutes (slight delay is normal)
-- Check that `window.grain` exists in console
-- Verify tenant ID is correct
-- Make sure you're not blocking analytics with browser extensions
+- Wait 1-2 minutes (slight processing delay is normal)
+- Verify `grainTrack` function exists in browser console
+- Check Network tab (F12) for outgoing requests to `*.grainql.com`
+- Disable ad blockers and privacy extensions temporarily
+- Verify your Tenant ID matches your dashboard
 
-### Theme Broke
+### WooCommerce Events Missing
 
-- **Revert immediately**: Go to **Appearance → Themes**, activate a default theme
-- Fix PHP syntax errors (check for missing `?>` or unclosed strings)
-- Use FTP to restore original file from backup
+- Ensure WooCommerce is active and up to date
+- Check that WooCommerce events are enabled in plugin settings
+- Test add to cart and checkout in incognito mode
+- Check browser console for JavaScript errors
+
+### Performance Issues
+
+The plugin is highly optimized, but if you notice issues:
+- Enable "Async Loading" in plugin settings (if available)
+- Ensure you're using the latest plugin version
+- Check for conflicts with optimization plugins (try excluding Grain script from optimization)
+- Contact support if issues persist
 
 ---
 
 ## What's Next?
 
 <CardGroup cols={2}>
-  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
-    Analyze user journeys through your content
+  <Card title="Shopify Integration" icon="shopping-cart" href="/integrations/shopify">
+    Running an online store? Check out Shopify integration
   </Card>
   <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
     Learn event tracking best practices
   </Card>
-  <Card title="Remote Config" icon="sliders" href="/core/remote-config">
-    A/B test layouts and CTAs
+  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
+    Analyze user journeys through your content
   </Card>
   <Card title="Query API" icon="code" href="/api-reference/query-api/overview">
-    Build custom dashboards
+    Build custom analytics dashboards
   </Card>
 </CardGroup>
 
+---
+
+## Plugin Support
+
+- **Plugin Issues:** [GitHub Issues](https://github.com/grainql/grain-wordpress/issues)
+- **Documentation:** [docs.grainql.com](https://docs.grainql.com)
+- **Dashboard:** [grainql.com/dashboard](https://grainql.com/dashboard)
+- **Email Support:** [support@grainql.com](mailto:support@grainql.com)
+
 <Tip>
-  **Need help?** Chat with us at [grainql.com](https://grainql.com) or email [support@grainql.com](mailto:support@grainql.com).
+  **Love the plugin?** Leave us a review on WordPress.org when it's published! ⭐
 </Tip>
 

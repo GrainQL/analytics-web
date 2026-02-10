@@ -4,46 +4,34 @@ description: "Use Grain Analytics with any JavaScript framework or no framework 
 ---
 
 <Note>
-  This guide works with Vue, Svelte, Angular, or plain JavaScript. Using React? Try the [React Quick Start](/quickstart/react) for a better experience.
+  This guide uses the Grain Tag script, which works with Vue, Svelte, Angular, or plain JavaScript. Using React? Try the [React Quick Start](/quickstart/react) for a better experience.
 </Note>
 
-## Install the Package
+## Add the Grain Tag
 
-```bash npm
-npm install @grainql/analytics-web
+Add the Grain Tag script to your HTML:
+
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 ```
 
-```bash yarn
-yarn add @grainql/analytics-web
+Replace `your-tenant-id` with your tenant identifier from your [dashboard](https://grainql.com/dashboard).
+
+Then get the SDK instance in your JavaScript:
+
+```javascript
+const grain = GrainTag.getInstance();
 ```
-
-```bash pnpm
-pnpm add @grainql/analytics-web
-```
-
-## Initialize the SDK
-
-Import and create a Grain client:
-
-```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
-
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id'
-});
-```
-
-Replace `'your-tenant-id'` with the alias from your [dashboard](https://grainql.com/dashboard).
 
 <Tip>
-  **Pro tip**: Create the client in a separate file and export it so you can use it throughout your app.
+  **Need npm module imports?** Install `@grainql/tag` via npm for use with bundlers. See the [Installation guide](/installation#npm-package) for details.
 </Tip>
 
 ## Track Events
 
 Call `track()` with an event name and optional properties:
 
-```typescript
+```javascript
 // Track a button click
 grain.track('button_clicked', {
   button_name: 'signup',
@@ -58,18 +46,17 @@ grain.track('page_viewed', {
 
 // Track a form submission
 grain.track('form_submitted', {
-  form_name: 'contact',
-  fields: ['name', 'email', 'message']
+  form_name: 'contact'
 });
 ```
 
-Events are automatically batched and sent every 5 seconds. You don't need to manually flush.
+Events are automatically batched and sent. You don't need to manually flush.
 
 ## Use Remote Config
 
 Get configuration values instantly:
 
-```typescript
+```javascript
 // Get a config value (returns from cache or default)
 const heroText = grain.getConfig('hero_text');
 console.log(heroText); // "Welcome!"
@@ -87,26 +74,14 @@ if (isNewUIEnabled === 'true') {
   **Cache-first loading**: `getConfig()` returns immediately with cached or default values. Fresh values load in the background and update automatically.
 </Info>
 
-To set default values:
-
-```typescript
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  defaultConfigurations: {
-    hero_text: 'Welcome!',
-    new_ui_enabled: 'false'
-  }
-});
-```
-
 ## Listen for Config Updates
 
 Subscribe to changes when remote values load:
 
-```typescript
+```javascript
 grain.onConfigsUpdated((configs) => {
   console.log('Configs updated!', configs);
-  
+
   // Update your UI with the new values
   const heroText = grain.getConfig('hero_text');
   document.querySelector('h1').textContent = heroText;
@@ -117,82 +92,98 @@ grain.onConfigsUpdated((configs) => {
 
 Associate events with a specific user:
 
-```typescript
-// When a user logs in
-grain.identify('user_123', {
-  email: 'user@example.com',
-  name: 'Jane Doe',
-  plan: 'pro'
-});
+```javascript
+// When a user logs in — pass the user ID
+grain.identify('user_123');
 
-// Now all events include this user ID and properties
+// All subsequent events include this user ID
 grain.track('feature_used', {
   feature_name: 'export'
 });
+```
+
+## Consent Management
+
+Grain is cookieless by default. When you need explicit consent handling:
+
+```javascript
+// Grant consent (enables persistent tracking)
+grain.consent.grant();
+
+// Revoke consent
+grain.consent.revoke();
+
+// Check consent status
+const status = grain.consent.status();
 ```
 
 ## Complete Example
 
 Here's a small app that puts it all together:
 
-```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+</head>
+<body>
+  <div id="hero">
+    <h1>Welcome!</h1>
+  </div>
+  <div id="banner" style="display: none;">
+    <p>Special offer!</p>
+  </div>
+  <button id="signup-btn">Get Started</button>
 
-// Initialize
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  defaultConfigurations: {
-    hero_text: 'Welcome!',
-    show_banner: 'false'
-  }
-});
+  <script>
+    const grain = GrainTag.getInstance();
 
-// Track page view on load
-grain.track('page_viewed', {
-  page: window.location.pathname,
-  title: document.title
-});
+    // Track page view on load
+    grain.track('page_viewed', {
+      page: window.location.pathname,
+      title: document.title
+    });
 
-// Use remote config to control UI
-const heroText = grain.getConfig('hero_text');
-document.querySelector('#hero h1').textContent = heroText;
+    // Use remote config to control UI
+    const heroText = grain.getConfig('hero_text');
+    if (heroText) {
+      document.querySelector('#hero h1').textContent = heroText;
+    }
 
-const showBanner = grain.getConfig('show_banner');
-if (showBanner === 'true') {
-  document.querySelector('#banner').style.display = 'block';
-}
+    const showBanner = grain.getConfig('show_banner');
+    if (showBanner === 'true') {
+      document.querySelector('#banner').style.display = 'block';
+    }
 
-// Track button clicks
-document.querySelector('#signup-btn').addEventListener('click', () => {
-  grain.track('signup_clicked', {
-    location: 'hero'
-  });
-  
-  // Your signup logic...
-});
+    // Track button clicks
+    document.querySelector('#signup-btn').addEventListener('click', () => {
+      grain.track('signup_clicked', { location: 'hero' });
+    });
 
-// Update UI when fresh config loads
-grain.onConfigsUpdated(() => {
-  const newHeroText = grain.getConfig('hero_text');
-  document.querySelector('#hero h1').textContent = newHeroText;
-});
+    // Update UI when fresh config loads
+    grain.onConfigsUpdated(() => {
+      const newHeroText = grain.getConfig('hero_text');
+      if (newHeroText) {
+        document.querySelector('#hero h1').textContent = newHeroText;
+      }
+    });
 
-// Identify user after login
-async function handleLogin(email, password) {
-  const user = await loginUser(email, password);
-  
-  grain.identify(user.id, {
-    email: user.email,
-    name: user.name
-  });
-}
+    // Identify user after login
+    async function handleLogin(email, password) {
+      const user = await loginUser(email, password);
+      grain.identify(user.id);
+    }
+  </script>
+</body>
+</html>
 ```
 
 ## Vue.js Example
 
 Using Grain in a Vue component:
 
-```typescript
+```html
 <template>
   <div>
     <h1>{{ heroText }}</h1>
@@ -202,24 +193,24 @@ Using Grain in a Vue component:
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { grain } from './grain'; // Your initialized client
 
 const heroText = ref('Welcome!');
 
 onMounted(() => {
+  const grain = GrainTag.getInstance();
+
   // Get initial config value
-  heroText.value = grain.getConfig('hero_text');
-  
+  heroText.value = grain.getConfig('hero_text') || 'Welcome!';
+
   // Update when remote config loads
   grain.onConfigsUpdated(() => {
-    heroText.value = grain.getConfig('hero_text');
+    heroText.value = grain.getConfig('hero_text') || 'Welcome!';
   });
 });
 
 const handleClick = () => {
-  grain.track('button_clicked', {
-    location: 'hero'
-  });
+  const grain = GrainTag.getInstance();
+  grain.track('button_clicked', { location: 'hero' });
 };
 </script>
 ```
@@ -231,24 +222,24 @@ Using Grain in a Svelte component:
 ```svelte
 <script>
   import { onMount } from 'svelte';
-  import { grain } from './grain'; // Your initialized client
-  
+
   let heroText = 'Welcome!';
-  
+
   onMount(() => {
+    const grain = GrainTag.getInstance();
+
     // Get initial config value
-    heroText = grain.getConfig('hero_text');
-    
+    heroText = grain.getConfig('hero_text') || 'Welcome!';
+
     // Update when remote config loads
     grain.onConfigsUpdated(() => {
-      heroText = grain.getConfig('hero_text');
+      heroText = grain.getConfig('hero_text') || 'Welcome!';
     });
   });
-  
+
   function handleClick() {
-    grain.track('button_clicked', {
-      location: 'hero'
-    });
+    const grain = GrainTag.getInstance();
+    grain.track('button_clicked', { location: 'hero' });
   }
 </script>
 
@@ -262,7 +253,9 @@ Using Grain in a Svelte component:
 
 For single-page apps, track route changes:
 
-```typescript
+```javascript
+const grain = GrainTag.getInstance();
+
 // For browser history API
 window.addEventListener('popstate', () => {
   grain.track('page_viewed', {
@@ -277,15 +270,6 @@ router.afterEach((to) => {
     name: to.name
   });
 });
-
-// For client-side navigation (general)
-const originalPushState = history.pushState;
-history.pushState = function(...args) {
-  originalPushState.apply(this, args);
-  grain.track('page_viewed', {
-    page: window.location.pathname
-  });
-};
 ```
 
 ## What's Next?
@@ -297,15 +281,10 @@ history.pushState = function(...args) {
   <Card title="User Identification" icon="user" href="/core/user-identification">
     Learn about tracking users across sessions
   </Card>
-  <Card title="Authentication" icon="key" href="/authentication">
-    Secure your analytics with Auth0 or JWT
+  <Card title="Trackers" icon="crosshairs" href="/features/trackers">
+    Track element clicks without writing code
   </Card>
   <Card title="Event Best Practices" icon="chart-line" href="/core/event-tracking">
     Learn what to track and how to structure events
   </Card>
 </CardGroup>
-
-<Tip>
-  **TypeScript users**: The SDK is written in TypeScript and includes full type definitions. You'll get autocomplete and type checking out of the box.
-</Tip>
-

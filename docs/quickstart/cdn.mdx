@@ -1,12 +1,12 @@
 ---
-title: "CDN / Script Tag Quick Start"
+title: "Grain Tag (Script)"
 description: "Add Grain Analytics without npm or a build step"
 ---
 
-Perfect for landing pages, static sites, or quick prototypes. No build tools required—just add a script tag.
+The primary way to install Grain. Perfect for any website — landing pages, static sites, CMSs, or full web apps. No build tools required.
 
 <Note>
-  **Building an app with a bundler?** Try [Vanilla JS Quick Start](/quickstart/vanilla-js) or [React Quick Start](/quickstart/react) for better tree-shaking and bundle optimization.
+  **Using React or Next.js?** Try [React Quick Start](/quickstart/react) or [Next.js Quick Start](/quickstart/nextjs) for hooks-based integration.
 </Note>
 
 ## Add the Script Tag
@@ -18,7 +18,7 @@ Add this to your HTML `<head>`:
 <script>
   // SDK auto-initializes, get the instance
   const grain = GrainTag.getInstance();
-  
+
   // Track custom events
   grain.track('button_clicked', {
     button_id: 'signup'
@@ -38,24 +38,24 @@ That's it! Grain is now loaded and tracking.
 <head>
   <meta charset="UTF-8">
   <title>My Landing Page</title>
-  
+
   <!-- Grain Tag (auto-initializes) -->
   <script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
 </head>
 <body>
   <h1>Welcome!</h1>
   <button id="signup-btn">Get Started</button>
-  
+
   <script>
     // Get SDK instance (already initialized)
     const grain = GrainTag.getInstance();
-    
+
     // Track button clicks
     document.getElementById('signup-btn').addEventListener('click', function() {
       grain.track('signup_clicked', {
         location: 'hero'
       });
-      
+
       // Your signup logic...
       window.location.href = '/signup';
     });
@@ -76,13 +76,13 @@ That's it! Grain is now loaded and tracking.
 <script>
   document.getElementById('contact-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
     // Track the submission
     grain.track('form_submitted', {
       form_name: 'contact',
       page: window.location.pathname
     });
-    
+
     // Your form submission logic...
   });
 </script>
@@ -117,7 +117,7 @@ Control your page content without redeploying:
     // Check if banner should show
     const showBanner = grain.getConfig('show_promo_banner');
     const bannerText = grain.getConfig('promo_banner_text');
-    
+
     if (showBanner === 'true') {
       document.getElementById('promo-banner').style.display = 'block';
       document.getElementById('promo-text').textContent = bannerText || 'Special offer!';
@@ -134,14 +134,10 @@ Track logged-in users:
 
 ```html
 <script>
-  // When user logs in
-  function handleLogin(userId, email, name) {
-    grain.identify(userId, {
-      email: email,
-      name: name,
-      signup_date: new Date().toISOString()
-    });
-    
+  // When user logs in — pass only the user ID
+  function handleLogin(userId) {
+    grain.identify(userId);
+
     // Track login event
     grain.track('user_logged_in', {
       method: 'email'
@@ -162,41 +158,18 @@ For multi-page sites, the script automatically tracks each page load. For single
       page: window.location.pathname
     });
   });
-  
+
   // Track custom navigation
   function navigateTo(url) {
     history.pushState(null, '', url);
-    
+
     grain.track('page_viewed', {
       page: url
     });
-    
+
     // Your navigation logic...
   }
 </script>
-```
-
-## Version Pinning
-
-By default, `unpkg.com` serves the latest version. For production, pin to a specific version:
-
-```html
-<!-- Pin to a specific version -->
-<script src="https://unpkg.com/@grainql/analytics-web@1.0.0/dist/index.global.js"></script>
-```
-
-Check the [npm package](https://www.npmjs.com/package/@grainql/analytics-web) for available versions.
-
-## Alternative CDNs
-
-You can also use these CDNs:
-
-```html
-<!-- jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/@grainql/analytics-web/dist/index.global.js"></script>
-
-<!-- unpkg (default) -->
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
 ```
 
 ## Performance Tips
@@ -206,18 +179,11 @@ You can also use these CDNs:
 </Check>
 
 <Check>
-  **Do**: Use `defer` or `async` if you need to delay loading:
-  ```html
-  <script defer src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
-  ```
-</Check>
-
-<Check>
-  **Do**: Pin to a specific version in production
+  **Do**: Use one script tag per page — Grain handles everything
 </Check>
 
 <Warning>
-  **Don't**: Load Grain multiple times—once per page is enough
+  **Don't**: Load Grain multiple times — once per page is enough
 </Warning>
 
 ## What's Next?
@@ -232,12 +198,11 @@ You can also use these CDNs:
   <Card title="Remote Config Guide" icon="sliders" href="/core/remote-config">
     Master configuration and feature flags
   </Card>
-  <Card title="Authentication" icon="key" href="/authentication">
-    Secure your analytics with Auth0 or JWT
+  <Card title="Trackers" icon="crosshairs" href="/features/trackers">
+    Track element clicks without code
   </Card>
 </CardGroup>
 
 <Tip>
   **Using Google Tag Manager instead?** Check out the [GTM Integration Guide](/integrations/gtm) for a no-code setup.
 </Tip>
-

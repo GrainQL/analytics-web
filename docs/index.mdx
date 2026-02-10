@@ -5,7 +5,7 @@ description: "Track analytics and manage remote configurations with a lightweigh
 
 ## Welcome to Grain Analytics
 
-Grain Analytics helps you understand user behavior and control your app's features remotely—all without sacrificing performance or simplicity.
+Grain Analytics helps you understand user behavior and control your app's features remotely — all without sacrificing performance or simplicity.
 
 Whether you're a developer building a React app or a marketer setting up tracking via Google Tag Manager, we've got you covered.
 
@@ -21,7 +21,7 @@ Understand how people actually use your app. See where they click, what paths th
 
 ### Control Features Remotely
 
-Turn features on or off, run A/B tests, and personalize content—all without deploying code.
+Turn features on or off, run A/B tests, and personalize content — all without deploying code.
 
 ### Own Your Data
 
@@ -56,6 +56,13 @@ Jump into the platform you're using:
 
 <CardGroup cols={3}>
   <Card
+    title="Grain Tag (Script)"
+    icon="globe"
+    href="/quickstart/cdn"
+  >
+    The primary way to install — no build step required
+  </Card>
+  <Card
     title="React"
     icon="react"
     href="/quickstart/react"
@@ -77,13 +84,6 @@ Jump into the platform you're using:
     Works with any framework (Vue, Svelte, etc.)
   </Card>
   <Card
-    title="CDN / Script Tag"
-    icon="globe"
-    href="/quickstart/cdn"
-  >
-    No build step required—just add a script tag
-  </Card>
-  <Card
     title="Node.js / Backend"
     icon="server"
     href="/quickstart/nodejs"
@@ -101,14 +101,13 @@ Jump into the platform you're using:
 
 ### What You'll Get
 
-- **Tiny footprint** — 6 KB gzipped, zero dependencies
 - **Built for React** — Hooks that feel natural
 - **TypeScript first** — Full type safety out of the box
 - **Smart batching** — Automatic event queuing and retries
-- **Works everywhere** — Browser, Node.js, React Native
+- **Works everywhere** — Browser, Node.js, server-side
 
 <Tip>
-  **Not sure where to start?** Try the [React Quick Start](/quickstart/react) if you're using React, or [Vanilla JS Quick Start](/quickstart/vanilla-js) for anything else.
+  **Not sure where to start?** Try the [Grain Tag (Script)](/quickstart/cdn) for any site, or [React Quick Start](/quickstart/react) if you're using React.
 </Tip>
 
 ---
@@ -147,34 +146,32 @@ These guides are written for non-technical users. No coding experience required.
 
 ## Quick Example
 
-Here's what using Grain looks like in code:
+Here's what using Grain looks like with the Grain Tag:
 
-```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+<script>
+  const grain = GrainTag.getInstance();
 
-// Initialize
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id'
-});
+  // Track events
+  grain.track('button_clicked', {
+    button_name: 'signup'
+  });
 
-// Track events
-grain.track('button_clicked', {
-  button_name: 'signup'
-});
-
-// Get remote config
-const featureEnabled = grain.getConfig('new_feature_enabled');
+  // Get remote config
+  const featureEnabled = grain.getConfig('new_feature_enabled');
+</script>
 ```
 
 Or use React hooks:
 
 ```typescript
-import { useTrack, useConfig } from '@grainql/analytics-web/react';
+import { useTrack, useConfig } from '@grainql/tag/react';
 
 function MyComponent() {
   const track = useTrack();
   const { value: heroText } = useConfig('hero_text');
-  
+
   return (
     <div>
       <h1>{heroText || 'Welcome!'}</h1>
@@ -209,9 +206,26 @@ Understand how tracking and remote configuration work:
   </Card>
 </CardGroup>
 
-### Explore Guides
+### Explore the Dashboard
 
-See real-world examples and best practices:
+See what Grain can show you:
+
+<CardGroup cols={2}>
+  <Card title="Trackers" icon="crosshairs" href="/features/trackers">
+    Track clicks on specific elements without code
+  </Card>
+  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
+    Analyze complete user journeys
+  </Card>
+  <Card title="Heatmaps" icon="fire" href="/features/heatmaps">
+    Visualize clicks and scroll depth
+  </Card>
+  <Card title="Mission Control" icon="bullseye" href="/features/mission-control">
+    Set goals and track progress
+  </Card>
+</CardGroup>
+
+### Browse Guides & API
 
 <CardGroup cols={2}>
   <Card title="E-commerce Tracking" icon="shopping-cart" href="/guides/ecommerce">
@@ -220,28 +234,11 @@ See real-world examples and best practices:
   <Card title="A/B Testing" icon="flask" href="/guides/ab-testing">
     Test features and measure impact
   </Card>
-  <Card title="Feature Flags" icon="flag" href="/guides/feature-flags">
-    Roll out features gradually and safely
-  </Card>
-  <Card title="Tracks & Funnels" icon="route" href="/features/tracks">
-    Analyze complete user journeys
-  </Card>
-</CardGroup>
-
-### Browse the API
-
-<CardGroup cols={2}>
   <Card title="Core API" icon="book" href="/api-reference/overview">
     All SDK methods and options
   </Card>
-  <Card title="React Hooks" icon="react" href="/api-reference/react-hooks">
-    Complete hooks reference
-  </Card>
   <Card title="Query API" icon="database" href="/api-reference/query-api/overview">
     Query your analytics data programmatically
-  </Card>
-  <Card title="TypeScript Types" icon="code" href="/api-reference/types">
-    Type definitions and interfaces
   </Card>
 </CardGroup>
 

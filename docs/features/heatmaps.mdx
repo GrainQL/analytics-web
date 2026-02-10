@@ -1,0 +1,106 @@
+---
+title: "Heatmaps: Visual Click & Scroll Analytics"
+description: "See exactly where users click and how far they scroll on every page"
+---
+
+## What Are Heatmaps?
+
+Heatmaps show you where users click and how far they scroll — as a visual overlay on your actual pages. Instead of reading spreadsheets, you see behavior directly on your site.
+
+Grain captures click positions and scroll depth automatically through the Grain Tag. No extra code needed.
+
+**Real-world example**: An e-commerce team noticed their "Add to Cart" button had a 2% click rate on mobile. The heatmap showed users were tapping a product image they expected to be clickable — but it wasn't. Making the image tappable increased add-to-cart by 34%.
+
+## Click Heatmaps
+
+Click heatmaps record every click position on the page and render them as a heat gradient — hot spots show where users click most.
+
+What you can learn:
+- **Which CTAs get attention** and which get ignored
+- **Dead clicks** on elements users expect to be interactive
+- **Content engagement** — are users reading or skipping sections?
+- **Navigation patterns** — which menu items get the most clicks?
+
+The Grain Tag records click coordinates automatically on every page where it's installed.
+
+## Scroll Tracking
+
+Scroll tracking measures how far down the page users scroll, shown as a gradient from top (100% of users see this) to bottom (fewer users reach here).
+
+What you can learn:
+- **Content fold line** — where most users stop scrolling
+- **Engagement depth** — do users read your full page or bail early?
+- **Optimal placement** — put your most important content where users actually see it
+
+## Viewing Heatmaps in Studio
+
+Heatmaps are visualized through Studio, Grain's browser extension:
+
+1. Install Studio from your dashboard
+2. Navigate to any page on your site
+3. Open Studio and select the **Heatmap** view
+4. Toggle between **Click** and **Scroll** views
+5. Filter by date range or device type
+
+<Note>
+  **Paid plans only**: Heatmap visualization in Studio requires a paid Grain plan. Click and scroll data is still collected on all plans — you just need a paid plan to view the visual overlays.
+</Note>
+
+## DOM Snapshots
+
+Grain periodically captures DOM snapshots of your pages. These snapshots are used to render accurate heatmap overlays, even if your page layout changes over time.
+
+### How Snapshots Work
+
+- Grain Tag automatically captures a snapshot of the page DOM
+- Snapshots include the page structure, styles, and layout
+- They're used as the canvas for rendering heatmap overlays in Studio
+- Multiple snapshots are stored over time, so you can view heatmaps for past layouts
+
+### PII Masking
+
+Snapshots automatically mask personally identifiable information:
+
+- Form input values are replaced with placeholder text
+- Email addresses and phone numbers are redacted
+- Custom masking rules can be configured in your dashboard
+
+### Excluding Elements from Snapshots
+
+If you have sensitive content that shouldn't appear in snapshots, add the `grain-no-snapshot` class:
+
+```html
+<!-- This element won't appear in DOM snapshots -->
+<div class="grain-no-snapshot">
+  <p>Sensitive content here</p>
+</div>
+```
+
+Any element with `grain-no-snapshot` (and its children) will be excluded from snapshot captures.
+
+## Device-Specific Tracking
+
+Click and scroll patterns differ significantly between mobile and desktop. Grain tracks each device separately:
+
+- **Desktop**: Mouse clicks, scroll wheel, trackpad gestures
+- **Mobile**: Tap positions, touch scrolling
+- **Tablet**: Treated as mobile by default
+
+Filter heatmaps by device in Studio to see how behavior differs across screen sizes.
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Trackers" icon="crosshairs" href="/features/trackers">
+    Set up element-level conversion tracking
+  </Card>
+  <Card title="Tracks" icon="route" href="/features/tracks">
+    Analyze complete user journeys from start to goal
+  </Card>
+  <Card title="Automatic Tracking" icon="wand-magic-sparkles" href="/core/automatic-tracking">
+    See what Grain tracks out of the box
+  </Card>
+  <Card title="Privacy & Compliance" icon="shield-check" href="/essentials/privacy-and-compliance">
+    How Grain handles data privacy and PII
+  </Card>
+</CardGroup>

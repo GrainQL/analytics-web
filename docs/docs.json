@@ -23,48 +23,42 @@
             ]
           },
           {
-            "group": "Quick Start by Platform",
+            "group": "Integrations",
             "pages": [
+              "quickstart/cdn",
               "quickstart/react",
               "quickstart/nextjs",
               "quickstart/vanilla-js",
-              "quickstart/cdn",
-              "quickstart/nodejs"
-            ]
-          },
-          {
-            "group": "No-Code Integrations",
-            "pages": [
+              "quickstart/nodejs",
               "integrations/gtm",
               "integrations/shopify",
               "integrations/wordpress"
             ]
           },
           {
-            "group": "Core Concepts",
+            "group": "Tracking & Events",
             "pages": [
               "core/event-tracking",
               "core/event-naming",
+              "core/automatic-tracking",
               "core/user-identification",
               "core/user-properties",
-              "core/remote-config",
-              "core/template-events",
-              "core/automatic-tracking"
+              "core/template-events"
             ]
           },
           {
-            "group": "React Hooks",
+            "group": "Dashboard",
             "pages": [
-              "react/overview",
-              "react/grain-provider",
-              "react/use-config",
-              "react/use-track",
-              "react/use-all-configs",
-              "react/use-grain-analytics"
+              "features/trackers",
+              "features/tracks",
+              "features/heatmaps",
+              "features/mission-control",
+              "core/remote-config",
+              "essentials/privacy-and-compliance"
             ]
           },
           {
-            "group": "Guides & Examples",
+            "group": "Guides",
             "pages": [
               "guides/ecommerce",
               "guides/ab-testing",
@@ -75,20 +69,24 @@
             ]
           },
           {
-            "group": "Features",
+            "group": "React SDK",
             "pages": [
-              "features/tracks"
+              "react/overview",
+              "react/grain-provider",
+              "react/use-config",
+              "react/use-track",
+              "react/use-all-configs",
+              "react/use-grain-analytics"
             ]
           },
           {
-            "group": "Advanced Topics",
+            "group": "Advanced",
             "pages": [
               "advanced/configuration",
               "advanced/error-handling",
               "advanced/security",
               "advanced/performance",
-              "advanced/typescript",
-              "advanced/ATTENTION_QUALITY_POLICY"
+              "advanced/typescript"
             ]
           }
         ]
@@ -162,6 +160,18 @@
       ]
     }
   },
+  "redirects": [
+    { "source": "/guides/trackers", "destination": "/features/trackers" },
+    { "source": "/guides/matrices", "destination": "/guides/analytics-dashboard" },
+    { "source": "/features/acquisition", "destination": "/features/trackers" },
+    { "source": "/features/compare", "destination": "/guides/analytics-dashboard" },
+    { "source": "/features/data-explorer", "destination": "/api-reference/query-api/overview" },
+    { "source": "/mission-control", "destination": "/features/mission-control" },
+    { "source": "/rate-limits", "destination": "/api-reference/query-api/overview" },
+    { "source": "/use-cases", "destination": "/guides/ecommerce" },
+    { "source": "/essentials/privacy", "destination": "/essentials/privacy-and-compliance" },
+    { "source": "/quickstart", "destination": "/installation" }
+  ],
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
@@ -187,5 +197,5 @@
       "intercom": {
             "appId": "hrkm438y"
       }
-}
+  }
 }

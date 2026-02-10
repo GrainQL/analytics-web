@@ -1,6 +1,7 @@
 ---
 title: "Event Tracking Best Practices"
 description: "Structure your events for maximum insight in your analytics dashboard"
+sidebarTitle: "Event Tracking Best Practices"
 ---
 
 ## Overview
@@ -290,7 +291,9 @@ Before login, Grain automatically generates and persists a unique anonymous ID f
 If you're using remote config, preload it for faster access:
 
 ```typescript
-const grain = createGrainAnalytics({
+import { GrainTag } from '@grainql/tag';
+
+const grain = GrainTag.init({
   tenantId: 'your-tenant-id',
   defaultConfigurations: {
     feature_enabled: 'false',

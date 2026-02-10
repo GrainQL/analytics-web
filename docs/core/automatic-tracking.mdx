@@ -262,12 +262,14 @@ Consult your legal team to ensure compliance with GDPR, CCPA, and other regulati
 
 Users can disable tracking through consent management:
 
-```typescript
-// Revoke consent
-grain.revokeConsent();
+```html
+<script>
+  // Revoke consent
+  grain.consent.revoke();
 
-// After revocation, automatic tracking continues with minimal data
-// or stops entirely based on your consent configuration
+  // After revocation, automatic tracking continues with minimal data
+  // or stops entirely based on your consent configuration
+</script>
 ```
 
 ## Best Practices
@@ -280,33 +282,18 @@ grain.revokeConsent();
 
 ## Example: Complete Setup
 
-```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+<script>
+  const grain = GrainTag.getInstance();
 
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  
-  // Privacy settings
-  consentMode: 'opt-in', // Require consent (GDPR strict)
-  enableCookies: true,
-  anonymizeIP: true,
-  
-  // Automatic tracking (privacy-aware)
-  enableHeartbeat: true,
-  heartbeatActiveInterval: 120000, // 2 min
-  heartbeatInactiveInterval: 300000, // 5 min
-  enableAutoPageView: true,
-  stripQueryParams: true,
-  
-  debug: true, // See console logs
-});
+  // Heartbeat and page views start automatically!
+  // No additional code needed.
 
-// Heartbeat and page views start automatically!
-// No additional code needed.
-
-// When user grants consent:
-grain.grantConsent(['necessary', 'analytics']);
-// → Tracking upgrades from minimal to full automatically
+  // When user grants consent:
+  grain.consent.grant();
+  // → Tracking upgrades from minimal to full automatically
+</script>
 ```
 
 ## FAQ
@@ -331,7 +318,7 @@ A: They're sent with an ephemeral session ID. After consent, the `_grain_consent
 
 ## Related
 
-- [Privacy & Consent](/core/privacy)
+- [Privacy & Compliance](/essentials/privacy-and-compliance)
 - [Configuration](/advanced/configuration)
 - [Event Tracking](/core/event-tracking)
 - [Remote Config](/core/remote-config)

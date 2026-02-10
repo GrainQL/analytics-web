@@ -68,8 +68,24 @@ const heroText = grain.getConfig('hero_text');
 
 Always provide default values for immediate access:
 
+Using the Grain Tag:
+
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+<script>
+  const grain = GrainTag.getInstance();
+
+  // Works immediately, even offline
+  const heroText = grain.getConfig('hero_text'); // "Welcome!"
+</script>
+```
+
+Or with the npm package:
+
 ```typescript
-const grain = createGrainAnalytics({
+import { GrainTag } from '@grainql/tag';
+
+const grain = GrainTag.init({
   tenantId: 'your-tenant-id',
   defaultConfigurations: {
     hero_text: 'Welcome!',
@@ -245,7 +261,9 @@ if (chatEnabled !== 'false') {
 Configs automatically refresh in the background:
 
 ```typescript
-const grain = createGrainAnalytics({
+import { GrainTag } from '@grainql/tag';
+
+const grain = GrainTag.init({
   tenantId: 'your-tenant-id',
   configRefreshInterval: 120000  // Refresh every 2 minutes
 });
@@ -258,7 +276,9 @@ Default is 5 minutes. Set to `0` to disable auto-refresh.
 Configs are cached in `localStorage` (or memory in Node.js):
 
 ```typescript
-const grain = createGrainAnalytics({
+import { GrainTag } from '@grainql/tag';
+
+const grain = GrainTag.init({
   tenantId: 'your-tenant-id',
   enableConfigCache: true,  // Default
   configCacheKey: 'my_app_config'  // Custom cache key
@@ -277,7 +297,7 @@ enableConfigCache: false  // Always fetch from API
 Configure values in the Grain dashboard:
 
 1. Go to [grainql.com/dashboard](https://grainql.com/dashboard)
-2. Navigate to **Remote Config**
+2. Navigate to **Dashboard > Remote Config**
 3. Create configuration keys
 4. Set default values
 5. Add rules for personalization

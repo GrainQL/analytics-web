@@ -46,22 +46,23 @@ Three consent modes to fit your compliance needs:
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| **Opt-In** | GDPR strict – explicit consent required | EU users, strict compliance |
-| **Opt-Out** | Track by default, opt-out available | US users, CCPA compliance |
-| **Disabled** | No consent management | Internal tools, non-regulated |
+| **Auto** | Cookieless analytics, no consent required (default) | Privacy-first analytics |
+| **Opt-In** | GDPR strict — no tracking until consent granted | EU users, strict compliance |
+| **Opt-Out** | Track by default, user can revoke | US users, CCPA compliance |
 
-```typescript
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  consentMode: 'opt-in',  // or 'opt-out', 'disabled'
-  waitForConsent: true
-});
+```html
+<script>
+  const grain = GrainTag.getInstance();
 
-// Grant consent
-grain.grantConsent(['necessary', 'analytics']);
+  // Grant consent (enables persistent tracking)
+  grain.consent.grant();
 
-// Revoke consent
-grain.revokeConsent();
+  // Revoke consent (returns to cookieless mode)
+  grain.consent.revoke();
+
+  // Check current consent status
+  const status = grain.consent.status();
+</script>
 ```
 
 ### Data Minimization

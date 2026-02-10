@@ -1,0 +1,114 @@
+---
+title: "Trackers: Element-Level Conversion Tracking"
+description: "Track clicks and interactions on specific elements without writing code"
+---
+
+## What Are Trackers?
+
+Trackers let you monitor clicks and interactions on specific HTML elements using CSS selectors. Point at a button, link, or form — Grain counts every interaction automatically.
+
+No code changes required. Set up a tracker in the dashboard or use Studio's visual picker, and you're live in seconds.
+
+**Real-world example**: A SaaS company discovered 60% of trial users abandoned at the pricing page. One tracker on the mobile CTA revealed it was below the fold — moving it up increased trial-to-paid conversions by 23%.
+
+## Tracker Types
+
+### Conversion Trackers
+
+Count how many unique visitors interact with a specific element. Use these for measuring goals: signups, purchases, downloads.
+
+- Tracks unique conversions per visitor
+- Shows conversion rate as a percentage of total visitors
+- Ideal for CTAs, checkout buttons, and form submissions
+
+### Metric Trackers
+
+Count total interactions, including repeat clicks from the same visitor. Use these for engagement metrics.
+
+- Tracks every interaction (not deduplicated)
+- Shows raw interaction counts over time
+- Ideal for navigation patterns, content engagement, and feature usage
+
+## Creating Trackers
+
+### In the Dashboard
+
+1. Go to **Conversions** in your dashboard sidebar
+2. Click **Create Tracker**
+3. Enter a CSS selector (e.g., `#signup-btn`, `.cta-button`, `[data-action="purchase"]`)
+4. Name the tracker (e.g., "Signup Button Clicks")
+5. Choose the type: **Conversion** or **Metric**
+6. Set URL scope (optional — see below)
+7. Save
+
+### In Studio (Visual Picker)
+
+Studio lets you create trackers visually without writing CSS selectors:
+
+1. Open Studio on any page of your site
+2. Click the **Tracker** tool in the toolbar
+3. Click on the element you want to track
+4. Studio generates the CSS selector automatically
+5. Name the tracker and choose its type
+6. Save — it's immediately active
+
+Studio is the fastest way to set up trackers, especially for non-technical team members.
+
+## URL Scope Filtering
+
+By default, trackers fire on every page where the element exists. Use URL scope to limit where a tracker is active:
+
+| Scope | Behavior | Example |
+|-------|----------|---------|
+| **All pages** | Fires everywhere the element appears | Track a global nav link |
+| **URL contains** | Fires on pages whose URL contains a string | `/pricing` matches `/pricing`, `/pricing/enterprise` |
+| **URL equals** | Fires only on an exact URL match | `/checkout` matches only `/checkout` |
+
+URL scoping prevents false positives. If you have the same `.cta-button` class on multiple pages but only care about the homepage CTA, set the scope to URL equals `/`.
+
+## Tracker Properties
+
+Each tracker stores:
+
+| Property | Description |
+|----------|-------------|
+| **Name** | Human-readable label (e.g., "Hero CTA") |
+| **Selector** | CSS selector targeting the element |
+| **Type** | `conversion` or `metric` |
+| **URL pattern** | Scope filter (all, contains, equals) |
+| **URL value** | The URL string for contains/equals matching |
+
+## Viewing Conversion Data
+
+Once trackers are active, view results in the **Conversions** dashboard:
+
+- **Conversion rate**: Percentage of visitors who interacted with the tracked element
+- **Total conversions**: Absolute count of unique conversions
+- **Trend graph**: Conversions over time (daily/weekly/monthly)
+- **Page breakdown**: Which pages drive the most conversions (for multi-page trackers)
+
+Filter by date range, device type, or traffic source to segment your data.
+
+## Tips for Effective Trackers
+
+- **Use specific selectors**: `#checkout-btn` is better than `.btn` — avoid matching unintended elements
+- **Name descriptively**: "Hero CTA — Homepage" tells you more than "Button 1"
+- **Start with conversions**: Track your most important goals first, then layer in metric trackers for engagement
+- **Combine with Tracks**: Set up a [Track](/features/tracks) to see the full user journey leading to a conversion
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Tracks" icon="route" href="/features/tracks">
+    Analyze the complete user journey leading to conversions
+  </Card>
+  <Card title="Heatmaps" icon="fire" href="/features/heatmaps">
+    See where users click and how far they scroll
+  </Card>
+  <Card title="Event Tracking" icon="chart-line" href="/core/event-tracking">
+    Track custom events with code for deeper analytics
+  </Card>
+  <Card title="Mission Control" icon="bullseye" href="/features/mission-control">
+    Set goals and track progress across your site
+  </Card>
+</CardGroup>

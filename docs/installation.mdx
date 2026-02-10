@@ -4,7 +4,7 @@ description: "Install Grain Analytics in your project"
 ---
 
 <Note>
-  **Looking for a quick start guide?** Check out our [platform-specific quick starts](/quickstart) for step-by-step setup instructions.
+  **Looking for a quick start guide?** Check out our [platform-specific integrations](/quickstart/cdn) for step-by-step setup instructions.
 </Note>
 
 ## Choose Your Installation Method
@@ -12,32 +12,92 @@ description: "Install Grain Analytics in your project"
 Pick the method that fits your setup:
 
 <CardGroup cols={2}>
-  <Card title="npm / yarn / pnpm" icon="box" href="#package-manager">
-    For apps with a build step
+  <Card title="Grain Tag (Script)" icon="globe" href="#grain-tag-script">
+    The primary way to install Grain — works everywhere
   </Card>
-  <Card title="CDN" icon="globe" href="#cdn-browser">
-    For static sites or quick prototyping
+  <Card title="npm / yarn / pnpm" icon="box" href="#npm-package">
+    For React, Next.js, and apps with a build step
   </Card>
 </CardGroup>
 
 ---
 
-## Package Manager
+## Grain Tag (Script)
 
-Install via npm, yarn, or pnpm:
+The fastest way to add Grain to any site. Drop a single script tag in your HTML and you're live.
+
+```html
+<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
+<script>
+  // SDK auto-initializes, get the instance
+  const grain = GrainTag.getInstance();
+
+  // Track custom events
+  grain.track('button_clicked', { button_id: 'signup' });
+</script>
+```
+
+Replace `your-tenant-id` with your tenant identifier (not UUID) from your [dashboard](https://grainql.com/dashboard).
+
+The Grain Tag handles everything automatically: page views, click tracking, scroll depth, session management, and DOM snapshots for heatmaps.
+
+### Identify Users
+
+```html
+<script>
+  const grain = GrainTag.getInstance();
+
+  // After your user logs in
+  grain.identify('user_123');
+</script>
+```
+
+### Consent Management
+
+Grain is cookieless by default. When you need explicit consent handling:
+
+```html
+<script>
+  const grain = GrainTag.getInstance();
+
+  // Grant consent (enables persistent tracking)
+  grain.consent.grant();
+
+  // Revoke consent (returns to cookieless mode)
+  grain.consent.revoke();
+
+  // Check current consent status
+  const status = grain.consent.status();
+</script>
+```
+
+Consent modes:
+- **`auto`** (default) — Cookieless analytics, no consent required
+- **`opt-in`** — No tracking until the user grants consent
+- **`opt-out`** — Tracking by default, user can revoke
+
+<Tip>
+  **Next steps**: See the [Grain Tag (Script) guide](/quickstart/cdn) for complete examples including forms, navigation tracking, and remote config.
+</Tip>
+
+---
+
+## npm Package
+
+For React, Next.js, and other apps with a build step, install `@grainql/tag`:
 
 <CodeGroup>
 
 ```bash npm
-npm install @grainql/analytics-web
+npm install @grainql/tag
 ```
 
 ```bash yarn
-yarn add @grainql/analytics-web
+yarn add @grainql/tag
 ```
 
 ```bash pnpm
-pnpm add @grainql/analytics-web
+pnpm add @grainql/tag
 ```
 
 </CodeGroup>
@@ -51,203 +111,103 @@ The package includes:
 ### Import and Use
 
 ```typescript
-// Vanilla JS or any framework
-import { createGrainAnalytics } from '@grainql/analytics-web';
+import { GrainTag } from '@grainql/tag';
 
-// React hooks
-import { GrainProvider, useTrack, useConfig } from '@grainql/analytics-web/react';
+// Initialize
+const grain = GrainTag.init({ tenantId: 'your-tenant-id' });
+
+// Track events
+grain.track('button_clicked', { button_id: 'signup' });
+
+// Identify users
+grain.identify('user_123');
+```
+
+### React Hooks
+
+```typescript
+import { GrainProvider, useTrack, useConfig } from '@grainql/tag/react';
 ```
 
 <Tip>
-  **Next steps**: Check out the [React Quick Start](/quickstart/react) or [Vanilla JS Quick Start](/quickstart/vanilla-js) for complete examples.
-</Tip>
-
----
-
-## CDN (Browser)
-
-For sites without a build step, use the Grain Tag CDN:
-
-```html
-<script src="https://tag.grainql.com/v4/your-tenant-id.js"></script>
-<script>
-  // SDK auto-initializes, get the instance
-  const grain = GrainTag.getInstance();
-  
-  // Track custom events
-  grain.track('button_clicked', { button_id: 'signup' });
-</script>
-```
-
-Replace `your-tenant-id` with your tenant identifier (not UUID).
-
-### Version Pinning
-
-For production, pin to a specific version:
-
-```html
-<script src="https://unpkg.com/@grainql/analytics-web@1.0.0/dist/index.global.js"></script>
-```
-
-Check the [npm package](https://www.npmjs.com/package/@grainql/analytics-web) for available versions.
-
-### Alternative CDNs
-
-```html
-<!-- jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/@grainql/analytics-web/dist/index.global.js"></script>
-
-<!-- unpkg -->
-<script src="https://unpkg.com/@grainql/analytics-web/dist/index.global.js"></script>
-```
-
-<Tip>
-  **Next steps**: See the [CDN Quick Start](/quickstart/cdn) for complete examples.
+  **Next steps**: Check out the [React Quick Start](/quickstart/react) or [Next.js Quick Start](/quickstart/nextjs) for complete examples.
 </Tip>
 
 ---
 
 ## Platform Support
 
-Grain Analytics works across multiple environments:
+Grain works across multiple environments:
 
 ### Browser
-- ✅ Chrome, Firefox, Safari, Edge
-- ✅ Modern ES6+ and legacy ES5
-- ✅ Module bundlers (Vite, Webpack, esbuild)
+- Chrome, Firefox, Safari, Edge
+- Modern ES6+ and legacy ES5
+- Module bundlers (Vite, Webpack, esbuild)
 
 ### Frameworks
-- ✅ React (hooks included)
-- ✅ Next.js (App Router & Pages Router)
-- ✅ Vue, Svelte, Angular
-- ✅ Vanilla JavaScript
+- React (hooks included)
+- Next.js (App Router & Pages Router)
+- Vue, Svelte, Angular
+- Vanilla JavaScript
 
 ### Server
-- ✅ Node.js 14+
-- ✅ Serverless (AWS Lambda, Vercel, Netlify)
-- ✅ React Native
-
----
-
-## Build Formats
-
-The package includes multiple formats:
-
-- **ESM** (`dist/index.mjs`) — Modern bundlers
-- **CommonJS** (`dist/index.js`) — Node.js
-- **IIFE** (`dist/index.global.js`) — Browsers via CDN
-- **TypeScript** (`dist/index.d.ts`) — Type definitions
-
-Your bundler automatically picks the right format.
-
----
-
-## TypeScript Support
-
-Full TypeScript support out of the box—no additional packages needed:
-
-```typescript
-import { createGrainAnalytics, GrainConfig, GrainEvent } from '@grainql/analytics-web';
-
-const config: GrainConfig = {
-  tenantId: 'your-tenant-id',
-  authStrategy: 'NONE',
-  batchSize: 50
-};
-
-const grain = createGrainAnalytics(config);
-```
-
----
-
-## Bundle Size
-
-Grain is designed to be lightweight:
-
-- **Core SDK**: ~6 KB (gzipped)
-- **With React Hooks**: ~8 KB (gzipped)
-- **Zero dependencies**: No bloat
-
-The SDK is tree-shakeable—you only bundle what you use.
+- Node.js 14+
+- Serverless (AWS Lambda, Vercel, Netlify)
 
 ---
 
 ## Verify Installation
 
-Test that everything works:
+### Grain Tag (Script)
+
+Open your browser console after adding the script tag. You should see Grain initialization logs. Then run:
+
+```javascript
+const grain = GrainTag.getInstance();
+grain.track('installation_test');
+```
+
+Check your [dashboard](https://grainql.com/dashboard) — the event should appear within seconds.
+
+### npm Package
 
 ```typescript
-import { createGrainAnalytics } from '@grainql/analytics-web';
+import { GrainTag } from '@grainql/tag';
 
-const grain = createGrainAnalytics({
+const grain = GrainTag.init({
   tenantId: 'your-tenant-id',
   debug: true // Enable console logging
 });
 
-grain.track('installation_test', {
-  timestamp: new Date().toISOString()
-});
-
-console.log('Grain Analytics initialized!');
+grain.track('installation_test');
+console.log('Grain initialized!');
 ```
 
 Check your browser console to see batching and sending activity.
 
 ---
 
-## Privacy & GDPR
+## Privacy & Consent
 
-Grain includes built-in privacy features:
+Grain is cookieless by default — no consent banner needed for basic analytics. When you need explicit consent management:
 
-### Basic Setup
+```html
+<script>
+  const grain = GrainTag.getInstance();
 
-```typescript
-const grain = createGrainAnalytics({
-  tenantId: 'your-tenant-id',
-  consentMode: 'opt-in',        // Require consent
-  waitForConsent: true,          // Queue events until consent
-  enableCookies: true,           // Use cookies after consent
-  anonymizeIP: true              // Anonymize IP addresses
-});
-```
+  // Grant consent (enables persistent tracking with cookies)
+  grain.consent.grant();
 
-### Manage Consent
+  // Revoke consent (clears cookies, returns to cookieless mode)
+  grain.consent.revoke();
 
-```typescript
-// Grant consent
-grain.grantConsent(['necessary', 'analytics']);
-
-// Revoke consent
-grain.revokeConsent();
-
-// Check consent
-const hasConsent = grain.hasConsent('analytics');
-```
-
-### React Consent Banner
-
-```tsx
-import { GrainProvider, ConsentBanner } from '@grainql/analytics-web/react';
-
-function App() {
-  return (
-    <GrainProvider config={{ 
-      tenantId: 'your-tenant-id',
-      consentMode: 'opt-in'
-    }}>
-      <ConsentBanner 
-        position="bottom"
-        theme="glass"
-        privacyPolicyUrl="/privacy"
-      />
-      {/* Your app */}
-    </GrainProvider>
-  );
-}
+  // Check consent status
+  const status = grain.consent.status();
+</script>
 ```
 
 <Info>
-  **GDPR Compliance**: In opt-in mode without consent, only ephemeral session IDs are used. No cookies or persistent tracking until consent is granted.
+  **GDPR Compliance**: In the default `auto` mode, Grain uses only ephemeral session IDs — no cookies or persistent tracking. See [Privacy & Compliance](/essentials/privacy-and-compliance) for full details.
 </Info>
 
 ---
@@ -255,16 +215,16 @@ function App() {
 ## What's Next?
 
 <CardGroup cols={2}>
-  <Card title="Quick Start Guides" icon="rocket" href="/quickstart">
-    Platform-specific setup instructions
+  <Card title="Grain Tag (Script)" icon="globe" href="/quickstart/cdn">
+    Complete guide with examples for script-based installation
+  </Card>
+  <Card title="React Quick Start" icon="react" href="/quickstart/react">
+    Hooks-based integration for React apps
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     Set up Auth0 or custom JWT authentication
   </Card>
-  <Card title="Core Concepts" icon="book" href="/core/event-tracking">
-    Learn about event tracking and remote config
-  </Card>
-  <Card title="React Hooks" icon="react" href="/react/overview">
-    Use Grain with React
+  <Card title="Tracking & Events" icon="chart-line" href="/core/event-tracking">
+    Learn about event tracking and best practices
   </Card>
 </CardGroup>

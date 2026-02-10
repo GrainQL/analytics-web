@@ -9,12 +9,32 @@
   },
   "favicon": "/favicon.ico",
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Website",
+          "icon": "globe",
+          "href": "https://grainql.com"
+        },
+        {
+          "anchor": "Dashboard",
+          "icon": "chart-line",
+          "href": "https://grainql.com/dashboard"
+        },
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/GrainQL/analytics-web"
+        }
+      ]
+    },
     "tabs": [
       {
         "tab": "Documentation",
         "groups": [
           {
             "group": "Getting Started",
+            "icon": "hand-wave",
             "pages": [
               "index",
               "installation",
@@ -24,6 +44,7 @@
           },
           {
             "group": "Integrations",
+            "icon": "puzzle-piece",
             "pages": [
               "quickstart/cdn",
               "quickstart/react",
@@ -37,6 +58,7 @@
           },
           {
             "group": "Tracking & Events",
+            "icon": "book-open-cover",
             "pages": [
               "core/event-tracking",
               "core/event-naming",
@@ -48,6 +70,7 @@
           },
           {
             "group": "Dashboard",
+            "icon": "solar-panel",
             "pages": [
               "features/trackers",
               "features/tracks",
@@ -59,6 +82,7 @@
           },
           {
             "group": "Guides",
+            "icon": "book-bookmark",
             "pages": [
               "guides/ecommerce",
               "guides/ab-testing",
@@ -70,6 +94,7 @@
           },
           {
             "group": "React SDK",
+            "icon": "atom",
             "pages": [
               "react/overview",
               "react/grain-provider",
@@ -81,6 +106,7 @@
           },
           {
             "group": "Advanced",
+            "icon": "starfighter-twin-ion-engine-advanced",
             "pages": [
               "advanced/configuration",
               "advanced/error-handling",
@@ -93,6 +119,7 @@
       },
       {
         "tab": "API Reference",
+        "icon": "server",
         "groups": [
           {
             "group": "API Documentation",
@@ -139,26 +166,7 @@
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Website",
-          "href": "https://grainql.com",
-          "icon": "globe"
-        },
-        {
-          "anchor": "Dashboard",
-          "href": "https://grainql.com/dashboard",
-          "icon": "chart-line"
-        },
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/GrainQL/analytics-web",
-          "icon": "github"
-        }
-      ]
-    }
+    ]
   },
   "redirects": [
     { "source": "/guides/trackers", "destination": "/features/trackers" },
@@ -206,8 +214,7 @@
     "decoration": "gradient"
   },
   "fonts": {
-    "family": "Montserrat",
-    "weight": 400,
+    "family": "Inter",
     "heading": {
       "weight": 600
     }

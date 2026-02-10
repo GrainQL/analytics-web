@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "almond",
   "name": "Grain Analytics",
   "colors": {
     "primary": "#855cff",
@@ -197,5 +197,12 @@
       "intercom": {
             "appId": "hrkm438y"
       }
+  },
+  "appearance": {
+    "strict": true,
+    "default": "light"
+  },
+  "background": {
+    "decoration": "gradient"
   }
 }

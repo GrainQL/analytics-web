@@ -1,9 +1,9 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "almond",
+  "theme": "palm",
   "name": "Grain Analytics",
   "colors": {
-    "primary": "#855cff",
+    "primary": "#8a5cff",
     "light": "#855cff",
     "dark": "#855cff"
   },
@@ -31,6 +31,7 @@
     "tabs": [
       {
         "tab": "Documentation",
+        "icon": "book",
         "groups": [
           {
             "group": "Getting Started",
@@ -146,6 +147,7 @@
       },
       {
         "tab": "Examples",
+        "icon": "eyes",
         "groups": [
           {
             "group": "Code Examples",
@@ -221,5 +223,8 @@
   },
   "interaction": {
     "drilldown": false
+  },
+  "icons": {
+    "library": "fontawesome"
   }
 }

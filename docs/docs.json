@@ -204,5 +204,15 @@
   },
   "background": {
     "decoration": "gradient"
+  },
+  "fonts": {
+    "family": "Montserrat",
+    "weight": 400,
+    "heading": {
+      "weight": 600
+    }
+  },
+  "interaction": {
+    "drilldown": false
   }
 }

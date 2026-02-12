@@ -402,9 +402,9 @@ export class HeatmapTrackingManager {
    */
   private async getApiUrl(): Promise<string | undefined> {
     try {
-      return (this.tracker as any).config?.apiUrl || 'https://api.grainql.com';
+      return (this.tracker as any).config?.apiUrl || 'https://clientapis.grainql.com';
     } catch {
-      return 'https://api.grainql.com';
+      return 'https://clientapis.grainql.com';
     }
   }
   

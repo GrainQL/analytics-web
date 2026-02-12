@@ -19,7 +19,7 @@ If you're seeing errors, start here:
     Type `window.grain` in the console. If it returns `undefined`, the SDK isn't loaded.
   </Step>
   <Step title="Check Network Tab">
-    Look for failed requests to `api.grainql.com` in the Network tab (F12 → Network).
+    Look for failed requests to `clientapis.grainql.com` in the Network tab (F12 → Network).
   </Step>
 </Steps>
 
@@ -96,14 +96,14 @@ If you're seeing errors, start here:
 <AccordionGroup>
   <Accordion title="Basic Troubleshooting">
     1. Check your internet connection
-    2. Try accessing [https://api.grainql.com/health](https://api.grainql.com/health) directly
+    2. Try accessing [https://clientapis.grainql.com/health](https://clientapis.grainql.com/health) directly
     3. If the API is unreachable, check if your network blocks analytics services
   </Accordion>
 
   <Accordion title="Corporate/Enterprise Networks">
     If you're on a corporate network:
     
-    - Whitelist `api.grainql.com` in your firewall
+    - Whitelist `clientapis.grainql.com` in your firewall
     - Whitelist `*.grainql.com` to allow all subdomains
     - Check if your proxy requires authentication
     - Contact your IT department to allow analytics traffic
@@ -217,7 +217,7 @@ You've exceeded the API rate limits for your plan.
 **Symptoms:**
 - Console error: `grain is not defined`
 - Events not being tracked
-- No network requests to `api.grainql.com`
+- No network requests to `clientapis.grainql.com`
 
 **Solutions by Installation Method:**
 
@@ -398,7 +398,7 @@ grain.init({
 ### Cross-Origin Request Blocked
 
 **Error Message:**
-- "Access to fetch at 'https://api.grainql.com/...' blocked by CORS policy"
+- "Access to fetch at 'https://clientapis.grainql.com/...' blocked by CORS policy"
 - "No 'Access-Control-Allow-Origin' header"
 
 **What This Means:**

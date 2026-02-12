@@ -337,7 +337,7 @@ export class GrainAnalytics implements HeartbeatTracker, PageTracker {
 
   constructor(config: GrainConfig) {
     this.config = {
-      apiUrl: 'https://api.grainql.com',
+      apiUrl: 'https://clientapis.grainql.com',
       authStrategy: 'NONE',
       batchSize: 50,
       flushInterval: 5000, // 5 seconds

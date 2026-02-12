@@ -637,7 +637,7 @@ When filtering for multiple values, use IN instead of multiple EQUALS filters:
 ```typescript
 async function queryWithFilters(tenantId: string, apiKey: string, filters: any) {
   try {
-    const response = await fetch(`https://api.grainql.com/v1/api/query/${tenantId}`, {
+    const response = await fetch(`https://queryapis.grainql.com/v1/api/query/${tenantId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -688,7 +688,7 @@ function validateFilters(filters: any[]): boolean {
 ```typescript
 async function testFilter(tenantId: string, apiKey: string, filter: any) {
   // Test with filter
-  const filteredResponse = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+  const filteredResponse = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
     method: 'POST',
     headers: { 'X-API-Key': apiKey },
     body: JSON.stringify({ filterSet: [filter] })
@@ -697,7 +697,7 @@ async function testFilter(tenantId: string, apiKey: string, filter: any) {
   const filteredCount = (await filteredResponse.json()).count;
   
   // Test without filter
-  const totalResponse = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+  const totalResponse = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
     method: 'POST',
     headers: { 'X-API-Key': apiKey },
     body: JSON.stringify({})

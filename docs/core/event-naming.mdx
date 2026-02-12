@@ -259,7 +259,7 @@ Query individual events with clear, descriptive names:
 
 ```typescript
 // Query all cart additions
-const response = await fetch('https://api.grainql.com/v1/api/query/your-tenant-id', {
+const response = await fetch('https://queryapis.grainql.com/v1/api/query/your-tenant-id', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -289,7 +289,7 @@ const checkoutFunnel = [
 
 // Query each step
 for (const step of checkoutFunnel) {
-  const count = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+  const count = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
     method: 'POST',
     headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ event: step, after: '2024-01-01' })
@@ -331,7 +331,7 @@ When displaying events in UI, the hierarchical structure helps filter by categor
 
 ```typescript
 // Get all events
-const allEvents = await fetch(`https://api.grainql.com/v1/api/query/events/${tenantId}`, {
+const allEvents = await fetch(`https://queryapis.grainql.com/v1/api/query/events/${tenantId}`, {
   headers: { 'X-API-Key': apiKey }
 }).then(r => r.json());
 

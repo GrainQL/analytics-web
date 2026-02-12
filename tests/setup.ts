@@ -2,7 +2,7 @@
 
 // Test configuration
 export const TEST_TENANT_ID = 'grain-test-lab';
-export const TEST_API_URL = 'https://api.grainql.com';
+export const TEST_API_URL = 'https://clientapis.grainql.com';
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {

@@ -98,7 +98,7 @@ Configurable retention periods from 30 to 365 days:
 Export all data for a specific user:
 
 ```bash
-curl -X GET https://api.grainql.com/v1/privacy/{tenantId}/export-user/{userId} \
+curl -X GET https://queryapis.grainql.com/v1/privacy/{tenantId}/export-user/{userId} \
   -H "X-API-Key: YOUR_SECRET_KEY"
 ```
 
@@ -109,7 +109,7 @@ Returns JSON with all events, properties, and consent history.
 Delete all data for a specific user:
 
 ```bash
-curl -X POST https://api.grainql.com/v1/privacy/{tenantId}/data-deletion \
+curl -X POST https://queryapis.grainql.com/v1/privacy/{tenantId}/data-deletion \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -124,7 +124,7 @@ curl -X POST https://api.grainql.com/v1/privacy/{tenantId}/data-deletion \
 Replace user ID with an anonymized UUID while preserving aggregated analytics:
 
 ```bash
-curl -X POST https://api.grainql.com/v1/privacy/{tenantId}/anonymize-user \
+curl -X POST https://queryapis.grainql.com/v1/privacy/{tenantId}/anonymize-user \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '{

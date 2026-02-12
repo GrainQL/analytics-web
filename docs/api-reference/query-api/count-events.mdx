@@ -69,7 +69,7 @@ Returns a simple count object:
 Count all page views in a date range:
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -91,7 +91,7 @@ Response:
 Count high-value purchases:
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -111,7 +111,7 @@ curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
 Count events from specific users on mobile devices:
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -136,7 +136,7 @@ Calculate conversion rates by comparing counts:
 
 ```bash
 # Count signup page views
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -151,7 +151,7 @@ curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
   }'
 
 # Count account creations
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -165,7 +165,7 @@ curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
 
 ```typescript
 async function countEvents(tenantId: string, apiKey: string, filters: any): Promise<number> {
-  const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+  const response = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ def count_events(tenant_id: str, api_key: str, filters: Dict[str, Any]) -> int:
     """Count events matching the given filters"""
     
     response = requests.post(
-        f'https://api.grainql.com/v1/api/query/count/{tenant_id}',
+        f'https://queryapis.grainql.com/v1/api/query/count/{tenant_id}',
         headers={
             'Content-Type': 'application/json',
             'X-API-Key': api_key
@@ -235,7 +235,7 @@ print(f'High-value purchases: {purchase_count}')
 const fetch = require('node-fetch');
 
 async function countEvents(tenantId, apiKey, filters) {
-  const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+  const response = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -397,7 +397,7 @@ Handle count query errors gracefully:
 async function countEventsWithRetry(tenantId: string, apiKey: string, filters: any, maxRetries = 3): Promise<number> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(`https://api.grainql.com/v1/api/query/count/${tenantId}`, {
+      const response = await fetch(`https://queryapis.grainql.com/v1/api/query/count/${tenantId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

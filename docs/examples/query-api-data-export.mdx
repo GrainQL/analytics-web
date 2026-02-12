@@ -100,7 +100,7 @@ export class GrainExportClient {
   constructor(apiKey: string, tenantId: string) {
     this.tenantId = tenantId;
     this.client = axios.create({
-      baseURL: 'https://api.grainql.com/v1/api/query',
+      baseURL: 'https://queryapis.grainql.com/v1/api/query',
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json',

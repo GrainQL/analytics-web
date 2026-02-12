@@ -15,7 +15,7 @@ describe('Vanguard SDK Integration', () => {
       getEffectiveUserId: vi.fn(() => 'test-user-123'),
       trackSystemEvent: vi.fn(),
       config: {
-        apiUrl: 'https://api.grainql.com',
+        apiUrl: 'https://clientapis.grainql.com',
         tenantId: 'test-tenant-id'
       },
       getAuthHeaders: vi.fn(async () => ({})),
@@ -60,7 +60,7 @@ describe('Vanguard SDK Integration', () => {
       });
 
       const response = await fetch(
-        'https://api.grainql.com/v1/events/test-tenant-id/snapshot',
+        'https://clientapis.grainql.com/v1/events/test-tenant-id/snapshot',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -86,7 +86,7 @@ describe('Vanguard SDK Integration', () => {
       });
 
       const response = await fetch(
-        'https://api.grainql.com/v1/events/test-tenant-id/snapshot',
+        'https://clientapis.grainql.com/v1/events/test-tenant-id/snapshot',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -211,7 +211,7 @@ describe('Vanguard SDK Integration', () => {
 
       try {
         await fetch(
-          'https://api.grainql.com/v1/events/test-tenant-id/snapshot',
+          'https://clientapis.grainql.com/v1/events/test-tenant-id/snapshot',
           {
             method: 'POST',
             body: '{}'

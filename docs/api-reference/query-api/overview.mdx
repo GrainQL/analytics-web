@@ -8,7 +8,7 @@ description: "Complete reference for the Grain Query API endpoints"
 All Query API endpoints are available at:
 
 ```
-https://api.grainql.com/v1/api/query
+https://queryapis.grainql.com/v1/api/query
 ```
 
 ## Authentication
@@ -209,7 +209,7 @@ Count responses return a simple object:
 ### Basic Query
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -223,7 +223,7 @@ curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
 ### Filtered Query
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -242,7 +242,7 @@ curl -X POST https://api.grainql.com/v1/api/query/your-tenant-id \
 ### Count Query
 
 ```bash
-curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
+curl -X POST https://queryapis.grainql.com/v1/api/query/count/your-tenant-id \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_SECRET_KEY" \
   -d '{
@@ -255,7 +255,7 @@ curl -X POST https://api.grainql.com/v1/api/query/count/your-tenant-id \
 ### List Events
 
 ```bash
-curl https://api.grainql.com/v1/api/query/events/your-tenant-id \
+curl https://queryapis.grainql.com/v1/api/query/events/your-tenant-id \
   -H "X-API-Key: YOUR_SECRET_KEY"
 ```
 
@@ -274,7 +274,7 @@ const grain = createGrainAnalytics({
 
 // The SDK doesn't include Query API methods yet,
 // but you can use fetch alongside it
-const response = await fetch('https://api.grainql.com/v1/api/query/your-tenant-id', {
+const response = await fetch('https://queryapis.grainql.com/v1/api/query/your-tenant-id', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
